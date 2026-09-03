@@ -1,86 +1,168 @@
 payload:
+  # =====================================================================
   # 台灣政府 / 公部門
+  # gov.tw 已涵蓋 nat.gov.tw、各中央與地方機關子網域；避免重複列舉。
+  # =====================================================================
   - DOMAIN-SUFFIX,gov.tw
   - DOMAIN-SUFFIX,gov.taipei
-  - DOMAIN-SUFFIX,etax.nat.gov.tw
-  - DOMAIN-SUFFIX,fia.gov.tw
-  - DOMAIN-SUFFIX,nhis.gov.tw
-  - DOMAIN-SUFFIX,nia.gov.tw
-  - DOMAIN-SUFFIX,moica.nat.gov.tw
-  - DOMAIN-SUFFIX,labor.gov.tw
-  - DOMAIN-SUFFIX,ndl.edu.tw
 
-  # 國營銀行
+  # 國家圖書館 / 臺灣博碩士論文知識加值系統
+  - DOMAIN-SUFFIX,ncl.edu.tw
+
+  # =====================================================================
+  # 公股 / 政策性金融機構
+  # 以金管會現行本國銀行名單及銀行官方網域為主。
+  # =====================================================================
   - DOMAIN-SUFFIX,bot.com.tw
-  - DOMAIN-SUFFIX,hua-nan.com.tw
-  - DOMAIN-SUFFIX,bok.com.tw
-  - DOMAIN-SUFFIX,mega-bank.com.tw
+  - DOMAIN-SUFFIX,landbank.com.tw
+  - DOMAIN-SUFFIX,tcb-bank.com.tw
+  - DOMAIN-SUFFIX,firstbank.com.tw
+  - DOMAIN-SUFFIX,hncb.com.tw
+  - DOMAIN-SUFFIX,bankchb.com
+  - DOMAIN-SUFFIX,megabank.com.tw
   - DOMAIN-SUFFIX,tbb.com.tw
+  - DOMAIN-SUFFIX,bok.com.tw
+  - DOMAIN-SUFFIX,eximbank.com.tw
 
-  # 民營銀行
+  # 全國農業金庫（專業金融機構）
+  - DOMAIN-SUFFIX,agribank.com.tw
+
+  # =====================================================================
+  # 民營 / 本國銀行
+  # =====================================================================
+  - DOMAIN-SUFFIX,scsb.com.tw
   - DOMAIN-SUFFIX,cathaybk.com.tw
-  - DOMAIN-SUFFIX,taishinbank.com.tw
-  - DOMAIN-SUFFIX,fubon.com
+
+  # 台北富邦：官網與網銀使用不同 namespace，避免整棵 fubon.com 全放行。
+  - DOMAIN,www.fubon.com
+  - DOMAIN,fbo.fubon.com
+  - DOMAIN-SUFFIX,taipeifubon.com.tw
   - DOMAIN-SUFFIX,fubonbank.com.tw
-  - DOMAIN-SUFFIX,feib.com.tw
-  - DOMAIN-SUFFIX,esunbank.com.tw
-  - DOMAIN-SUFFIX,sinopac.com
-  - DOMAIN-SUFFIX,hbs.com.tw
 
-  # 網路銀行
-  - DOMAIN-SUFFIX,linebank.com.tw
-  - DOMAIN-SUFFIX,nextbank.com.tw
   - DOMAIN-SUFFIX,o-bank.com
+  - DOMAIN-SUFFIX,tcbbank.com.tw
+  - DOMAIN-SUFFIX,ktb.com.tw
+  - DOMAIN-SUFFIX,taipeistarbank.com.tw
+  - DOMAIN-SUFFIX,hwataibank.com.tw
+  - DOMAIN-SUFFIX,skbank.com.tw
+  - DOMAIN-SUFFIX,sunnybank.com.tw
+  - DOMAIN-SUFFIX,bop.com.tw
+  - DOMAIN-SUFFIX,cotabank.com.tw
+  - DOMAIN-SUFFIX,ubot.com.tw
+  - DOMAIN-SUFFIX,feib.com.tw
+  - DOMAIN-SUFFIX,yuantabank.com.tw
+  - DOMAIN-SUFFIX,sinopac.com
+  - DOMAIN-SUFFIX,esunbank.com.tw
+  - DOMAIN-SUFFIX,kgibank.com.tw
+  - DOMAIN-SUFFIX,taishinbank.com.tw
+  - DOMAIN-SUFFIX,entiebank.com.tw
+  - DOMAIN-SUFFIX,ctbcbank.com
 
-  # 信用卡 / 金流組織
+  # =====================================================================
+  # 外資在台子行
+  # 皆列於金管會本國銀行名單；渣打使用全球 sc.com namespace。
+  # =====================================================================
+  - DOMAIN-SUFFIX,citibank.com.tw
+  - DOMAIN-SUFFIX,sc.com
+  - DOMAIN-SUFFIX,hsbc.com.tw
+  - DOMAIN-SUFFIX,dbs.com.tw
+
+  # =====================================================================
+  # 純網路銀行
+  # =====================================================================
+  - DOMAIN-SUFFIX,nextbank.com.tw
+  - DOMAIN-SUFFIX,linebank.com.tw
+  - DOMAIN-SUFFIX,rakuten-bank.com.tw
+
+  # =====================================================================
+  # 信用卡 / 國際金流組織
+  # =====================================================================
   - DOMAIN-SUFFIX,visa.com
   - DOMAIN-SUFFIX,mastercard.com
   - DOMAIN-SUFFIX,jcb.co.jp
 
+  # =====================================================================
   # PayPal
+  # paypal.com 已涵蓋 api.paypal.com / api-m.paypal.com / live.paypal.com；
+  # 不納入 paypal-mktg.com，避免讓 marketing namespace 取得 BANKGOV privilege。
+  # =====================================================================
   - DOMAIN-SUFFIX,paypal.com
   - DOMAIN-SUFFIX,paypalobjects.com
   - DOMAIN-SUFFIX,pphosted.com
-  - DOMAIN-SUFFIX,paypal-mktg.com
   - DOMAIN-SUFFIX,paypal.me
-  - DOMAIN-SUFFIX,api.paypal.com
-  - DOMAIN-SUFFIX,api-m.paypal.com
-  - DOMAIN-SUFFIX,live.paypal.com
 
+  # =====================================================================
   # Stripe
+  # =====================================================================
   - DOMAIN-SUFFIX,stripe.com
   - DOMAIN-SUFFIX,stripe.network
   - DOMAIN-SUFFIX,stripeusercontent.com
 
+  # =====================================================================
   # Apple Pay
-  # - DOMAIN-SUFFIX,apple.com
-  - DOMAIN-SUFFIX,applepay.apple.com
-  - DOMAIN-SUFFIX,ipay.apple.com
+  # 不放整棵 apple.com，只保留已知支付端點。
+  # =====================================================================
+  - DOMAIN,applepay.apple.com
+  - DOMAIN,ipay.apple.com
 
-  # Google Pay
-  - DOMAIN-SUFFIX,pay.google.com
-  - DOMAIN-SUFFIX,googleapis.com
+  # =====================================================================
+  # Google Pay / Google Payments
+  # 不放 googleapis.com；僅保留支付服務本身。
+  # =====================================================================
+  - DOMAIN,pay.google.com
+  - DOMAIN,payments.google.com
 
-  # GrabPay
-  - DOMAIN-SUFFIX,grab.com
-  - DOMAIN-SUFFIX,grabpay.com
-
-  # 台灣支付
+  # =====================================================================
+  # 台灣電子支付 / 行動支付
+  # =====================================================================
+  # LINE Pay
   - DOMAIN-SUFFIX,linepay.com
   - DOMAIN-SUFFIX,linepay.tw
-  - DOMAIN-SUFFIX,line.me
+
+  # 街口支付
   - DOMAIN-SUFFIX,jkopay.com
-  - DOMAIN-SUFFIX,easypay.com.tw
+
+  # 歐付寶
   - DOMAIN-SUFFIX,opay.tw
 
-  # BNPL（ShopBack / Atome）
-  - DOMAIN-SUFFIX,shopback.com
-  - DOMAIN-SUFFIX,paylater.shopback.com
+  # ezPay 簡單付
+  - DOMAIN-SUFFIX,ezpay.com.tw
+
+  # 台灣 Pay / 台灣行動支付
+  - DOMAIN-SUFFIX,twmp.com.tw
+  - DOMAIN-SUFFIX,taiwanpay.com.tw
+
+  # 悠遊付
+  - DOMAIN-SUFFIX,easycard.com.tw
+
+  # iPASS MONEY
+  - DOMAIN-SUFFIX,i-pass.com.tw
+
+  # icash Pay
+  - DOMAIN-SUFFIX,icashpay.com.tw
+
+  # 橘子支付
+  - DOMAIN-SUFFIX,gamapay.com.tw
+
+  # 全盈+PAY
+  - DOMAIN-SUFFIX,pluspay.com.tw
+
+  # 全支付
+  - DOMAIN-SUFFIX,pxpayplus.com
+  - DOMAIN-SUFFIX,pxpayplus.com.tw
+
+  # =====================================================================
+  # BNPL
+  # ShopBack 僅保留 PayLater 端點，不放整棵 shopback.com。
+  # Atome 以台灣 / 共用服務 namespace 為主，不預放 atome.sg。
+  # =====================================================================
+  - DOMAIN,paylater.shopback.com
   - DOMAIN-SUFFIX,atome.net
   - DOMAIN-SUFFIX,atome.tw
-  - DOMAIN-SUFFIX,atome.sg
 
+  # =====================================================================
   # MyCard
+  # =====================================================================
   - DOMAIN-SUFFIX,mycard520.com
   - DOMAIN-SUFFIX,mycard520.net
   - DOMAIN-SUFFIX,mycard520.tw
