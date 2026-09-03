@@ -7,9 +7,18 @@ payload:
   - DOMAIN-SUFFIX,oaiusercontent.com
   - DOMAIN-SUFFIX,sora.com
 
+  # OpenAI support / telemetry endpoints
+  # Keep these scoped to OpenAI-specific hosts; shared third-party services are excluded.
+  - DOMAIN-SUFFIX,oaistatsig.com
+  - DOMAIN,cdn.openaimerge.com
+
   # Anthropic / Claude
   - DOMAIN-SUFFIX,anthropic.com
   - DOMAIN-SUFFIX,claude.ai
+  - DOMAIN-SUFFIX,claude.com
+
+  # Claude bridge / user-content endpoints
+  - DOMAIN-SUFFIX,claudeusercontent.com
 
   # Google Gemini / AI Studio
   - DOMAIN,gemini.google.com
@@ -28,10 +37,12 @@ payload:
 
   # Poe
   - DOMAIN-SUFFIX,poe.com
+  - DOMAIN-SUFFIX,poecdn.net
 
   # OpenRouter
   - DOMAIN-SUFFIX,openrouter.ai
 
   # Cursor / coding AI
   - DOMAIN-SUFFIX,cursor.com
+  - DOMAIN-SUFFIX,cursor.sh
   - DOMAIN-SUFFIX,anysphere.co
