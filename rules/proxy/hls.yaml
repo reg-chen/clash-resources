@@ -1,0 +1,4 @@
+payload:
+  # Twitch HLS CDN
+  - DOMAIN-SUFFIX,ttvnw.net
+  - DOMAIN-SUFFIX,jtvnw.net

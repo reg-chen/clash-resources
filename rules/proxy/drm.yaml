@@ -1,0 +1,65 @@
+payload:
+  # Twitch / Google / Microsoft
+  - DOMAIN-SUFFIX,twitch.tv
+  # - DOMAIN-SUFFIX,google.com
+  - DOMAIN,accounts.google.com
+  - DOMAIN,myaccount.google.com
+
+  # Microsoft / Entra login
+  # - DOMAIN-SUFFIX,microsoft.com
+  - DOMAIN,login.microsoft.com
+  - DOMAIN,login.microsoftonline.com
+  - DOMAIN,login.live.com
+
+  # Auth static/CDN
+  - DOMAIN-SUFFIX,msauth.net
+  - DOMAIN-SUFFIX,msauthimages.net
+  - DOMAIN-SUFFIX,msftauth.net
+  - DOMAIN-SUFFIX,msftauthimages.net
+  - DOMAIN-SUFFIX,microsoftonline-p.com
+
+  # Newer identity endpoints
+  - DOMAIN-SUFFIX,auth.microsoft.com
+  - DOMAIN-SUFFIX,msftidentity.com
+  - DOMAIN-SUFFIX,msidentity.com                  
+
+  # Netflix
+  - DOMAIN-SUFFIX,netflix.com
+  - DOMAIN-SUFFIX,netflix.net
+  - DOMAIN-SUFFIX,nflxvideo.net
+  - DOMAIN-SUFFIX,nflximg.net
+  - DOMAIN-SUFFIX,nflxso.net
+  - DOMAIN-SUFFIX,nflxext.com
+  - DOMAIN-SUFFIX,nflximg.com
+  - DOMAIN-SUFFIX,fast.com
+
+  # PlayStation Network
+  - DOMAIN-SUFFIX,playstation.com
+  - DOMAIN-SUFFIX,playstation.net
+  - DOMAIN-SUFFIX,sonyentertainmentnetwork.com
+
+  # Nintendo
+  - DOMAIN-SUFFIX,nintendo.net
+  - DOMAIN-SUFFIX,nintendo.com
+  - DOMAIN-SUFFIX,srv.nintendo.net
+
+  # Xbox Live / Game Pass
+  - DOMAIN-SUFFIX,xboxlive.com
+  - DOMAIN-SUFFIX,microsoftonline.com
+  - DOMAIN-SUFFIX,xbox.com
+  - DOMAIN-SUFFIX,xboxservices.com
+  - DOMAIN-SUFFIX,live.com
+  - DOMAIN-SUFFIX,msauth.net
+  - DOMAIN-SUFFIX,msftauth.net
+
+  # Anti-Bot / Captcha
+  #- DOMAIN-SUFFIX,cloudflare.com
+  - DOMAIN-SUFFIX,challenges.cloudflare.com
+  - DOMAIN-SUFFIX,cf-ns.com
+  - DOMAIN-SUFFIX,recaptcha.net
+  - DOMAIN-SUFFIX,turnstile.workers.dev
+  - DOMAIN-SUFFIX,www.gstatic.com
+  - DOMAIN-SUFFIX,gstatic.com
+
+  # steam
+  - DOMAIN-SUFFIX,steampowered.com

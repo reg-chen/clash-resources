@@ -1,0 +1,90 @@
+payload:
+  # 台灣政府 / 公部門
+  - DOMAIN-SUFFIX,gov.tw
+  - DOMAIN-SUFFIX,gov.taipei
+  - DOMAIN-SUFFIX,etax.nat.gov.tw
+  - DOMAIN-SUFFIX,fia.gov.tw
+  - DOMAIN-SUFFIX,nhis.gov.tw
+  - DOMAIN-SUFFIX,nia.gov.tw
+  - DOMAIN-SUFFIX,moica.nat.gov.tw
+  - DOMAIN-SUFFIX,labor.gov.tw
+  - DOMAIN-SUFFIX,ndl.edu.tw
+
+  # 國營銀行
+  - DOMAIN-SUFFIX,bot.com.tw
+  - DOMAIN-SUFFIX,hua-nan.com.tw
+  - DOMAIN-SUFFIX,bok.com.tw
+  - DOMAIN-SUFFIX,mega-bank.com.tw
+  - DOMAIN-SUFFIX,tbb.com.tw
+
+  # 民營銀行
+  - DOMAIN-SUFFIX,cathaybk.com.tw
+  - DOMAIN-SUFFIX,taishinbank.com.tw
+  - DOMAIN-SUFFIX,fubon.com
+  - DOMAIN-SUFFIX,fubonbank.com.tw
+  - DOMAIN-SUFFIX,feib.com.tw
+  - DOMAIN-SUFFIX,esunbank.com.tw
+  - DOMAIN-SUFFIX,sinopac.com
+  - DOMAIN-SUFFIX,hbs.com.tw
+
+  # 網路銀行
+  - DOMAIN-SUFFIX,linebank.com.tw
+  - DOMAIN-SUFFIX,nextbank.com.tw
+  - DOMAIN-SUFFIX,o-bank.com
+
+  # 信用卡 / 金流組織
+  - DOMAIN-SUFFIX,visa.com
+  - DOMAIN-SUFFIX,mastercard.com
+  - DOMAIN-SUFFIX,jcb.co.jp
+
+  # PayPal
+  - DOMAIN-SUFFIX,paypal.com
+  - DOMAIN-SUFFIX,paypalobjects.com
+  - DOMAIN-SUFFIX,pphosted.com
+  - DOMAIN-SUFFIX,paypal-mktg.com
+  - DOMAIN-SUFFIX,paypal.me
+  - DOMAIN-SUFFIX,api.paypal.com
+  - DOMAIN-SUFFIX,api-m.paypal.com
+  - DOMAIN-SUFFIX,live.paypal.com
+
+  # Stripe
+  - DOMAIN-SUFFIX,stripe.com
+  - DOMAIN-SUFFIX,stripe.network
+  - DOMAIN-SUFFIX,stripeusercontent.com
+
+  # Apple Pay
+  # - DOMAIN-SUFFIX,apple.com
+  - DOMAIN-SUFFIX,applepay.apple.com
+  - DOMAIN-SUFFIX,ipay.apple.com
+
+  # Google Pay
+  - DOMAIN-SUFFIX,pay.google.com
+  - DOMAIN-SUFFIX,googleapis.com
+
+  # GrabPay
+  - DOMAIN-SUFFIX,grab.com
+  - DOMAIN-SUFFIX,grabpay.com
+
+  # 台灣支付
+  - DOMAIN-SUFFIX,linepay.com
+  - DOMAIN-SUFFIX,linepay.tw
+  - DOMAIN-SUFFIX,line.me
+  - DOMAIN-SUFFIX,jkopay.com
+  - DOMAIN-SUFFIX,easypay.com.tw
+  - DOMAIN-SUFFIX,opay.tw
+
+  # BNPL（ShopBack / Atome）
+  - DOMAIN-SUFFIX,shopback.com
+  - DOMAIN-SUFFIX,paylater.shopback.com
+  - DOMAIN-SUFFIX,atome.net
+  - DOMAIN-SUFFIX,atome.tw
+  - DOMAIN-SUFFIX,atome.sg
+
+  # MyCard
+  - DOMAIN-SUFFIX,mycard520.com
+  - DOMAIN-SUFFIX,mycard520.net
+  - DOMAIN-SUFFIX,mycard520.tw
+  - DOMAIN-SUFFIX,mycard.com.tw
+  - DOMAIN-SUFFIX,mycardpayment.com
+  - DOMAIN-SUFFIX,mycardapi.com
+  - DOMAIN-SUFFIX,mycardwallet.com

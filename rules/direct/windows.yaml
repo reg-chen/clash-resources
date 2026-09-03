@@ -1,0 +1,45 @@
+payload:
+  # ==========================================================
+  # 🟩 Windows Update (core)
+  # ==========================================================
+  - PROCESS-NAME,svchost.exe
+  - PROCESS-NAME,wuauclt.exe
+  - PROCESS-NAME,usoclient.exe
+  - PROCESS-NAME,MoUsoCoreWorker.exe
+  - PROCESS-NAME,TiWorker.exe
+
+  # ==========================================================
+  # 🟩 Background transfer / Delivery Optimization
+  # ==========================================================
+  - PROCESS-NAME,BackgroundTransferHost.exe
+  - PROCESS-NAME,DoSvc.exe
+
+  # ==========================================================
+  # 🟩 Microsoft Store / AppX / Installer
+  # ==========================================================
+  - PROCESS-NAME,WinStore.App.exe
+  - PROCESS-NAME,wsappx.exe
+  - PROCESS-NAME,AppInstaller.exe
+
+  # ==========================================================
+  # 🟩 Phone Link (Your Phone)
+  # ==========================================================
+  - PROCESS-NAME,PhoneExperienceHost.exe
+  - PROCESS-NAME,YourPhone.exe
+  - PROCESS-NAME,CrossDeviceService.exe
+
+  # ==========================================================
+  # 🟩 system app glue
+  # ==========================================================
+  - PROCESS-NAME,RuntimeBroker.exe
+
+  # ==========================================================
+  # 🟩 Windows Security / Defender
+  # ==========================================================
+  - PROCESS-NAME,MsMpEng.exe
+  - PROCESS-NAME,SecurityHealthService.exe
+
+  # ==========================================================
+  # 🟩 Windows other
+  # ==========================================================
+  - PROCESS-NAME,TextInputHost.exe

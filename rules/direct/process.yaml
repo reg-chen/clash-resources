@@ -1,0 +1,17 @@
+payload:
+  - PROCESS-NAME,Spotify.exe
+  - PROCESS-NAME,Steam.exe
+  - PROCESS-NAME,steam.exe
+  - PROCESS-NAME,steamwebhelper.exe
+  - PROCESS-NAME,DeskIn.exe
+  - PROCESS-NAME,WinStore.App.exe
+  - PROCESS-NAME,pCloud.exe
+  - PROCESS-NAME,windhawk.exe
+  - PROCESS-NAME,LINE.exe
+  - PROCESS-NAME,ProcessLasso.exe
+  - PROCESS-PATH-WILDCARD,C:\Program Files\AVG\*
+  - PROCESS-PATH-WILDCARD,C:\Program Files (x86)\AVG\* 
+  - PROCESS-PATH-WILDCARD,D:\RagnarokOnline\* 
+  - PROCESS-PATH-WILDCARD,C:\Program Files\OpenBoxLab\RaiDrive Mount\*
+  - DOMAIN-SUFFIX,gameguard.co.kr
+  - DOMAIN-SUFFIX,nprotect.com
