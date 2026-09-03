@@ -11,8 +11,6 @@ payload:
   - DOMAIN-SUFFIX,bamgrid.com
   - DOMAIN-SUFFIX,dssott.com
   - DOMAIN-SUFFIX,disneystreaming.com
-  - DOMAIN-SUFFIX,akamaized.net
-  - DOMAIN-SUFFIX,edgecastdns.net
 
   # YouTube Premium（避免地區錯誤）
   # - DOMAIN-SUFFIX,youtube.com
@@ -20,7 +18,7 @@ payload:
   - DOMAIN-REGEX,^r[0-9]+---.*\.googlevideo\.com$
   - DOMAIN-REGEX,^rr[0-9]+---.*\.googlevideo\.com$
   - DOMAIN-SUFFIX,ytimg.com
-  - DOMAIN-SUFFIX,googlevideo.com
+  # - DOMAIN-SUFFIX,googlevideo.com
 
   # Reddit Media
   - DOMAIN,v.redd.it
@@ -35,10 +33,8 @@ payload:
   
   - DOMAIN-SUFFIX,raw.githubusercontent.com
   - DOMAIN-SUFFIX,github.com
-  - DOMAIN-SUFFIX,cloudatacdn.com
   - DOMAIN-SUFFIX,pcloud.com
-  - DOMAIN-SUFFIX,cloudatacdn.com
   - DOMAIN-SUFFIX,gnjoy.com.tw
-  - DOMAIN-SUFFIX,go-updater.brave.com
   - DOMAIN-SUFFIX,8591.com.tw
   - DOMAIN-SUFFIX,archive.org
+  - DOMAIN,go-updater.brave.com
