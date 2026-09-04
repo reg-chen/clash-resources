@@ -1,0 +1,6 @@
+fingerprintjs.com
+fpjscdn.net
+api.fpjs.io
+fptls.com
+bnc.lt
+impact.com
