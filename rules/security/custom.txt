@@ -1,1 +1,2 @@
 +.crypto-loot.org
++.2giga.link
