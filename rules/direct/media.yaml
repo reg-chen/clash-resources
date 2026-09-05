@@ -38,3 +38,4 @@ payload:
   - DOMAIN-SUFFIX,8591.com.tw
   - DOMAIN-SUFFIX,archive.org
   - DOMAIN,go-updater.brave.com
+  - DOMAIN,brave-core-ext.s3.brave.com
