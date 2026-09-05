@@ -60,6 +60,8 @@ payload:
   - DOMAIN-SUFFIX,turnstile.workers.dev
   - DOMAIN-SUFFIX,www.gstatic.com
   - DOMAIN-SUFFIX,gstatic.com
+  - DOMAIN-SUFFIX,hcaptcha.com
 
   # steam
   - DOMAIN-SUFFIX,steampowered.com
+  - DOMAIN-SUFFIX,steamcommunity.com
