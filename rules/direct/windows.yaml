@@ -29,11 +29,6 @@ payload:
   - PROCESS-NAME,CrossDeviceService.exe
 
   # ==========================================================
-  # 🟩 system app glue
-  # ==========================================================
-  - PROCESS-NAME,RuntimeBroker.exe
-
-  # ==========================================================
   # 🟩 Windows Security / Defender
   # ==========================================================
   - PROCESS-NAME,MsMpEng.exe
