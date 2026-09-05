@@ -4,7 +4,6 @@ payload:
   - PROCESS-NAME,steam.exe
   - PROCESS-NAME,steamwebhelper.exe
   - PROCESS-NAME,DeskIn.exe
-  - PROCESS-NAME,WinStore.App.exe
   - PROCESS-NAME,pCloud.exe
   - PROCESS-NAME,windhawk.exe
   - PROCESS-NAME,LINE.exe
