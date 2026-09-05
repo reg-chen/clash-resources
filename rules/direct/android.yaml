@@ -1,0 +1,28 @@
+payload:
+  # ==========================================================
+  # 🟩 Android network stack / captive portal
+  # ==========================================================
+  - PROCESS-NAME,com.android.networkstack
+  - PROCESS-NAME,com.google.android.networkstack
+  - PROCESS-NAME,com.android.captiveportallogin
+  - PROCESS-NAME,com.google.android.captiveportallogin
+
+  # ==========================================================
+  # 🟩 Android Download Manager
+  # ==========================================================
+  - PROCESS-NAME,com.android.providers.downloads
+
+  # ==========================================================
+  # 🟩 Google Play Store
+  # ==========================================================
+  - PROCESS-NAME,com.android.vending
+
+  # ==========================================================
+  # 🟩 Android / Google system configuration updates
+  # ==========================================================
+  - PROCESS-NAME,com.google.android.configupdater
+
+  # ==========================================================
+  # 🟩 Remote Key Provisioning / device attestation
+  # ==========================================================
+  - PROCESS-NAME,com.android.rkpd
