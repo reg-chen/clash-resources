@@ -1,4 +1,7 @@
 payload:
+  # ==========================================================
+  # 🟦 Windows applications
+  # ==========================================================
   - PROCESS-NAME,Spotify.exe
   - PROCESS-NAME,Steam.exe
   - PROCESS-NAME,steam.exe
@@ -13,10 +16,63 @@ payload:
   - PROCESS-NAME,LineMediaPlayer.exe
   - PROCESS-NAME,LineLauncher.exe
   - PROCESS-NAME,ProcessLasso.exe
+
+  # ==========================================================
+  # 🟦 Windows application paths
+  # ==========================================================
   - PROCESS-PATH-WILDCARD,C:\Program Files\AVG\*
-  - PROCESS-PATH-WILDCARD,C:\Program Files (x86)\AVG\* 
+  - PROCESS-PATH-WILDCARD,C:\Program Files (x86)\AVG\*
   - PROCESS-PATH-WILDCARD,C:\Program Files\DeskIn\*
-  - PROCESS-PATH-WILDCARD,D:\RagnarokOnline\* 
+  - PROCESS-PATH-WILDCARD,D:\RagnarokOnline\*
   - PROCESS-PATH-WILDCARD,C:\Program Files\OpenBoxLab\RaiDrive Mount\*
+
+  # ==========================================================
+  # 🟩 Android applications
+  # PROCESS-NAME matches Android package names in Mihomo.
+  # ==========================================================
+  # Communication / cloud / media / remote access
+  - PROCESS-NAME,jp.naver.line.android
+  - PROCESS-NAME,com.pcloud.pcloud
+  - PROCESS-NAME,com.spotify.music
+  - PROCESS-NAME,com.valvesoftware.android.steam.community
+  - PROCESS-NAME,com.zuler.deskin
+
+  # ==========================================================
+  # 🟩 Android — Taiwan banking / financial apps
+  # Keep banking apps DIRECT to reduce login / device-binding / IP-change issues.
+  # ==========================================================
+  # E.SUN Bank / E.SUN Wallet
+  - PROCESS-NAME,com.esunbank
+  - PROCESS-NAME,com.esunbank.ESUNWALLET
+
+  # Cathay United Bank CUBE
+  - PROCESS-NAME,com.cathaybk.mymobibank.android
+
+  # CTBC Bank
+  - PROCESS-NAME,com.chinatrust.mobilebank
+
+  # Taipei Fubon Bank Fubon+
+  - PROCESS-NAME,com.fubon.aibank
+
+  # First Bank
+  - PROCESS-NAME,com.willmobile.mobilebank.fcb
+
+  # Taishin Bank / Richart
+  - PROCESS-NAME,tw.com.taishinbank.richart
+  - PROCESS-NAME,tw.com.taishinbank.ccapp
+
+  # Bank SinoPac — current / transition / DAWHO
+  - PROCESS-NAME,com.sinopac.newmobilebank
+  - PROCESS-NAME,com.sionpac.app.SinoPac
+  - PROCESS-NAME,com.sinopac.dawho
+
+  # LINE Bank Taiwan
+  - PROCESS-NAME,com.linebank.tw
+
+  # ==========================================================
+  # 🟨 Cross-game compatibility fallback
+  # Keep these domain rules here intentionally: GameGuard / nProtect can be
+  # used by games outside the explicitly whitelisted Ragnarok Online path.
+  # ==========================================================
   - DOMAIN-SUFFIX,gameguard.co.kr
   - DOMAIN-SUFFIX,nprotect.com
