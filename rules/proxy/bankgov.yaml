@@ -144,6 +144,12 @@ payload:
   - DOMAIN-SUFFIX,rakuten-bank.com.tw
 
   # =====================================================================
+  # 台灣金融基礎設施 / 收單
+  # =====================================================================
+  - DOMAIN-SUFFIX,fisc.com.tw
+  - DOMAIN-SUFFIX,nccc.com.tw
+
+  # =====================================================================
   # 信用卡 / 國際金流組織
   # =====================================================================
   - DOMAIN-SUFFIX,visa.com
@@ -166,6 +172,14 @@ payload:
   - DOMAIN-SUFFIX,stripe.com
   - DOMAIN-SUFFIX,stripe.network
   - DOMAIN-SUFFIX,stripeusercontent.com
+
+  # =====================================================================
+  # 台灣第三方金流
+  # =====================================================================
+  - DOMAIN-SUFFIX,ecpay.com.tw
+  - DOMAIN-SUFFIX,newebpay.com
+  - DOMAIN-SUFFIX,payuni.com.tw
+  - DOMAIN-SUFFIX,tappaysdk.com
 
   # =====================================================================
   # Apple Pay
