@@ -1,7 +1,7 @@
 payload:
   # 巴哈姆特動畫瘋
-  - DOMAIN-SUFFIX,api.gamer.com.tw
-  - DOMAIN-SUFFIX,ani.gamer.com
+  - DOMAIN,api.gamer.com.tw
+  - DOMAIN,ani.gamer.com
   - DOMAIN-SUFFIX,gamer.com.tw
   - DOMAIN-SUFFIX,gamer.com
 
@@ -31,7 +31,7 @@ payload:
   - DOMAIN,b.thumbs.redditmedia.com
   # - DOMAIN-SUFFIX,reddit.com
   
-  - DOMAIN-SUFFIX,raw.githubusercontent.com
+  - DOMAIN,raw.githubusercontent.com
   - DOMAIN-SUFFIX,github.com
   - DOMAIN-SUFFIX,pcloud.com
   - DOMAIN-SUFFIX,gnjoy.com.tw
