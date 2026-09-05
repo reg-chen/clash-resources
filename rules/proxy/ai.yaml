@@ -23,7 +23,7 @@ payload:
   # Google Gemini / AI Studio
   - DOMAIN,gemini.google.com
   - DOMAIN,aistudio.google.com
-  - DOMAIN-SUFFIX,generativelanguage.googleapis.com
+  - DOMAIN,generativelanguage.googleapis.com
 
   # Perplexity
   - DOMAIN-SUFFIX,perplexity.ai
