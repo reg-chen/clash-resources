@@ -41,7 +41,6 @@ payload:
   # Nintendo
   - DOMAIN-SUFFIX,nintendo.net
   - DOMAIN-SUFFIX,nintendo.com
-  - DOMAIN,srv.nintendo.net
 
   # Xbox Live / Game Pass
   - DOMAIN-SUFFIX,xboxlive.com
@@ -49,8 +48,6 @@ payload:
   - DOMAIN-SUFFIX,xbox.com
   - DOMAIN-SUFFIX,xboxservices.com
   - DOMAIN-SUFFIX,live.com
-  - DOMAIN-SUFFIX,msauth.net
-  - DOMAIN-SUFFIX,msftauth.net
 
   # Anti-Bot / Captcha
   #- DOMAIN-SUFFIX,cloudflare.com
@@ -58,7 +55,6 @@ payload:
   - DOMAIN-SUFFIX,cf-ns.com
   - DOMAIN-SUFFIX,recaptcha.net
   - DOMAIN-SUFFIX,turnstile.workers.dev
-  - DOMAIN,www.gstatic.com
   - DOMAIN-SUFFIX,gstatic.com
   - DOMAIN-SUFFIX,hcaptcha.com
 
