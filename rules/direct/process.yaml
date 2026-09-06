@@ -7,7 +7,6 @@ payload:
   - PROCESS-NAME,steam.exe
   - PROCESS-NAME,steamwebhelper.exe
   - PROCESS-NAME,SteamService.exe
-  - PROCESS-NAME,DeskIn.exe
   - PROCESS-NAME,RaiDrive.exe
   - PROCESS-NAME,pCloud.exe
   - PROCESS-NAME,windhawk.exe
@@ -24,6 +23,7 @@ payload:
   - PROCESS-NAME,MEGAsync.exe
 
   # Remote access
+  - PROCESS-NAME,DeskIn.exe
   - PROCESS-NAME,AnyDesk.exe
   - PROCESS-NAME,TeamViewer.exe
   - PROCESS-NAME,RustDesk.exe
@@ -75,8 +75,11 @@ payload:
 
   # ==========================================================
   # 🟩 Android — Taiwan banking / financial apps
-  # Keep banking apps DIRECT to reduce login / device-binding / IP-change issues.
+  # Keep banking / payment apps DIRECT to reduce login / device-binding / IP-change issues.
   # ==========================================================
+  # iPASS MONEY
+  - PROCESS-NAME,com.ipass.ipassmoney
+
   # E.SUN Bank / E.SUN Wallet
   - PROCESS-NAME,com.esunbank
   - PROCESS-NAME,com.esunbank.ESUNWALLET
