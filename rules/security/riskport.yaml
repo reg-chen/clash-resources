@@ -1,0 +1,14 @@
+payload:
+  # ==========================================================
+  # Encrypted DNS bypass
+  # ==========================================================
+  # DoT / DoQ
+  - AND,((NETWORK,tcp),(DST-PORT,853))
+  - AND,((NETWORK,udp),(DST-PORT,853))
+
+  # ==========================================================
+  # Windows file sharing / NetBIOS — Internet egress
+  # ==========================================================
+  - AND,((NETWORK,udp),(DST-PORT,137-138))
+  - AND,((NETWORK,tcp),(DST-PORT,139))
+  - AND,((NETWORK,tcp),(DST-PORT,445))
