@@ -1,0 +1,77 @@
+payload:
+  # ==========================================================
+  # 🍎 iOS / iPadOS device setup / captive portal
+  # ==========================================================
+  - DOMAIN,albert.apple.com
+  - DOMAIN,captive.apple.com
+  - DOMAIN,gs.apple.com
+  - DOMAIN,humb.apple.com
+  - DOMAIN,static.ips.apple.com
+  - DOMAIN,sq-device.apple.com
+  - DOMAIN,tbsc.apple.com
+
+  # ==========================================================
+  # 🍎 System time
+  # ==========================================================
+  - DOMAIN,time-ios.apple.com
+  - DOMAIN,time.apple.com
+
+  # ==========================================================
+  # 🍎 iOS / iPadOS software and carrier updates
+  # ==========================================================
+  - DOMAIN,appldnld.apple.com
+  - DOMAIN,appldnld.apple.com.edgesuite.net
+  - DOMAIN,gdmf.apple.com
+  - DOMAIN,gg.apple.com
+  - DOMAIN,mesu.apple.com
+  - DOMAIN,updates-http.cdn-apple.com
+  - DOMAIN,updates.cdn-apple.com
+  - DOMAIN,gdmf-ados.apple.com
+  - DOMAIN,gsra.apple.com
+  - DOMAIN,wkms-public.apple.com
+  - DOMAIN,fcs-keys-pub-prod.cdn-apple.com
+  - DOMAIN,itunes.com
+
+  # ==========================================================
+  # 🍎 App Store / app validation
+  # ==========================================================
+  - DOMAIN-SUFFIX,itunes.apple.com
+  - DOMAIN-SUFFIX,apps.apple.com
+  - DOMAIN-SUFFIX,mzstatic.com
+  - DOMAIN,ppq.apple.com
+  - DOMAIN-SUFFIX,appattest.apple.com
+  - DOMAIN-SUFFIX,apps-marketplace.apple.com
+
+  # ==========================================================
+  # 🍎 Apple Account authentication
+  # ==========================================================
+  - DOMAIN,account.apple.com
+  - DOMAIN,appleid.cdn-apple.com
+  - DOMAIN,idmsa.apple.com
+  - DOMAIN,gsa.apple.com
+
+  # ==========================================================
+  # 🍎 Certificate validation
+  # ==========================================================
+  - DOMAIN,certs.apple.com
+  - DOMAIN,crl.apple.com
+  - DOMAIN,ocsp.apple.com
+  - DOMAIN,ocsp2.apple.com
+  - DOMAIN,valid.apple.com
+
+  # ==========================================================
+  # 🍎 Apple Push Notification service
+  # ==========================================================
+  - DOMAIN-SUFFIX,push.apple.com
+
+  # ==========================================================
+  # 🍎 Universal Links / Associated Domains
+  # ==========================================================
+  - DOMAIN,app-site-association.cdn-apple.com
+  - DOMAIN,app-site-association.networking.apple
+
+  # ==========================================================
+  # 🍎 Apple Pay
+  # ==========================================================
+  - DOMAIN,applepay.apple.com
+  - DOMAIN,ipay.apple.com
