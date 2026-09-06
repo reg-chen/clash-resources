@@ -53,12 +53,25 @@ payload:
   # 🟩 Android applications
   # PROCESS-NAME matches Android package names in Mihomo.
   # ==========================================================
-  # Communication / cloud / media / remote access
+  # Communication / media
   - PROCESS-NAME,jp.naver.line.android
-  - PROCESS-NAME,com.pcloud.pcloud
   - PROCESS-NAME,com.spotify.music
   - PROCESS-NAME,com.valvesoftware.android.steam.community
+  - PROCESS-NAME,com.blizzard.messenger
+
+  # Cloud / sync
+  - PROCESS-NAME,com.pcloud.pcloud
+  - PROCESS-NAME,com.google.android.apps.docs
+  - PROCESS-NAME,com.microsoft.skydrive
+  - PROCESS-NAME,com.dropbox.android
+  - PROCESS-NAME,mega.privacy.android.app
+
+  # Remote access
   - PROCESS-NAME,com.zuler.deskin
+  - PROCESS-NAME,com.anydesk.anydeskandroid
+  - PROCESS-NAME,com.teamviewer.teamviewer.market.mobile
+  - PROCESS-NAME,com.carriez.flutter_hbb
+  - PROCESS-NAME,tv.parsec.client
 
   # ==========================================================
   # 🟩 Android — Taiwan banking / financial apps
