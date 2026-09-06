@@ -10,6 +10,7 @@ payload:
   - DOMAIN,login.microsoft.com
   - DOMAIN,login.microsoftonline.com
   - DOMAIN,login.live.com
+  - DOMAIN,account.live.com
 
   # Auth static/CDN
   - DOMAIN-SUFFIX,msauth.net
@@ -47,7 +48,6 @@ payload:
   - DOMAIN-SUFFIX,microsoftonline.com
   - DOMAIN-SUFFIX,xbox.com
   - DOMAIN-SUFFIX,xboxservices.com
-  - DOMAIN-SUFFIX,live.com
 
   # Anti-Bot / Captcha
   #- DOMAIN-SUFFIX,cloudflare.com
