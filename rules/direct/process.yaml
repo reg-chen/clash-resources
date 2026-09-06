@@ -17,6 +17,29 @@ payload:
   - PROCESS-NAME,LineLauncher.exe
   - PROCESS-NAME,ProcessLasso.exe
 
+  # Cloud / sync
+  - PROCESS-NAME,OneDrive.exe
+  - PROCESS-NAME,GoogleDriveFS.exe
+  - PROCESS-NAME,Dropbox.exe
+  - PROCESS-NAME,MEGAsync.exe
+
+  # Remote access
+  - PROCESS-NAME,AnyDesk.exe
+  - PROCESS-NAME,TeamViewer.exe
+  - PROCESS-NAME,RustDesk.exe
+  - PROCESS-NAME,parsecd.exe
+
+  # Game launchers / clients
+  - PROCESS-NAME,EpicGamesLauncher.exe
+  - PROCESS-NAME,EpicWebHelper.exe
+  - PROCESS-NAME,Battle.net.exe
+  - PROCESS-NAME,EADesktop.exe
+  - PROCESS-NAME,EABackgroundService.exe
+  - PROCESS-NAME,UbisoftConnect.exe
+  - PROCESS-NAME,RiotClientServices.exe
+  - PROCESS-NAME,RiotClientUx.exe
+  - PROCESS-NAME,RiotClientUxRender.exe
+
   # ==========================================================
   # 🟦 Windows application paths
   # ==========================================================
