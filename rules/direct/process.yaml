@@ -58,6 +58,9 @@ payload:
   - PROCESS-NAME,com.valvesoftware.android.steam.community
   - PROCESS-NAME,com.blizzard.messenger
 
+  # Shopping
+  - PROCESS-NAME,com.coupang.mobile.lightspeed
+
   # Cloud / sync
   - PROCESS-NAME,com.pcloud.pcloud
   - PROCESS-NAME,com.google.android.apps.docs
