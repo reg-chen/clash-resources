@@ -61,6 +61,11 @@ payload:
   # Shopping
   - PROCESS-NAME,com.coupang.mobile.lightspeed
 
+  # Transportation / taxi
+  - PROCESS-NAME,dbx.taiwantaxi
+  - PROCESS-NAME,com.tmc.mtaxi
+  - PROCESS-NAME,com.taxigo.rider
+
   # Cloud / sync
   - PROCESS-NAME,com.pcloud.pcloud
   - PROCESS-NAME,com.google.android.apps.docs
