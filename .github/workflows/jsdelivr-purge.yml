@@ -1,0 +1,69 @@
+name: Purge jsDelivr cache
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Collect changed paths
+        id: paths
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          : > /tmp/jsdelivr-paths
+
+          if [[ -n "${BEFORE:-}" && "$BEFORE" != "0000000000000000000000000000000000000000" ]]; then
+            git diff --name-only "$BEFORE" "$AFTER" >> /tmp/jsdelivr-paths
+          fi
+
+          # Empty commits can be used for an explicit one-off purge without
+          # touching repository content:
+          #   jsDelivr purge: rules/direct/process.yaml
+          if [[ ! -s /tmp/jsdelivr-paths && "${COMMIT_MESSAGE:-}" == "jsDelivr purge: "* ]]; then
+            printf '%s\n' "${COMMIT_MESSAGE#jsDelivr purge: }" >> /tmp/jsdelivr-paths
+          fi
+
+          sort -u -o /tmp/jsdelivr-paths /tmp/jsdelivr-paths
+          echo "Paths to purge:"
+          cat /tmp/jsdelivr-paths
+
+      - name: Purge corresponding jsDelivr URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import subprocess
+          from pathlib import Path
+          from urllib.parse import quote
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          paths_file = Path("/tmp/jsdelivr-paths")
+          paths = [p.strip() for p in paths_file.read_text().splitlines() if p.strip()]
+
+          if not paths:
+              print("No paths to purge.")
+              raise SystemExit(0)
+
+          for path in paths:
+              url = f"https://purge.jsdelivr.net/gh/{repo}@main/{quote(path, safe='/')}"
+              print(f"Purging {url}")
+              subprocess.run(["curl", "--fail", "--silent", "--show-error", url], check=True)
+          PY
