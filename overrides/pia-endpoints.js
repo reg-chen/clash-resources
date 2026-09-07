@@ -1,7 +1,7 @@
 // Clash Party JavaScript override
-// v8: one PIA file provider per endpoint (pia.yaml with UDP + TCP); Streaming Optimized remains removed.
-// Scope: PIA OpenVPN provider declarations, hidden per-endpoint transport groups, and only the PIA endpoint members of existing high-level groups.
-// High-level group definitions, non-PIA members/use providers, and routing rules remain in YAML.
+// v9: PIA OpenVPN uses pia-ov.yaml; optional PIA WireGuard uses pia-wg.yaml.
+// Scope: PIA provider declarations, hidden per-endpoint transport groups, and only
+// the PIA endpoint members of existing high-level groups. Routing rules remain YAML.
 
 const PIA_PROVIDER_ROOT = String.raw`P:\Clash\providers`;
 
@@ -162,447 +162,48 @@ const PIA_ENDPOINTS = [
   {"id":"dz","path":"DZ","name":"🇩🇿 OV-PIA-DZ(阿爾及利亞)","hot":false}
 ];
 
+const CHINA = new Set(['MO', 'HK', 'CN']);
+const MIDDLE_EAST = new Set(['AE', 'QA', 'SA', 'IL', 'TR', 'EG']);
+const NORTH_AMERICA = new Set(['US', 'CA', 'GL']);
+const LATIN_AMERICA = new Set(['MX', 'BR', 'AR', 'CL', 'CO', 'BO', 'BS', 'CR', 'EC', 'GT', 'PA', 'PE', 'UY', 'VE']);
+const OCEANIA = new Set(['AU', 'NZ']);
+const AFRICA = new Set(['ZA', 'NG', 'MA', 'DZ']);
+
+function countryCode(endpoint) {
+  return endpoint.path.split('\\')[0];
+}
+
+function endpointNames(predicate) {
+  return PIA_ENDPOINTS.filter(predicate).map((endpoint) => endpoint.name);
+}
+
+const ASIA_ENDPOINTS = endpointNames((endpoint) => endpoint.hot);
+const HLS_ENDPOINTS = endpointNames((endpoint) => ['TW', 'PH', 'SG'].includes(countryCode(endpoint)));
+const AI_ENDPOINTS = endpointNames((endpoint) => endpoint.hot && !CHINA.has(countryCode(endpoint)));
+const ALL_ENDPOINTS = PIA_ENDPOINTS.map((endpoint) => endpoint.name);
+
+const EUROPE_ENDPOINTS = endpointNames((endpoint) => {
+  const cc = countryCode(endpoint);
+  return !endpoint.hot && !MIDDLE_EAST.has(cc) && !NORTH_AMERICA.has(cc) &&
+    !LATIN_AMERICA.has(cc) && !OCEANIA.has(cc) && !AFRICA.has(cc);
+});
+
 const PIA_GROUP_MEMBERS = {
-  "AUTO-FAST": [
-    "🇹🇼 OV-PIA-TW(台灣)",
-    "🇵🇭 OV-PIA-PH(菲律賓)",
-    "🇸🇬 OV-PIA-SG(新加坡)",
-    "🇲🇴 OV-PIA-MO(澳門)",
-    "🇭🇰 OV-PIA-HK(香港)",
-    "🇨🇳 OV-PIA-CN(中國)",
-    "🇯🇵 OV-PIA-JP(日本)",
-    "🇰🇷 OV-PIA-KR(韓國)",
-    "🇲🇾 OV-PIA-MY(馬來西亞)",
-    "🇮🇩 OV-PIA-ID(印尼)",
-    "🇻🇳 OV-PIA-VN(越南)",
-    "🇮🇳 OV-PIA-IN(印度)",
-    "🇰🇭 OV-PIA-KH(柬埔寨)",
-    "🇲🇳 OV-PIA-MN(蒙古)",
-    "🇳🇵 OV-PIA-NP(尼泊爾)",
-    "🇧🇩 OV-PIA-BD(孟加拉)",
-    "🇱🇰 OV-PIA-LK(斯里蘭卡)"
-  ],
-  "AUTO-SAFE": [
-    "🇹🇼 OV-PIA-TW(台灣)",
-    "🇵🇭 OV-PIA-PH(菲律賓)",
-    "🇸🇬 OV-PIA-SG(新加坡)",
-    "🇲🇴 OV-PIA-MO(澳門)",
-    "🇭🇰 OV-PIA-HK(香港)",
-    "🇨🇳 OV-PIA-CN(中國)",
-    "🇯🇵 OV-PIA-JP(日本)",
-    "🇰🇷 OV-PIA-KR(韓國)",
-    "🇲🇾 OV-PIA-MY(馬來西亞)",
-    "🇮🇩 OV-PIA-ID(印尼)",
-    "🇻🇳 OV-PIA-VN(越南)",
-    "🇮🇳 OV-PIA-IN(印度)",
-    "🇰🇭 OV-PIA-KH(柬埔寨)",
-    "🇲🇳 OV-PIA-MN(蒙古)",
-    "🇳🇵 OV-PIA-NP(尼泊爾)",
-    "🇧🇩 OV-PIA-BD(孟加拉)",
-    "🇱🇰 OV-PIA-LK(斯里蘭卡)"
-  ],
-  "LB-HLS": [
-    "🇹🇼 OV-PIA-TW(台灣)",
-    "🇵🇭 OV-PIA-PH(菲律賓)",
-    "🇸🇬 OV-PIA-SG(新加坡)"
-  ],
-  "LB-STICKY": [
-    "🇹🇼 OV-PIA-TW(台灣)",
-    "🇵🇭 OV-PIA-PH(菲律賓)",
-    "🇸🇬 OV-PIA-SG(新加坡)",
-    "🇲🇴 OV-PIA-MO(澳門)",
-    "🇭🇰 OV-PIA-HK(香港)",
-    "🇨🇳 OV-PIA-CN(中國)",
-    "🇯🇵 OV-PIA-JP(日本)",
-    "🇰🇷 OV-PIA-KR(韓國)",
-    "🇲🇾 OV-PIA-MY(馬來西亞)",
-    "🇮🇩 OV-PIA-ID(印尼)",
-    "🇻🇳 OV-PIA-VN(越南)",
-    "🇮🇳 OV-PIA-IN(印度)",
-    "🇰🇭 OV-PIA-KH(柬埔寨)",
-    "🇲🇳 OV-PIA-MN(蒙古)",
-    "🇳🇵 OV-PIA-NP(尼泊爾)",
-    "🇧🇩 OV-PIA-BD(孟加拉)",
-    "🇱🇰 OV-PIA-LK(斯里蘭卡)"
-  ],
-  "LB-ROBIN": [
-    "🇹🇼 OV-PIA-TW(台灣)",
-    "🇵🇭 OV-PIA-PH(菲律賓)",
-    "🇸🇬 OV-PIA-SG(新加坡)",
-    "🇲🇴 OV-PIA-MO(澳門)",
-    "🇭🇰 OV-PIA-HK(香港)",
-    "🇨🇳 OV-PIA-CN(中國)",
-    "🇯🇵 OV-PIA-JP(日本)",
-    "🇰🇷 OV-PIA-KR(韓國)",
-    "🇲🇾 OV-PIA-MY(馬來西亞)",
-    "🇮🇩 OV-PIA-ID(印尼)",
-    "🇻🇳 OV-PIA-VN(越南)",
-    "🇮🇳 OV-PIA-IN(印度)",
-    "🇰🇭 OV-PIA-KH(柬埔寨)",
-    "🇲🇳 OV-PIA-MN(蒙古)",
-    "🇳🇵 OV-PIA-NP(尼泊爾)",
-    "🇧🇩 OV-PIA-BD(孟加拉)",
-    "🇱🇰 OV-PIA-LK(斯里蘭卡)"
-  ],
-  "LB-CONSISTENT": [
-    "🇹🇼 OV-PIA-TW(台灣)",
-    "🇵🇭 OV-PIA-PH(菲律賓)",
-    "🇸🇬 OV-PIA-SG(新加坡)",
-    "🇲🇴 OV-PIA-MO(澳門)",
-    "🇭🇰 OV-PIA-HK(香港)",
-    "🇨🇳 OV-PIA-CN(中國)",
-    "🇯🇵 OV-PIA-JP(日本)",
-    "🇰🇷 OV-PIA-KR(韓國)",
-    "🇲🇾 OV-PIA-MY(馬來西亞)",
-    "🇮🇩 OV-PIA-ID(印尼)",
-    "🇻🇳 OV-PIA-VN(越南)",
-    "🇮🇳 OV-PIA-IN(印度)",
-    "🇰🇭 OV-PIA-KH(柬埔寨)",
-    "🇲🇳 OV-PIA-MN(蒙古)",
-    "🇳🇵 OV-PIA-NP(尼泊爾)",
-    "🇧🇩 OV-PIA-BD(孟加拉)",
-    "🇱🇰 OV-PIA-LK(斯里蘭卡)"
-  ],
-  "AI-PROXY": [
-    "🇹🇼 OV-PIA-TW(台灣)",
-    "🇵🇭 OV-PIA-PH(菲律賓)",
-    "🇸🇬 OV-PIA-SG(新加坡)",
-    "🇯🇵 OV-PIA-JP(日本)",
-    "🇰🇷 OV-PIA-KR(韓國)",
-    "🇲🇾 OV-PIA-MY(馬來西亞)",
-    "🇮🇩 OV-PIA-ID(印尼)",
-    "🇻🇳 OV-PIA-VN(越南)",
-    "🇮🇳 OV-PIA-IN(印度)",
-    "🇰🇭 OV-PIA-KH(柬埔寨)",
-    "🇲🇳 OV-PIA-MN(蒙古)",
-    "🇳🇵 OV-PIA-NP(尼泊爾)",
-    "🇧🇩 OV-PIA-BD(孟加拉)",
-    "🇱🇰 OV-PIA-LK(斯里蘭卡)"
-  ],
-  "OV-ALL": [
-    "🇹🇼 OV-PIA-TW(台灣)",
-    "🇵🇭 OV-PIA-PH(菲律賓)",
-    "🇸🇬 OV-PIA-SG(新加坡)",
-    "🇲🇴 OV-PIA-MO(澳門)",
-    "🇭🇰 OV-PIA-HK(香港)",
-    "🇨🇳 OV-PIA-CN(中國)",
-    "🇯🇵 OV-PIA-JP(日本)",
-    "🇰🇷 OV-PIA-KR(韓國)",
-    "🇲🇾 OV-PIA-MY(馬來西亞)",
-    "🇮🇩 OV-PIA-ID(印尼)",
-    "🇻🇳 OV-PIA-VN(越南)",
-    "🇮🇳 OV-PIA-IN(印度)",
-    "🇰🇭 OV-PIA-KH(柬埔寨)",
-    "🇲🇳 OV-PIA-MN(蒙古)",
-    "🇳🇵 OV-PIA-NP(尼泊爾)",
-    "🇧🇩 OV-PIA-BD(孟加拉)",
-    "🇱🇰 OV-PIA-LK(斯里蘭卡)",
-    "🇦🇪 OV-PIA-AE(阿聯酋)",
-    "🇶🇦 OV-PIA-QA(卡達)",
-    "🇸🇦 OV-PIA-SA(沙烏地阿拉伯)",
-    "🇮🇱 OV-PIA-IL(以色列)",
-    "🇹🇷 OV-PIA-TR(土耳其)",
-    "🇪🇬 OV-PIA-EG(埃及)",
-    "🇳🇱 OV-PIA-NL(荷蘭)",
-    "🇩🇪 OV-PIA-DE(德國-柏林)",
-    "🇩🇪 OV-PIA-DE(德國-法蘭克福)",
-    "🇬🇧 OV-PIA-UK(英國-倫敦)",
-    "🇬🇧 OV-PIA-UK(英國-曼徹斯特)",
-    "🇬🇧 OV-PIA-UK(英國-南安普敦)",
-    "🇫🇷 OV-PIA-FR(法國)",
-    "🇪🇸 OV-PIA-ES(西班牙-馬德里)",
-    "🇪🇸 OV-PIA-ES(西班牙-瓦倫西亞)",
-    "🇮🇹 OV-PIA-IT(義大利-米蘭)",
-    "🇦🇲 OV-PIA-AM(亞美尼亞)",
-    "🇬🇪 OV-PIA-GE(喬治亞)",
-    "🇰🇿 OV-PIA-KZ(哈薩克)",
-    "🇦🇩 OV-PIA-AD(安道爾)",
-    "🇦🇱 OV-PIA-AL(阿爾巴尼亞)",
-    "🇦🇹 OV-PIA-AT(奧地利)",
-    "🇧🇦 OV-PIA-BA(波士尼亞)",
-    "🇧🇪 OV-PIA-BE(比利時)",
-    "🇧🇬 OV-PIA-BG(保加利亞)",
-    "🇨🇭 OV-PIA-CH(瑞士)",
-    "🇨🇾 OV-PIA-CY(賽普勒斯)",
-    "🇨🇿 OV-PIA-CZ(捷克)",
-    "🇩🇰 OV-PIA-DK(丹麥-哥本哈根)",
-    "🇪🇪 OV-PIA-EE(愛沙尼亞)",
-    "🇫🇮 OV-PIA-FI(芬蘭-赫爾辛基)",
-    "🇬🇷 OV-PIA-GR(希臘)",
-    "🇭🇷 OV-PIA-HR(克羅埃西亞)",
-    "🇭🇺 OV-PIA-HU(匈牙利)",
-    "🇮🇪 OV-PIA-IE(愛爾蘭)",
-    "🇮🇲 OV-PIA-IM(曼島)",
-    "🇮🇸 OV-PIA-IS(冰島)",
-    "🇱🇮 OV-PIA-LI(列支敦斯登)",
-    "🇱🇹 OV-PIA-LT(立陶宛)",
-    "🇱🇺 OV-PIA-LU(盧森堡)",
-    "🇱🇻 OV-PIA-LV(拉脫維亞)",
-    "🇲🇨 OV-PIA-MC(摩納哥)",
-    "🇲🇩 OV-PIA-MD(摩爾多瓦)",
-    "🇲🇪 OV-PIA-ME(蒙特內哥羅)",
-    "🇲🇰 OV-PIA-MK(北馬其頓)",
-    "🇲🇹 OV-PIA-MT(馬爾他)",
-    "🇳🇴 OV-PIA-NO(挪威)",
-    "🇵🇱 OV-PIA-PL(波蘭)",
-    "🇵🇹 OV-PIA-PT(葡萄牙)",
-    "🇷🇴 OV-PIA-RO(羅馬尼亞)",
-    "🇷🇸 OV-PIA-RS(塞爾維亞)",
-    "🇸🇪 OV-PIA-SE(瑞典-斯德哥爾摩)",
-    "🇸🇮 OV-PIA-SI(斯洛維尼亞)",
-    "🇸🇰 OV-PIA-SK(斯洛伐克)",
-    "🇺🇦 OV-PIA-UA(烏克蘭)",
-    "🇺🇸 OV-PIA-US(美國-阿拉巴馬)",
-    "🇺🇸 OV-PIA-US(美國-阿拉斯加)",
-    "🇺🇸 OV-PIA-US(美國-阿肯色)",
-    "🇺🇸 OV-PIA-US(美國-亞特蘭大)",
-    "🇺🇸 OV-PIA-US(美國-巴爾的摩)",
-    "🇺🇸 OV-PIA-US(美國-加州)",
-    "🇺🇸 OV-PIA-US(美國-芝加哥)",
-    "🇺🇸 OV-PIA-US(美國-康乃狄克)",
-    "🇺🇸 OV-PIA-US(美國-丹佛)",
-    "🇺🇸 OV-PIA-US(美國-美東)",
-    "🇺🇸 OV-PIA-US(美國-佛羅里達)",
-    "🇺🇸 OV-PIA-US(美國-檀香山)",
-    "🇺🇸 OV-PIA-US(美國-休士頓)",
-    "🇺🇸 OV-PIA-US(美國-愛達荷)",
-    "🇺🇸 OV-PIA-US(美國-印第安納)",
-    "🇺🇸 OV-PIA-US(美國-愛荷華)",
-    "🇺🇸 OV-PIA-US(美國-堪薩斯)",
-    "🇺🇸 OV-PIA-US(美國-肯塔基)",
-    "🇺🇸 OV-PIA-US(美國-拉斯維加斯)",
-    "🇺🇸 OV-PIA-US(美國-路易斯安那)",
-    "🇺🇸 OV-PIA-US(美國-緬因)",
-    "🇺🇸 OV-PIA-US(美國-麻薩諸塞)",
-    "🇺🇸 OV-PIA-US(美國-密西根)",
-    "🇺🇸 OV-PIA-US(美國-明尼蘇達)",
-    "🇺🇸 OV-PIA-US(美國-密西西比)",
-    "🇺🇸 OV-PIA-US(美國-密蘇里)",
-    "🇺🇸 OV-PIA-US(美國-蒙大拿)",
-    "🇺🇸 OV-PIA-US(美國-內布拉斯加)",
-    "🇺🇸 OV-PIA-US(美國-新罕布夏)",
-    "🇺🇸 OV-PIA-US(美國-新墨西哥)",
-    "🇺🇸 OV-PIA-US(美國-紐約)",
-    "🇺🇸 OV-PIA-US(美國-北卡羅來納)",
-    "🇺🇸 OV-PIA-US(美國-北達科他)",
-    "🇺🇸 OV-PIA-US(美國-俄亥俄)",
-    "🇺🇸 OV-PIA-US(美國-奧克拉荷馬)",
-    "🇺🇸 OV-PIA-US(美國-奧勒岡)",
-    "🇺🇸 OV-PIA-US(美國-賓夕法尼亞)",
-    "🇺🇸 OV-PIA-US(美國-羅德島)",
-    "🇺🇸 OV-PIA-US(美國-鹽湖城)",
-    "🇺🇸 OV-PIA-US(美國-西雅圖)",
-    "🇺🇸 OV-PIA-US(美國-矽谷)",
-    "🇺🇸 OV-PIA-US(美國-南卡羅來納)",
-    "🇺🇸 OV-PIA-US(美國-南達科他)",
-    "🇺🇸 OV-PIA-US(美國-田納西)",
-    "🇺🇸 OV-PIA-US(美國-德州)",
-    "🇺🇸 OV-PIA-US(美國-佛蒙特)",
-    "🇺🇸 OV-PIA-US(美國-維吉尼亞)",
-    "🇺🇸 OV-PIA-US(美國-華盛頓DC)",
-    "🇺🇸 OV-PIA-US(美國-美西)",
-    "🇺🇸 OV-PIA-US(美國-西維吉尼亞)",
-    "🇺🇸 OV-PIA-US(美國-威明頓)",
-    "🇺🇸 OV-PIA-US(美國-威斯康辛)",
-    "🇺🇸 OV-PIA-US(美國-懷俄明)",
-    "🇨🇦 OV-PIA-CA(加拿大-蒙特婁)",
-    "🇨🇦 OV-PIA-CA(加拿大-安大略)",
-    "🇨🇦 OV-PIA-CA(加拿大-多倫多)",
-    "🇨🇦 OV-PIA-CA(加拿大-溫哥華)",
-    "🇬🇱 OV-PIA-GL(格陵蘭)",
-    "🇲🇽 OV-PIA-MX(墨西哥)",
-    "🇧🇷 OV-PIA-BR(巴西)",
-    "🇦🇷 OV-PIA-AR(阿根廷)",
-    "🇨🇱 OV-PIA-CL(智利)",
-    "🇨🇴 OV-PIA-CO(哥倫比亞)",
-    "🇧🇴 OV-PIA-BO(玻利維亞)",
-    "🇧🇸 OV-PIA-BS(巴哈馬)",
-    "🇨🇷 OV-PIA-CR(哥斯大黎加)",
-    "🇪🇨 OV-PIA-EC(厄瓜多)",
-    "🇬🇹 OV-PIA-GT(瓜地馬拉)",
-    "🇵🇦 OV-PIA-PA(巴拿馬)",
-    "🇵🇪 OV-PIA-PE(秘魯)",
-    "🇺🇾 OV-PIA-UY(烏拉圭)",
-    "🇻🇪 OV-PIA-VE(委內瑞拉)",
-    "🇦🇺 OV-PIA-AU(澳洲-阿德雷德)",
-    "🇦🇺 OV-PIA-AU(澳洲-布里斯本)",
-    "🇦🇺 OV-PIA-AU(澳洲-墨爾本)",
-    "🇦🇺 OV-PIA-AU(澳洲-伯斯)",
-    "🇦🇺 OV-PIA-AU(澳洲-雪梨)",
-    "🇳🇿 OV-PIA-NZ(紐西蘭)",
-    "🇿🇦 OV-PIA-ZA(南非)",
-    "🇳🇬 OV-PIA-NG(奈及利亞)",
-    "🇲🇦 OV-PIA-MA(摩洛哥)",
-    "🇩🇿 OV-PIA-DZ(阿爾及利亞)"
-  ],
-  "OV-ASIA": [
-    "🇹🇼 OV-PIA-TW(台灣)",
-    "🇵🇭 OV-PIA-PH(菲律賓)",
-    "🇸🇬 OV-PIA-SG(新加坡)",
-    "🇲🇴 OV-PIA-MO(澳門)",
-    "🇭🇰 OV-PIA-HK(香港)",
-    "🇨🇳 OV-PIA-CN(中國)",
-    "🇯🇵 OV-PIA-JP(日本)",
-    "🇰🇷 OV-PIA-KR(韓國)",
-    "🇲🇾 OV-PIA-MY(馬來西亞)",
-    "🇮🇩 OV-PIA-ID(印尼)",
-    "🇻🇳 OV-PIA-VN(越南)",
-    "🇮🇳 OV-PIA-IN(印度)",
-    "🇰🇭 OV-PIA-KH(柬埔寨)",
-    "🇲🇳 OV-PIA-MN(蒙古)",
-    "🇳🇵 OV-PIA-NP(尼泊爾)",
-    "🇧🇩 OV-PIA-BD(孟加拉)",
-    "🇱🇰 OV-PIA-LK(斯里蘭卡)"
-  ],
-  "OV-MIDDLE-EAST": [
-    "🇦🇪 OV-PIA-AE(阿聯酋)",
-    "🇶🇦 OV-PIA-QA(卡達)",
-    "🇸🇦 OV-PIA-SA(沙烏地阿拉伯)",
-    "🇮🇱 OV-PIA-IL(以色列)",
-    "🇹🇷 OV-PIA-TR(土耳其)",
-    "🇪🇬 OV-PIA-EG(埃及)"
-  ],
-  "OV-EUROPE": [
-    "🇳🇱 OV-PIA-NL(荷蘭)",
-    "🇩🇪 OV-PIA-DE(德國-柏林)",
-    "🇩🇪 OV-PIA-DE(德國-法蘭克福)",
-    "🇬🇧 OV-PIA-UK(英國-倫敦)",
-    "🇬🇧 OV-PIA-UK(英國-曼徹斯特)",
-    "🇬🇧 OV-PIA-UK(英國-南安普敦)",
-    "🇫🇷 OV-PIA-FR(法國)",
-    "🇪🇸 OV-PIA-ES(西班牙-馬德里)",
-    "🇪🇸 OV-PIA-ES(西班牙-瓦倫西亞)",
-    "🇮🇹 OV-PIA-IT(義大利-米蘭)",
-    "🇦🇲 OV-PIA-AM(亞美尼亞)",
-    "🇬🇪 OV-PIA-GE(喬治亞)",
-    "🇰🇿 OV-PIA-KZ(哈薩克)",
-    "🇦🇩 OV-PIA-AD(安道爾)",
-    "🇦🇱 OV-PIA-AL(阿爾巴尼亞)",
-    "🇦🇹 OV-PIA-AT(奧地利)",
-    "🇧🇦 OV-PIA-BA(波士尼亞)",
-    "🇧🇪 OV-PIA-BE(比利時)",
-    "🇧🇬 OV-PIA-BG(保加利亞)",
-    "🇨🇭 OV-PIA-CH(瑞士)",
-    "🇨🇾 OV-PIA-CY(賽普勒斯)",
-    "🇨🇿 OV-PIA-CZ(捷克)",
-    "🇩🇰 OV-PIA-DK(丹麥-哥本哈根)",
-    "🇪🇪 OV-PIA-EE(愛沙尼亞)",
-    "🇫🇮 OV-PIA-FI(芬蘭-赫爾辛基)",
-    "🇬🇷 OV-PIA-GR(希臘)",
-    "🇭🇷 OV-PIA-HR(克羅埃西亞)",
-    "🇭🇺 OV-PIA-HU(匈牙利)",
-    "🇮🇪 OV-PIA-IE(愛爾蘭)",
-    "🇮🇲 OV-PIA-IM(曼島)",
-    "🇮🇸 OV-PIA-IS(冰島)",
-    "🇱🇮 OV-PIA-LI(列支敦斯登)",
-    "🇱🇹 OV-PIA-LT(立陶宛)",
-    "🇱🇺 OV-PIA-LU(盧森堡)",
-    "🇱🇻 OV-PIA-LV(拉脫維亞)",
-    "🇲🇨 OV-PIA-MC(摩納哥)",
-    "🇲🇩 OV-PIA-MD(摩爾多瓦)",
-    "🇲🇪 OV-PIA-ME(蒙特內哥羅)",
-    "🇲🇰 OV-PIA-MK(北馬其頓)",
-    "🇲🇹 OV-PIA-MT(馬爾他)",
-    "🇳🇴 OV-PIA-NO(挪威)",
-    "🇵🇱 OV-PIA-PL(波蘭)",
-    "🇵🇹 OV-PIA-PT(葡萄牙)",
-    "🇷🇴 OV-PIA-RO(羅馬尼亞)",
-    "🇷🇸 OV-PIA-RS(塞爾維亞)",
-    "🇸🇪 OV-PIA-SE(瑞典-斯德哥爾摩)",
-    "🇸🇮 OV-PIA-SI(斯洛維尼亞)",
-    "🇸🇰 OV-PIA-SK(斯洛伐克)",
-    "🇺🇦 OV-PIA-UA(烏克蘭)"
-  ],
-  "OV-NORTH-AMERICA": [
-    "🇺🇸 OV-PIA-US(美國-阿拉巴馬)",
-    "🇺🇸 OV-PIA-US(美國-阿拉斯加)",
-    "🇺🇸 OV-PIA-US(美國-阿肯色)",
-    "🇺🇸 OV-PIA-US(美國-亞特蘭大)",
-    "🇺🇸 OV-PIA-US(美國-巴爾的摩)",
-    "🇺🇸 OV-PIA-US(美國-加州)",
-    "🇺🇸 OV-PIA-US(美國-芝加哥)",
-    "🇺🇸 OV-PIA-US(美國-康乃狄克)",
-    "🇺🇸 OV-PIA-US(美國-丹佛)",
-    "🇺🇸 OV-PIA-US(美國-美東)",
-    "🇺🇸 OV-PIA-US(美國-佛羅里達)",
-    "🇺🇸 OV-PIA-US(美國-檀香山)",
-    "🇺🇸 OV-PIA-US(美國-休士頓)",
-    "🇺🇸 OV-PIA-US(美國-愛達荷)",
-    "🇺🇸 OV-PIA-US(美國-印第安納)",
-    "🇺🇸 OV-PIA-US(美國-愛荷華)",
-    "🇺🇸 OV-PIA-US(美國-堪薩斯)",
-    "🇺🇸 OV-PIA-US(美國-肯塔基)",
-    "🇺🇸 OV-PIA-US(美國-拉斯維加斯)",
-    "🇺🇸 OV-PIA-US(美國-路易斯安那)",
-    "🇺🇸 OV-PIA-US(美國-緬因)",
-    "🇺🇸 OV-PIA-US(美國-麻薩諸塞)",
-    "🇺🇸 OV-PIA-US(美國-密西根)",
-    "🇺🇸 OV-PIA-US(美國-明尼蘇達)",
-    "🇺🇸 OV-PIA-US(美國-密西西比)",
-    "🇺🇸 OV-PIA-US(美國-密蘇里)",
-    "🇺🇸 OV-PIA-US(美國-蒙大拿)",
-    "🇺🇸 OV-PIA-US(美國-內布拉斯加)",
-    "🇺🇸 OV-PIA-US(美國-新罕布夏)",
-    "🇺🇸 OV-PIA-US(美國-新墨西哥)",
-    "🇺🇸 OV-PIA-US(美國-紐約)",
-    "🇺🇸 OV-PIA-US(美國-北卡羅來納)",
-    "🇺🇸 OV-PIA-US(美國-北達科他)",
-    "🇺🇸 OV-PIA-US(美國-俄亥俄)",
-    "🇺🇸 OV-PIA-US(美國-奧克拉荷馬)",
-    "🇺🇸 OV-PIA-US(美國-奧勒岡)",
-    "🇺🇸 OV-PIA-US(美國-賓夕法尼亞)",
-    "🇺🇸 OV-PIA-US(美國-羅德島)",
-    "🇺🇸 OV-PIA-US(美國-鹽湖城)",
-    "🇺🇸 OV-PIA-US(美國-西雅圖)",
-    "🇺🇸 OV-PIA-US(美國-矽谷)",
-    "🇺🇸 OV-PIA-US(美國-南卡羅來納)",
-    "🇺🇸 OV-PIA-US(美國-南達科他)",
-    "🇺🇸 OV-PIA-US(美國-田納西)",
-    "🇺🇸 OV-PIA-US(美國-德州)",
-    "🇺🇸 OV-PIA-US(美國-佛蒙特)",
-    "🇺🇸 OV-PIA-US(美國-維吉尼亞)",
-    "🇺🇸 OV-PIA-US(美國-華盛頓DC)",
-    "🇺🇸 OV-PIA-US(美國-美西)",
-    "🇺🇸 OV-PIA-US(美國-西維吉尼亞)",
-    "🇺🇸 OV-PIA-US(美國-威明頓)",
-    "🇺🇸 OV-PIA-US(美國-威斯康辛)",
-    "🇺🇸 OV-PIA-US(美國-懷俄明)",
-    "🇨🇦 OV-PIA-CA(加拿大-蒙特婁)",
-    "🇨🇦 OV-PIA-CA(加拿大-安大略)",
-    "🇨🇦 OV-PIA-CA(加拿大-多倫多)",
-    "🇨🇦 OV-PIA-CA(加拿大-溫哥華)",
-    "🇬🇱 OV-PIA-GL(格陵蘭)"
-  ],
-  "OV-LATIN-AMERICA": [
-    "🇲🇽 OV-PIA-MX(墨西哥)",
-    "🇧🇷 OV-PIA-BR(巴西)",
-    "🇦🇷 OV-PIA-AR(阿根廷)",
-    "🇨🇱 OV-PIA-CL(智利)",
-    "🇨🇴 OV-PIA-CO(哥倫比亞)",
-    "🇧🇴 OV-PIA-BO(玻利維亞)",
-    "🇧🇸 OV-PIA-BS(巴哈馬)",
-    "🇨🇷 OV-PIA-CR(哥斯大黎加)",
-    "🇪🇨 OV-PIA-EC(厄瓜多)",
-    "🇬🇹 OV-PIA-GT(瓜地馬拉)",
-    "🇵🇦 OV-PIA-PA(巴拿馬)",
-    "🇵🇪 OV-PIA-PE(秘魯)",
-    "🇺🇾 OV-PIA-UY(烏拉圭)",
-    "🇻🇪 OV-PIA-VE(委內瑞拉)"
-  ],
-  "OV-OCEANIA": [
-    "🇦🇺 OV-PIA-AU(澳洲-阿德雷德)",
-    "🇦🇺 OV-PIA-AU(澳洲-布里斯本)",
-    "🇦🇺 OV-PIA-AU(澳洲-墨爾本)",
-    "🇦🇺 OV-PIA-AU(澳洲-伯斯)",
-    "🇦🇺 OV-PIA-AU(澳洲-雪梨)",
-    "🇳🇿 OV-PIA-NZ(紐西蘭)"
-  ],
-  "OV-AFRICA": [
-    "🇿🇦 OV-PIA-ZA(南非)",
-    "🇳🇬 OV-PIA-NG(奈及利亞)",
-    "🇲🇦 OV-PIA-MA(摩洛哥)",
-    "🇩🇿 OV-PIA-DZ(阿爾及利亞)"
-  ]
+  'AUTO-FAST': ASIA_ENDPOINTS,
+  'AUTO-SAFE': ASIA_ENDPOINTS,
+  'LB-HLS': HLS_ENDPOINTS,
+  'LB-STICKY': ASIA_ENDPOINTS,
+  'LB-ROBIN': ASIA_ENDPOINTS,
+  'LB-CONSISTENT': ASIA_ENDPOINTS,
+  'AI-PROXY': AI_ENDPOINTS,
+  'OV-ALL': ALL_ENDPOINTS,
+  'OV-ASIA': ASIA_ENDPOINTS,
+  'OV-MIDDLE-EAST': endpointNames((endpoint) => MIDDLE_EAST.has(countryCode(endpoint))),
+  'OV-EUROPE': EUROPE_ENDPOINTS,
+  'OV-NORTH-AMERICA': endpointNames((endpoint) => NORTH_AMERICA.has(countryCode(endpoint))),
+  'OV-LATIN-AMERICA': endpointNames((endpoint) => LATIN_AMERICA.has(countryCode(endpoint))),
+  'OV-OCEANIA': endpointNames((endpoint) => OCEANIA.has(countryCode(endpoint))),
+  'OV-AFRICA': endpointNames((endpoint) => AFRICA.has(countryCode(endpoint))),
 };
 
 function clone(value) {
@@ -612,10 +213,11 @@ function clone(value) {
 function main(config) {
   if (!config || typeof config !== 'object') return config;
 
-  // Opt-in marker: makes this override safe to enable globally in Clash Party.
-  // A base YAML without this marker is returned untouched.
   if (config['x-pia-endpoint-override'] !== true) return config;
   delete config['x-pia-endpoint-override'];
+
+  const wgEnabled = config['x-pia-wireguard'] === true;
+  delete config['x-pia-wireguard'];
 
   const hot = config['x-pia-test']?.['health-check'];
   const cold = config['x-pia-test-slow']?.['health-check'];
@@ -627,43 +229,45 @@ function main(config) {
     ? config['proxy-providers']
     : {};
 
-  // Drop every stale PIA endpoint provider before regenerating the unified layout.
-  // This cleans both the old ov-pia-*-udp/tcp providers and any previous unified ov-pia-* providers.
   const nonPiaProviders = Object.fromEntries(
-    Object.entries(existingProviders).filter(([name]) => !/^ov-pia-/i.test(name))
+    Object.entries(existingProviders).filter(([name]) => !/^(?:ov|wg)-pia-/i.test(name))
   );
   const piaProviders = {};
   const endpointGroups = [];
 
   for (const endpoint of PIA_ENDPOINTS) {
-    const providerName = `ov-pia-${endpoint.id}`;
     const healthCheck = endpoint.hot ? hot : cold;
     const basePath = `${PIA_PROVIDER_ROOT}\\${endpoint.path}`;
+    const ovProviderName = `ov-pia-${endpoint.id}`;
 
-    // One provider file per endpoint/vendor. pia.yaml contains both UDP and TCP nodes.
-    piaProviders[providerName] = {
+    piaProviders[ovProviderName] = {
       type: 'file',
-      path: `${basePath}\\pia.yaml`,
+      path: `${basePath}\\pia-ov.yaml`,
       'health-check': clone(healthCheck),
     };
 
+    const uses = [];
+    if (wgEnabled) {
+      const wgProviderName = `wg-pia-${endpoint.id}`;
+      piaProviders[wgProviderName] = {
+        type: 'file',
+        path: `${basePath}\\pia-wg.yaml`,
+        'health-check': clone(healthCheck),
+      };
+      uses.push(wgProviderName);
+    }
+    uses.push(ovProviderName);
+
     endpointGroups.push({
       name: endpoint.name,
-      // HOT pools actively health-check both transports, so fallback can prefer UDP and
-      // automatically move to TCP. COLD pools retain the previous select/no-active-probe policy.
       type: endpoint.hot ? 'fallback' : 'select',
       hidden: true,
-      use: [providerName],
+      use: uses,
     });
   }
 
-  // Keep PIA providers first, matching the old YAML layout; preserve non-PIA providers unchanged.
   config['proxy-providers'] = { ...piaProviders, ...nonPiaProviders };
 
-  // Drop every stale hidden PIA endpoint group before regenerating the current set.
-  // This also cleans up old Streaming Optimized groups if the override is applied
-  // to an older base YAML.
-  const endpointNames = new Set(PIA_ENDPOINTS.map((endpoint) => endpoint.name));
   const existingGroups = Array.isArray(config['proxy-groups']) ? config['proxy-groups'] : [];
   const nonEndpointGroups = existingGroups.filter((group) => {
     const name = group?.name;
@@ -674,16 +278,11 @@ function main(config) {
     return !isPiaEndpointGroup;
   });
 
-  // Restore only PIA endpoint members into the existing high-level groups.
-  // Without this JS, the YAML remains valid: mixed WG/SS groups keep working,
-  // while PIA-only groups contain a REJECT fail-closed placeholder.
   for (const group of nonEndpointGroups) {
     const piaMembers = PIA_GROUP_MEMBERS[group?.name];
     if (!piaMembers) continue;
 
     const current = Array.isArray(group.proxies) ? group.proxies : [];
-    // Remove every old PIA endpoint member, including endpoints no longer present
-    // in PIA_ENDPOINTS (for example Streaming Optimized).
     const nonPia = current.filter(
       (name) => typeof name !== 'string' || !name.includes('OV-PIA-')
     );
@@ -692,6 +291,5 @@ function main(config) {
   }
 
   config['proxy-groups'] = [...endpointGroups, ...nonEndpointGroups];
-
   return config;
 }
