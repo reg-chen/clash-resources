@@ -74,7 +74,7 @@ const PIA_ENDPOINTS = [
   {"id":"pl","path":"PL","name":"🇵🇱 PIA-PL(波蘭)","hot":false},
   {"id":"pt","path":"PT","name":"🇵🇹 PIA-PT(葡萄牙)","hot":false},
   {"id":"ro","path":"RO","name":"🇷🇴 PIA-RO(羅馬尼亞)","hot":false},
-  {"id":"rs","path":"RS","name":"🇷🇴 PIA-RS(塞爾維亞)","hot":false},
+  {"id":"rs","path":"RS","name":"🇷🇸 PIA-RS(塞爾維亞)","hot":false},
   {"id":"se-stockholm","path":"SE\\stockholm","name":"🇸🇪 PIA-SE(瑞典-斯德哥爾摩)","hot":false},
   {"id":"si","path":"SI","name":"🇸🇮 PIA-SI(斯洛維尼亞)","hot":false},
   {"id":"sk","path":"SK","name":"🇸🇰 PIA-SK(斯洛伐克)","hot":false},
