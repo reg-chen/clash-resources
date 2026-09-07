@@ -1,0 +1,213 @@
+# =====================================================================
+# iOS / iPadOS Firewall-only / No-VPN — Mihomo compatibility
+# - Self-contained: no local private.yaml dependency
+# - No process matching: Mihomo does not expose Android-style package matching on iOS
+# - Reduced rule-provider set to stay within iOS Network Extension memory constraints
+# - No VPN endpoints; DIRECT-DUMMY is a plain DIRECT outbound required by some clients
+# =====================================================================
+
+ipv6: true
+mode: rule
+log-level: info
+
+# Some Mihomo clients require proxies or proxy-providers to exist.
+# DIRECT-DUMMY is a plain DIRECT outbound; no VPN proxy node is configured.
+proxies:
+  - name: DIRECT-DUMMY
+    type: direct
+    udp: true
+
+x-rule-provider-common: &RULE-PROVIDER
+  interval: 3600
+  proxy: DIRECT
+
+rule-providers:
+  direct-dns:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/dns.yaml
+    path: ./rules/direct/dns.yaml
+  direct-ios:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/ios.yaml
+    path: ./rules/direct/ios.yaml
+  direct-media:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/media.yaml
+    path: ./rules/direct/media.yaml
+  route-ai:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/ai.yaml
+    path: ./rules/proxy/ai.yaml
+  route-hls:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/hls.yaml
+    path: ./rules/proxy/hls.yaml
+  route-drm:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/drm.yaml
+    path: ./rules/proxy/drm.yaml
+  route-bankgov:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/bankgov.yaml
+    path: ./rules/proxy/bankgov.yaml
+  security-custom:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/custom.txt
+    path: ./rules/security/custom.txt
+  security-riskport:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/riskport.yaml
+    path: ./rules/security/riskport.yaml
+  privacy-custom:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/custom.txt
+    path: ./rules/privacy/custom.txt
+  ads-custom:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/custom.txt
+    path: ./rules/ads/custom.txt
+  ads-antiad:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: mrs
+    url: https://anti-ad.net/mihomo.mrs
+    path: ./rules/ads/antiad.mrs
+
+rules:
+  - IP-CIDR6,::/0,REJECT,no-resolve
+  - RULE-SET,direct-dns,DIRECT
+  - RULE-SET,direct-ios,DIRECT
+  - RULE-SET,direct-media,DIRECT
+  - RULE-SET,route-ai,DIRECT
+  - RULE-SET,route-hls,DIRECT
+  - RULE-SET,route-drm,DIRECT
+  - RULE-SET,route-bankgov,DIRECT,no-resolve
+  - RULE-SET,security-custom,REJECT
+  - RULE-SET,security-riskport,REJECT
+  - RULE-SET,privacy-custom,REJECT
+  - RULE-SET,ads-custom,REJECT
+  - RULE-SET,ads-antiad,REJECT
+  - MATCH,DIRECT-DUMMY
+
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - "*.local"
+    - "*.arpa"
+    - time.*.com
+    - ntp.*.com
+    - "*.gov.tw"
+    - "*.gov.taipei"
+    - "*.bot.com.tw"
+    - "*.landbank.com.tw"
+    - "*.tcb-bank.com.tw"
+    - "*.firstbank.com.tw"
+    - "*.hncb.com.tw"
+    - "*.bankchb.com"
+    - "*.megabank.com.tw"
+    - "*.tbb.com.tw"
+    - "*.bok.com.tw"
+    - "*.eximbank.com.tw"
+    - "*.agribank.com.tw"
+    - "*.scsb.com.tw"
+    - "*.cathaybk.com.tw"
+    - "*.fubon.com"
+    - "*.taipeifubon.com.tw"
+    - "*.fubonbank.com.tw"
+    - "*.o-bank.com"
+    - "*.tcbbank.com.tw"
+    - "*.ktb.com.tw"
+    - "*.taipeistarbank.com.tw"
+    - "*.hwataibank.com.tw"
+    - "*.skbank.com.tw"
+    - "*.sunnybank.com.tw"
+    - "*.bop.com.tw"
+    - "*.cotabank.com.tw"
+    - "*.ubot.com.tw"
+    - "*.feib.com.tw"
+    - "*.yuantabank.com.tw"
+    - "*.sinopac.com"
+    - "*.esunbank.com.tw"
+    - "*.kgibank.com.tw"
+    - "*.taishinbank.com.tw"
+    - "*.entiebank.com.tw"
+    - "*.ctbcbank.com"
+    - "*.citibank.com.tw"
+    - "*.sc.com"
+    - "*.hsbc.com.tw"
+    - "*.dbs.com.tw"
+    - "*.nextbank.com.tw"
+    - "*.linebank.com.tw"
+    - "*.rakuten-bank.com.tw"
+    - "*.linepay.com"
+    - "*.linepay.tw"
+    - "*.jkopay.com"
+    - "*.opay.tw"
+    - "*.ezpay.com.tw"
+    - "*.twmp.com.tw"
+    - "*.taiwanpay.com.tw"
+    - "*.easycard.com.tw"
+    - "*.i-pass.com.tw"
+    - "*.icashpay.com.tw"
+    - "*.gamapay.com.tw"
+    - "*.pluspay.com.tw"
+    - "*.pxpayplus.com"
+    - "*.pxpayplus.com.tw"
+    - "*.paypal.com"
+    - "*.paypalobjects.com"
+    - "*.pphosted.com"
+    - "*.stripe.com"
+    - "*.stripe.network"
+    - "*.stripeusercontent.com"
+    - applepay.apple.com
+    - ipay.apple.com
+    - "+.google.com"
+    - "+.googleapis.com"
+    - "+.gstatic.com"
+    - "*.live.com"
+    - "*.microsoftonline.com"
+    - "*.msauth.net"
+    - "*.msftauth.net"
+    - "*.gameguard.co.*"
+    - "*.gnjoy.com.*"
+    - "*.nprotect.com"
+  use-hosts: true
+  use-system-hosts: true
+  default-nameserver:
+    - 1.1.1.1
+    - 8.8.8.8
+  nameserver:
+    - https://cloudflare-dns.com/dns-query
+    - https://dns.google/dns-query
+    - https://dns.quad9.net/dns-query
+  fake-ip-filter-mode: blacklist
