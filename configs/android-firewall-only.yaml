@@ -1,0 +1,440 @@
+# =====================================================================
+# Android Firewall-only / No-VPN
+# - No VPN proxy-providers / proxy-groups / VPN endpoints
+# - DIRECT allow/bypass rules retain original ordering
+# - Security / Privacy / Ads remain REJECT firewall layers
+# =====================================================================
+
+# Client profile validators may require at least one proxy entry even for
+# firewall-only operation. This proxy is still a plain DIRECT outbound.
+proxies:
+  - name: DIRECT-DUMMY
+    type: direct
+    udp: true
+
+ntp:
+  enable: true
+  write-to-system: false
+  server: time.stdtime.gov.tw
+  port: 123
+  interval: 30
+
+# 共用 Rule Provider 設定（YAML merge key）
+x-rule-provider-common: &RULE-PROVIDER
+  interval: 3600
+  proxy: DIRECT
+
+rule-providers:
+  direct-dns:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/dns.yaml
+    path: rules/direct/dns.yaml
+  direct-process:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/process.yaml
+    path: rules/direct/process.yaml
+  direct-android:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/android.yaml
+    path: rules/direct/android.yaml
+  direct-media:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/media.yaml
+    path: rules/direct/media.yaml
+  route-ai:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/ai.yaml
+    path: rules/proxy/ai.yaml
+  route-hls:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/hls.yaml
+    path: rules/proxy/hls.yaml
+  route-drm:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/drm.yaml
+    path: rules/proxy/drm.yaml
+  route-bankgov:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/bankgov.yaml
+    path: rules/proxy/bankgov.yaml
+  security-custom:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/custom.txt
+    path: rules/security/custom.txt
+  security-threat:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/tif.mini-onlydomains.txt
+    path: rules/security/threat.txt
+  security-phishing:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/Phishing-Database/Phishing.Database@master/phishing-domains-ACTIVE.txt
+    path: rules/security/phishing.txt
+  security-dyndns:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/dyndns-onlydomains.txt
+    path: rules/security/dyndns.txt
+  security-riskport:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/riskport.yaml
+    path: rules/security/riskport.yaml
+  privacy-custom:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/custom.txt
+    path: rules/privacy/custom.txt
+  privacy-native-amazon:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.amazon-onlydomains.txt
+    path: rules/privacy/native/amazon.txt
+  privacy-native-apple:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.apple-onlydomains.txt
+    path: rules/privacy/native/apple.txt
+  privacy-native-huawei:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.huawei-onlydomains.txt
+    path: rules/privacy/native/huawei.txt
+  privacy-native-winoffice:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.winoffice-onlydomains.txt
+    path: rules/privacy/native/winoffice.txt
+  privacy-native-samsung:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.samsung-onlydomains.txt
+    path: rules/privacy/native/samsung.txt
+  privacy-native-tiktok:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.tiktok.extended-onlydomains.txt
+    path: rules/privacy/native/tiktok.txt
+  privacy-native-lgwebos:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.lgwebos-onlydomains.txt
+    path: rules/privacy/native/lgwebos.txt
+  privacy-native-roku:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.roku-onlydomains.txt
+    path: rules/privacy/native/roku.txt
+  privacy-native-vivo:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.vivo-onlydomains.txt
+    path: rules/privacy/native/vivo.txt
+  privacy-native-oppo-realme:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.oppo-realme-onlydomains.txt
+    path: rules/privacy/native/oppo-realme.txt
+  privacy-native-xiaomi:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.xiaomi-onlydomains.txt
+    path: rules/privacy/native/xiaomi.txt
+  ads-popup:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/popupads-onlydomains.txt
+    path: rules/ads/popup.txt
+  ads-loyalsoldier:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt
+    path: rules/ads/loyalsoldier.yaml
+  ads-antiad:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    url: https://anti-ad.net/clash.yaml
+    path: rules/ads/antiad.yaml
+  ads-custom:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: text
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/custom.txt
+    path: rules/ads/custom.txt
+  # Local-only private provider; private.yaml is intentionally not stored in this repository.
+  direct-private:
+    type: file
+    behavior: classical
+    path: private.yaml
+sub-rules:
+  SECURITY:
+  - RULE-SET,security-custom,REJECT
+  - RULE-SET,security-threat,REJECT
+  - RULE-SET,security-phishing,REJECT
+  - RULE-SET,security-dyndns,REJECT
+  - RULE-SET,security-riskport,REJECT
+  PRIVACY-NATIVE:
+  - RULE-SET,privacy-custom,REJECT
+  - RULE-SET,privacy-native-amazon,REJECT
+  - RULE-SET,privacy-native-apple,REJECT
+  - RULE-SET,privacy-native-huawei,REJECT
+  - RULE-SET,privacy-native-winoffice,REJECT
+  - RULE-SET,privacy-native-samsung,REJECT
+  - RULE-SET,privacy-native-tiktok,REJECT
+  - RULE-SET,privacy-native-lgwebos,REJECT
+  - RULE-SET,privacy-native-roku,REJECT
+  - RULE-SET,privacy-native-vivo,REJECT
+  - RULE-SET,privacy-native-oppo-realme,REJECT
+  - RULE-SET,privacy-native-xiaomi,REJECT
+  ADS:
+  - RULE-SET,ads-custom,REJECT
+  - RULE-SET,ads-popup,REJECT
+  - RULE-SET,ads-loyalsoldier,REJECT
+  - RULE-SET,ads-antiad,REJECT
+rules:
+- IP-CIDR6,::/0,REJECT,no-resolve
+- RULE-SET,direct-dns,DIRECT
+- RULE-SET,direct-android,DIRECT
+- RULE-SET,direct-process,DIRECT
+- RULE-SET,direct-media,DIRECT
+- RULE-SET,direct-private,DIRECT
+- RULE-SET,route-ai,DIRECT
+- RULE-SET,route-hls,DIRECT
+- RULE-SET,route-drm,DIRECT
+- RULE-SET,route-bankgov,DIRECT,no-resolve
+- SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),SECURITY
+- SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),PRIVACY-NATIVE
+- SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),ADS
+- MATCH,DIRECT-DUMMY
+ipv6: true
+mode: rule
+mixed-port: 7890
+socks-port: 7891
+port: 7892
+redir-port: 0
+tproxy-port: 0
+allow-lan: false
+unified-delay: true
+tcp-concurrent: false
+log-level: info
+find-process-mode: strict
+bind-address: '*'
+lan-allowed-ips:
+- 0.0.0.0/0
+- ::/0
+lan-disallowed-ips: []
+authentication: []
+skip-auth-prefixes:
+- 127.0.0.1/32
+- ::1/128
+tun:
+  enable: true
+  stack: mixed
+  auto-route: true
+  auto-redirect: false
+  auto-detect-interface: true
+  dns-hijack:
+  - any:53
+  route-exclude-address:
+  - 54.166.6.137/32
+  - 219.84.200.54/32
+  - 219.84.200.82/32
+  - 219.84.200.85/32
+  - 219.84.200.84/32
+  mtu: 1500
+  device: Mihomo
+  strict-route: true
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - "*.local"
+    - "*.arpa"
+    - time.*.com
+    - ntp.*.com
+    - "*.gov.tw"
+    - "*.gov.taipei"
+    - "*.bot.com.tw"
+    - "*.landbank.com.tw"
+    - "*.tcb-bank.com.tw"
+    - "*.firstbank.com.tw"
+    - "*.hncb.com.tw"
+    - "*.bankchb.com"
+    - "*.megabank.com.tw"
+    - "*.tbb.com.tw"
+    - "*.bok.com.tw"
+    - "*.eximbank.com.tw"
+    - "*.agribank.com.tw"
+    - "*.scsb.com.tw"
+    - "*.cathaybk.com.tw"
+    - "*.fubon.com"
+    - "*.taipeifubon.com.tw"
+    - "*.fubonbank.com.tw"
+    - "*.o-bank.com"
+    - "*.tcbbank.com.tw"
+    - "*.ktb.com.tw"
+    - "*.taipeistarbank.com.tw"
+    - "*.hwataibank.com.tw"
+    - "*.skbank.com.tw"
+    - "*.sunnybank.com.tw"
+    - "*.bop.com.tw"
+    - "*.cotabank.com.tw"
+    - "*.ubot.com.tw"
+    - "*.feib.com.tw"
+    - "*.yuantabank.com.tw"
+    - "*.sinopac.com"
+    - "*.esunbank.com.tw"
+    - "*.kgibank.com.tw"
+    - "*.taishinbank.com.tw"
+    - "*.entiebank.com.tw"
+    - "*.ctbcbank.com"
+    - "*.citibank.com.tw"
+    - "*.sc.com"
+    - "*.hsbc.com.tw"
+    - "*.dbs.com.tw"
+    - "*.nextbank.com.tw"
+    - "*.linebank.com.tw"
+    - "*.rakuten-bank.com.tw"
+    - "*.linepay.com"
+    - "*.linepay.tw"
+    - "*.jkopay.com"
+    - "*.opay.tw"
+    - "*.ezpay.com.tw"
+    - "*.twmp.com.tw"
+    - "*.taiwanpay.com.tw"
+    - "*.easycard.com.tw"
+    - "*.i-pass.com.tw"
+    - "*.icashpay.com.tw"
+    - "*.gamapay.com.tw"
+    - "*.pluspay.com.tw"
+    - "*.pxpayplus.com"
+    - "*.pxpayplus.com.tw"
+    - "*.paypal.com"
+    - "*.paypalobjects.com"
+    - "*.pphosted.com"
+    - "*.stripe.com"
+    - "*.stripe.network"
+    - "*.stripeusercontent.com"
+    - applepay.apple.com
+    - ipay.apple.com
+    - "+.google.com"
+    - "+.googleapis.com"
+    - "+.gstatic.com"
+    - "*.live.com"
+    - "*.microsoftonline.com"
+    - "*.msauth.net"
+    - "*.msftauth.net"
+    - "*.gameguard.co.*"
+    - "*.gnjoy.com.*"
+    - "*.nprotect.com"
+  use-hosts: true
+  use-system-hosts: true
+  respect-rules: true
+  default-nameserver:
+    - 1.1.1.1#DIRECT
+    - 8.8.8.8#DIRECT
+  nameserver:
+    - https://cloudflare-dns.com/dns-query#DIRECT
+    - https://dns.google/dns-query#DIRECT
+    - https://dns.quad9.net/dns-query#DIRECT
+  proxy-server-nameserver:
+    - https://cloudflare-dns.com/dns-query#DIRECT
+    - https://dns.google/dns-query#DIRECT
+    - https://dns.quad9.net/dns-query#DIRECT
+  fake-ip-filter-mode: blacklist
+sniffer:
+  enable: true
+  parse-pure-ip: true
+  force-dns-mapping: true
+  override-destination: false
+  sniff:
+    HTTP:
+      ports:
+      - 80
+      - 8080-8880
+      override-destination: true
+    TLS:
+      ports:
+      - 443
+      - 8443
+    QUIC:
+      ports:
+      - 443
+      - 8443
+  skip-domain:
+  - +.push.apple.com
+  skip-dst-address:
+  - 192.168.0.3/32
+  skip-src-address:
+  - 192.168.0.3/32
+profile:
+  store-selected: true
+  store-fake-ip: true
+geo-auto-update: true
+geo-update-interval: 24
+geodata-mode: false
+geox-url:
+  geoip: https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip-lite.dat
+  geosite: https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat
+  mmdb: https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.metadb
+  asn: https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/GeoLite2-ASN.mmdb
+hosts: {}
