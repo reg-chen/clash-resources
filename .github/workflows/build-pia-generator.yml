@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - tools/pia-openvpn-generator.py
+      - tools/_pia-openvpn-generator-core.py
       - tools/pia-openvpn-gui.py
       - .github/workflows/build-pia-generator.yml
 
@@ -36,7 +37,7 @@ jobs:
       - name: Validate Python sources
         shell: pwsh
         run: |
-          python -m py_compile tools/pia-openvpn-generator.py tools/pia-openvpn-gui.py
+          python -m py_compile tools/pia-openvpn-generator.py tools/_pia-openvpn-generator-core.py tools/pia-openvpn-gui.py
 
       - name: Build Windows executable
         shell: pwsh
@@ -48,6 +49,7 @@ jobs:
             --windowed `
             --name PIA-Mihomo-Generator `
             --add-data "tools/pia-openvpn-generator.py;." `
+            --add-data "tools/_pia-openvpn-generator-core.py;." `
             tools/pia-openvpn-gui.py
 
       - name: Upload executable
