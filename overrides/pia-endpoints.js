@@ -1,5 +1,5 @@
 // Clash Party JavaScript override
-// v9: PIA OpenVPN uses pia-ov.yaml; optional PIA WireGuard uses pia-wg.yaml.
+// v10: PIA endpoint override has independent OpenVPN and WireGuard toggles.
 // Scope: PIA provider declarations, hidden per-endpoint transport groups, and only
 // the PIA endpoint members of existing high-level groups. Routing rules remain YAML.
 
@@ -227,6 +227,9 @@ function main(config) {
   if (config['x-pia-endpoint-override'] !== true) return config;
   delete config['x-pia-endpoint-override'];
 
+  const ovEnabled = config['x-pia-openvpn'] === true;
+  delete config['x-pia-openvpn'];
+
   const wgEnabled = config['x-pia-wireguard'] === true;
   delete config['x-pia-wireguard'];
 
@@ -240,7 +243,7 @@ function main(config) {
     ? config['proxy-providers']
     : {};
 
-  // Remove both generations so switching x-pia-wireguard on/off is deterministic.
+  // Remove both generated protocol families so protocol toggles are deterministic.
   const nonPiaProviders = Object.fromEntries(
     Object.entries(existingProviders).filter(([name]) => !/^(?:ov|wg)-pia-/i.test(name))
   );
@@ -250,15 +253,8 @@ function main(config) {
   for (const endpoint of PIA_ENDPOINTS) {
     const healthCheck = endpoint.hot ? hot : cold;
     const basePath = `${PIA_PROVIDER_ROOT}\\${endpointPath(endpoint)}`;
-    const ovProviderName = `ov-pia-${endpoint.id}`;
-
-    piaProviders[ovProviderName] = {
-      type: 'file',
-      path: `${basePath}\\pia-ov.yaml`,
-      'health-check': clone(healthCheck),
-    };
-
     const uses = [];
+
     if (wgEnabled) {
       const wgProviderName = `wg-pia-${endpoint.id}`;
       piaProviders[wgProviderName] = {
@@ -268,14 +264,25 @@ function main(config) {
       };
       uses.push(wgProviderName);
     }
-    uses.push(ovProviderName);
 
-    endpointGroups.push({
-      name: endpoint.name,
-      type: endpoint.hot ? 'fallback' : 'select',
-      hidden: true,
-      use: uses,
-    });
+    if (ovEnabled) {
+      const ovProviderName = `ov-pia-${endpoint.id}`;
+      piaProviders[ovProviderName] = {
+        type: 'file',
+        path: `${basePath}\\pia-ov.yaml`,
+        'health-check': clone(healthCheck),
+      };
+      uses.push(ovProviderName);
+    }
+
+    if (uses.length > 0) {
+      endpointGroups.push({
+        name: endpoint.name,
+        type: endpoint.hot ? 'fallback' : 'select',
+        hidden: true,
+        use: uses,
+      });
+    }
   }
 
   config['proxy-providers'] = { ...piaProviders, ...nonPiaProviders };
@@ -290,16 +297,18 @@ function main(config) {
     return !isPiaEndpointGroup;
   });
 
-  for (const group of nonEndpointGroups) {
-    const piaMembers = PIA_GROUP_MEMBERS[group?.name];
-    if (!piaMembers) continue;
+  if (ovEnabled || wgEnabled) {
+    for (const group of nonEndpointGroups) {
+      const piaMembers = PIA_GROUP_MEMBERS[group?.name];
+      if (!piaMembers) continue;
 
-    const current = Array.isArray(group.proxies) ? group.proxies : [];
-    const nonPia = current.filter(
-      (name) => typeof name !== 'string' || !name.includes('OV-PIA-')
-    );
-    const isPiaOnlyGroup = nonPia.length === 1 && nonPia[0] === 'REJECT';
-    group.proxies = [...(isPiaOnlyGroup ? [] : nonPia), ...piaMembers];
+      const current = Array.isArray(group.proxies) ? group.proxies : [];
+      const nonPia = current.filter(
+        (name) => typeof name !== 'string' || !name.includes('OV-PIA-')
+      );
+      const isPiaOnlyGroup = nonPia.length === 1 && nonPia[0] === 'REJECT';
+      group.proxies = [...(isPiaOnlyGroup ? [] : nonPia), ...piaMembers];
+    }
   }
 
   config['proxy-groups'] = [...endpointGroups, ...nonEndpointGroups];
