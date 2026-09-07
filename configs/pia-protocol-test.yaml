@@ -1,0 +1,135 @@
+# Minimal protocol comparison profile: Surfshark WG vs PIA WG vs PIA OpenVPN UDP.
+# Target regions only: TW / SG / PH / HK / JP / KR.
+
+mode: rule
+log-level: info
+ipv6: false
+
+x-test: &TEST
+  url: http://www.gstatic.com/generate_204
+  interval: 60
+  timeout: 10000
+  lazy: false
+  expected-status: 204/200
+
+proxy-providers:
+  # -------------------- Surfshark WireGuard --------------------
+  ss-hls:
+    type: file
+    path: "P:\\Clash\\providers\\hls-wg-ss.yaml"
+    health-check:
+      <<: *TEST
+      enable: true
+
+  ss-hk:
+    type: file
+    path: "P:\\Clash\\providers\\china-wg-ss.yaml"
+    filter: '(?i)🇭🇰|香港|Hong.?Kong|HK'
+    health-check:
+      <<: *TEST
+      enable: true
+
+  ss-jp-kr:
+    type: file
+    path: "P:\\Clash\\providers\\asia-extra-wg-ss.yaml"
+    filter: '(?i)🇯🇵|🇰🇷|日本|韓國|Japan|Korea|JP|KR'
+    health-check:
+      <<: *TEST
+      enable: true
+
+  # -------------------- PIA WireGuard --------------------
+  pia-wg-tw:
+    type: file
+    path: "P:\\Clash\\providers\\TW\\pia-wg.yaml"
+    health-check: { <<: *TEST, enable: true }
+  pia-wg-sg:
+    type: file
+    path: "P:\\Clash\\providers\\SG\\pia-wg.yaml"
+    health-check: { <<: *TEST, enable: true }
+  pia-wg-ph:
+    type: file
+    path: "P:\\Clash\\providers\\PH\\pia-wg.yaml"
+    health-check: { <<: *TEST, enable: true }
+  pia-wg-hk:
+    type: file
+    path: "P:\\Clash\\providers\\HK\\pia-wg.yaml"
+    health-check: { <<: *TEST, enable: true }
+  pia-wg-jp:
+    type: file
+    path: "P:\\Clash\\providers\\JP\\pia-wg.yaml"
+    health-check: { <<: *TEST, enable: true }
+  pia-wg-kr:
+    type: file
+    path: "P:\\Clash\\providers\\KR\\pia-wg.yaml"
+    health-check: { <<: *TEST, enable: true }
+
+  # -------------------- PIA OpenVPN UDP --------------------
+  # Existing pia.yaml contains UDP + TCP; test profile keeps UDP only.
+  pia-ov-tw:
+    type: file
+    path: "P:\\Clash\\providers\\TW\\pia.yaml"
+    filter: '-UDP$'
+    health-check: { <<: *TEST, enable: true }
+  pia-ov-sg:
+    type: file
+    path: "P:\\Clash\\providers\\SG\\pia.yaml"
+    filter: '-UDP$'
+    health-check: { <<: *TEST, enable: true }
+  pia-ov-ph:
+    type: file
+    path: "P:\\Clash\\providers\\PH\\pia.yaml"
+    filter: '-UDP$'
+    health-check: { <<: *TEST, enable: true }
+  pia-ov-hk:
+    type: file
+    path: "P:\\Clash\\providers\\HK\\pia.yaml"
+    filter: '-UDP$'
+    health-check: { <<: *TEST, enable: true }
+  pia-ov-jp:
+    type: file
+    path: "P:\\Clash\\providers\\JP\\pia.yaml"
+    filter: '-UDP$'
+    health-check: { <<: *TEST, enable: true }
+  pia-ov-kr:
+    type: file
+    path: "P:\\Clash\\providers\\KR\\pia.yaml"
+    filter: '-UDP$'
+    health-check: { <<: *TEST, enable: true }
+
+proxy-groups:
+  - name: TEST
+    type: select
+    proxies:
+      - SS
+      - PIA-WG
+      - PIA-OV
+
+  - name: SS
+    type: select
+    use:
+      - ss-hls
+      - ss-hk
+      - ss-jp-kr
+
+  - name: PIA-WG
+    type: select
+    use:
+      - pia-wg-tw
+      - pia-wg-sg
+      - pia-wg-ph
+      - pia-wg-hk
+      - pia-wg-jp
+      - pia-wg-kr
+
+  - name: PIA-OV
+    type: select
+    use:
+      - pia-ov-tw
+      - pia-ov-sg
+      - pia-ov-ph
+      - pia-ov-hk
+      - pia-ov-jp
+      - pia-ov-kr
+
+rules:
+  - MATCH,TEST
