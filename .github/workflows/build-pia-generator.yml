@@ -6,9 +6,11 @@ on:
     branches:
       - main
     paths:
+      - tools/pia_generator_core.py
       - tools/pia-openvpn-generator.py
-      - tools/_pia-openvpn-generator-core.py
-      - tools/pia-openvpn-gui.py
+      - tools/pia-openvpn-generator-impl.py
+      - tools/pia-wireguard-generator.py
+      - tools/pia-generator-gui.py
       - .github/workflows/build-pia-generator.yml
 
 permissions:
@@ -32,12 +34,17 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install PySide6 PyInstaller
+          python -m pip install PySide6 PyInstaller cryptography
 
       - name: Validate Python sources
         shell: pwsh
         run: |
-          python -m py_compile tools/pia-openvpn-generator.py tools/_pia-openvpn-generator-core.py tools/pia-openvpn-gui.py
+          python -m py_compile `
+            tools/pia_generator_core.py `
+            tools/pia-openvpn-generator.py `
+            tools/pia-openvpn-generator-impl.py `
+            tools/pia-wireguard-generator.py `
+            tools/pia-generator-gui.py
 
       - name: Build Windows executable
         shell: pwsh
@@ -48,9 +55,11 @@ jobs:
             --onefile `
             --windowed `
             --name PIA-Mihomo-Generator `
+            --collect-all cryptography `
             --add-data "tools/pia-openvpn-generator.py;." `
-            --add-data "tools/_pia-openvpn-generator-core.py;." `
-            tools/pia-openvpn-gui.py
+            --add-data "tools/pia-openvpn-generator-impl.py;." `
+            --add-data "tools/pia-wireguard-generator.py;." `
+            tools/pia-generator-gui.py
 
       - name: Upload executable
         uses: actions/upload-artifact@v7
