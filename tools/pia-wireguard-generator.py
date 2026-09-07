@@ -5,12 +5,9 @@ import argparse
 import base64
 import getpass
 import http.client
-import importlib.util
 import json
-import re
 import socket
 import ssl
-import sys
 import urllib.parse
 import urllib.request
 import uuid
@@ -19,6 +16,8 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+
+import pia_generator_core as core
 
 SERVERLIST_URL = "https://serverlist.piaservers.net/vpninfo/servers/v6"
 TOKEN_URL = "https://www.privateinternetaccess.com/api/client/v2/token"
@@ -30,12 +29,12 @@ class RegionInfo:
     region: dict
     stem: str
     country_code: str
-    location_label: str | None
 
 
 @dataclass(frozen=True)
 class WgNode:
-    info: RegionInfo
+    stem: str
+    country_code: str
     server_ip: str
     private_key: str
     peer_ip: str
@@ -44,24 +43,8 @@ class WgNode:
     name: str
 
 
-def load_openvpn_core():
-    path = Path(__file__).resolve().with_name("pia-openvpn-generator.py")
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"找不到同目錄的 OpenVPN generator：{path}. "
-            "WireGuard generator 會共用其 endpoint/country 命名規則。"
-        )
-    spec = importlib.util.spec_from_file_location("pia_openvpn_generator_core", path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"無法載入 OpenVPN generator：{path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 def fetch_json_first_line(url: str, timeout: float) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": "pia-mihomo-wg-generator/2"})
+    req = urllib.request.Request(url, headers={"User-Agent": "pia-mihomo-wg-generator/3"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read().decode("utf-8", errors="strict")
     first_line = raw.splitlines()[0].strip()
@@ -92,7 +75,7 @@ def get_token(username: str, password: str, timeout: float) -> str:
         method="POST",
         headers={
             "Content-Type": content_type,
-            "User-Agent": "pia-mihomo-wg-generator/2",
+            "User-Agent": "pia-mihomo-wg-generator/3",
         },
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -103,10 +86,10 @@ def get_token(username: str, password: str, timeout: float) -> str:
     return str(token)
 
 
-def fetch_pia_ca(timeout: float, ca_file: Path | None) -> str:
+def fetch_pia_ca(timeout: float, ca_file: Path | None = None) -> str:
     if ca_file is not None:
         return ca_file.read_text(encoding="utf-8")
-    req = urllib.request.Request(PIA_CA_URL, headers={"User-Agent": "pia-mihomo-wg-generator/2"})
+    req = urllib.request.Request(PIA_CA_URL, headers={"User-Agent": "pia-mihomo-wg-generator/3"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read().decode("utf-8", errors="strict")
 
@@ -160,9 +143,6 @@ def add_key(
     timeout: float,
 ) -> dict:
     context = ssl.create_default_context(cadata=ca_pem)
-    # Python 3.13 enables VERIFY_X509_STRICT by default. PIA's official legacy
-    # CA is accepted by their curl --cacert flow but fails that stricter check.
-    # Keep certificate-chain and hostname verification enabled; relax only X509 strictness.
     if hasattr(ssl, "VERIFY_X509_STRICT"):
         context.verify_flags &= ~ssl.VERIFY_X509_STRICT
 
@@ -180,7 +160,7 @@ def add_key(
             f"/addKey?{query}",
             headers={
                 "Host": f"{hostname}:1337",
-                "User-Agent": "pia-mihomo-wg-generator/2",
+                "User-Agent": "pia-mihomo-wg-generator/3",
                 "Accept": "application/json",
             },
         )
@@ -197,133 +177,58 @@ def add_key(
     return payload
 
 
-def normalized_region_stem(name: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+def region_stem(region: dict) -> str:
+    name = core.normalized_stem(str(region.get("name", "")))
+    region_id = core.normalized_stem(str(region.get("id", "")))
+    return name or region_id
 
 
-def is_streaming_region(region: dict, core) -> bool:
-    candidates = [
-        str(region.get("id", "")),
-        normalized_region_stem(str(region.get("name", ""))),
-    ]
-    return any(core.is_streaming_optimized_source(f"{value}.ovpn") for value in candidates if value)
+def is_streaming_region(region: dict) -> bool:
+    return any(
+        core.normalized_stem(str(value)).endswith("_streaming_optimized")
+        for value in (region.get("name", ""), region.get("id", ""))
+        if value
+    )
 
 
-def canonical_region_info(region: dict, core) -> RegionInfo:
-    server_cc = str(region.get("country", "")).lower()
-    if not server_cc:
-        raise ValueError(f"Region has no country: {region}")
-
-    # PIA's display names line up closely with Strong OpenVPN bundle stems
-    # (CA Montreal -> ca_montreal, JP Tokyo -> jp_tokyo, Netherlands -> netherlands).
-    # Prefer that form, then fall back to the server-list id.
-    candidates = []
-    display_stem = normalized_region_stem(str(region.get("name", "")))
-    region_id = str(region.get("id", "")).lower().strip()
-    for candidate in (display_stem, region_id):
-        if candidate and candidate not in candidates:
-            candidates.append(candidate)
-
-    for stem in candidates:
-        try:
-            cc, label = core.location_from_stem(stem)
-        except Exception:
-            continue
-        if cc == server_cc:
-            return RegionInfo(region=region, stem=stem, country_code=cc, location_label=label)
-
-    # Future PIA regions should still be usable even before the OpenVPN mapping table
-    # learns their display name. The country code remains authoritative from serverlist.
-    fallback_stem = region_id or display_stem
-    if not fallback_stem:
-        raise ValueError(f"Cannot derive endpoint stem from region: {region}")
-    label = str(region.get("name", "")).strip() or None
-    return RegionInfo(region=region, stem=fallback_stem, country_code=server_cc, location_label=label)
-
-
-def collect_regions(serverlist: dict, core, include_streaming: bool) -> list[RegionInfo]:
+def collect_regions(serverlist: dict, exclude_streaming: bool) -> list[RegionInfo]:
     result: list[RegionInfo] = []
     seen: set[tuple[str, str]] = set()
 
     for region in serverlist.get("regions") or []:
-        if not include_streaming and is_streaming_region(region, core):
+        if exclude_streaming and is_streaming_region(region):
             continue
         if not ((region.get("servers") or {}).get("wg") or []):
             continue
 
-        info = canonical_region_info(region, core)
-        key = (info.country_code, info.stem)
+        country_code = str(region.get("country", "")).lower()
+        stem = region_stem(region)
+        if not country_code or not stem:
+            continue
+
+        key = (country_code, stem)
         if key in seen:
             continue
         seen.add(key)
-        result.append(info)
+        result.append(RegionInfo(region=region, stem=stem, country_code=country_code))
 
-    bucket_order = {name: index for index, name in enumerate(core.PROVIDER_BUCKET_ORDER)}
-    result.sort(key=lambda info: (
-        bucket_order.get(core.get_provider_bucket(info.country_code), 999),
-        core.COUNTRY_ORDER.get(info.country_code, 999),
-        info.country_code,
-        info.stem,
-    ))
+    result.sort(key=lambda info: (info.country_code, info.stem))
     return result
 
 
-def multi_endpoint_countries(infos: list[RegionInfo]) -> set[str]:
-    counts: dict[str, set[str]] = {}
+def multi_country_codes(infos: list[RegionInfo]) -> set[str]:
+    grouped: dict[str, set[str]] = {}
     for info in infos:
-        counts.setdefault(info.country_code, set()).add(info.stem)
-    return {cc for cc, stems in counts.items() if len(stems) >= 2}
+        grouped.setdefault(info.country_code, set()).add(info.stem)
+    return {cc for cc, stems in grouped.items() if len(stems) >= 2}
 
 
-def build_ov_directory_index(providers_root: Path) -> dict[str, Path]:
-    index: dict[str, Path] = {}
-    if not providers_root.is_dir():
-        return index
-    marker = re.compile(r"^# Source endpoint stem:\s*(.+?)\s*$")
-    for path in providers_root.rglob("pia-ov.yaml"):
-        try:
-            with path.open("r", encoding="utf-8", errors="replace") as fh:
-                for _ in range(8):
-                    line = fh.readline()
-                    if not line:
-                        break
-                    match = marker.match(line.rstrip("\r\n"))
-                    if match:
-                        index[match.group(1).strip().lower()] = path.parent
-                        break
-        except OSError:
-            continue
-    return index
-
-
-def endpoint_directory(
-    *,
-    providers_root: Path,
-    info: RegionInfo,
-    multi_countries: set[str],
-    ov_index: dict[str, Path],
-    core,
-) -> Path:
-    # If the OpenVPN tree already exists, use its own source-stem marker as the
-    # authoritative placement. This keeps pia-wg.yaml literally beside pia-ov.yaml.
-    if info.stem in ov_index:
-        return ov_index[info.stem]
-
-    alpha2 = core.country_alpha2(info.country_code)
-    path = providers_root / alpha2
-    if info.country_code in multi_countries:
-        path = path / core.endpoint_slug(info.stem, info.country_code)
-    return path
-
-
-def wg_node_name(info: RegionInfo, multi_countries: set[str], core) -> str:
-    ov_name = core.pia_base_name(
-        country_code=info.country_code,
-        location_label=info.location_label,
-        multi_location_countries=multi_countries,
-        city_mode="multi",
-    )
-    return ov_name.replace(" OV-PIA-", " WG-PIA-", 1)
+def fallback_node_name(info: RegionInfo, multi_countries: set[str]) -> str:
+    alpha2 = info.country_code.upper()
+    display = str(info.region.get("name", "")).strip() or alpha2
+    if info.country_code not in multi_countries:
+        display = alpha2
+    return f"{core.alpha2_flag(alpha2)} WG-PIA-{alpha2}({display})"
 
 
 def provision_region(
@@ -333,7 +238,7 @@ def provision_region(
     ca_pem: str,
     timeout: float,
     multi_countries: set[str],
-    core,
+    ov_index: dict[str, tuple[Path, str | None]],
 ) -> WgNode:
     wg_server = info.region["servers"]["wg"][0]
     server_ip = str(wg_server["ip"])
@@ -349,14 +254,18 @@ def provision_region(
         timeout=timeout,
     )
 
+    ov_name = ov_index.get(info.stem, (Path(), None))[1]
+    name = core.wg_name_from_openvpn(ov_name) if ov_name else fallback_node_name(info, multi_countries)
+
     return WgNode(
-        info=info,
+        stem=info.stem,
+        country_code=info.country_code,
         server_ip=server_ip,
         private_key=private_key,
         peer_ip=str(response["peer_ip"]).split("/", 1)[0],
         server_key=str(response["server_key"]),
         server_port=int(response["server_port"]),
-        name=wg_node_name(info, multi_countries, core),
+        name=name,
     )
 
 
@@ -386,7 +295,7 @@ def build_endpoint_yaml(node: WgNode) -> str:
     return "\n".join([
         "# GENERATED FILE — PIA WireGuard provider payload for Mihomo.",
         f"# Endpoint: {node.name}",
-        f"# Source endpoint stem: {node.info.stem}",
+        f"# Source endpoint stem: {node.stem}",
         "# Private key is endpoint-specific. Keep generated payloads local.",
         "proxies:",
         *build_proxy_lines(node),
@@ -406,151 +315,118 @@ def build_single_yaml(nodes: list[WgNode]) -> str:
     return "\n".join(lines)
 
 
-def resolve_single_yaml_path(out_dir: Path, value: str) -> Path:
-    path = Path(value)
-    if not path.is_absolute():
-        path = out_dir / path
-    return path
+def generate_wireguard(
+    *,
+    username: str,
+    password: str,
+    out_dir: Path,
+    single_file: bool,
+    exclude_streaming: bool,
+    timeout: float = 15.0,
+) -> list[Path]:
+    providers_root = out_dir / "providers"
+    ov_index = core.read_openvpn_endpoint_index(providers_root)
+
+    print("[INFO] Fetching PIA server list...")
+    serverlist = fetch_json_first_line(SERVERLIST_URL, timeout)
+    infos = collect_regions(serverlist, exclude_streaming=exclude_streaming)
+    if not infos:
+        raise RuntimeError("PIA server list contains no usable WireGuard regions")
+
+    if ov_index:
+        by_stem = {info.stem: info for info in infos}
+        aligned = [by_stem[stem] for stem in ov_index if stem in by_stem]
+        if aligned:
+            infos = aligned
+            print(f"[INFO] Aligning WireGuard to {len(infos)} existing pia-ov.yaml endpoint(s).")
+
+    print(f"[INFO] WireGuard regions selected: {len(infos)}")
+    print("[INFO] Authenticating with PIA...")
+    token = get_token(username, password, timeout)
+    print("[OK] Authentication succeeded.")
+
+    print("[INFO] Loading PIA certificate authority...")
+    ca_pem = fetch_pia_ca(timeout)
+    multi_countries = multi_country_codes(infos)
+
+    nodes: list[WgNode] = []
+    failures: list[tuple[RegionInfo, str]] = []
+    for index, info in enumerate(infos, start=1):
+        wg_server = info.region["servers"]["wg"][0]
+        print(
+            f"[INFO] [{index}/{len(infos)}] {info.region.get('name')} — "
+            f"provisioning {wg_server.get('cn')} ({wg_server.get('ip')})..."
+        )
+        try:
+            nodes.append(provision_region(
+                info=info,
+                token=token,
+                ca_pem=ca_pem,
+                timeout=timeout,
+                multi_countries=multi_countries,
+                ov_index=ov_index,
+            ))
+        except Exception as exc:
+            failures.append((info, str(exc)))
+            print(f"[ERROR] {info.region.get('name')}: {exc}")
+
+    if not nodes:
+        raise RuntimeError("所有 WireGuard endpoint provisioning 皆失敗。")
+
+    providers_root.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+
+    if single_file:
+        path = providers_root / "pia-wg-all.yaml"
+        path.write_text(build_single_yaml(nodes), encoding="utf-8", newline="\n")
+        written.append(path)
+        print(f"[WRITE] {path} ({len(nodes)} nodes, aggregate)")
+    else:
+        for node in nodes:
+            indexed = ov_index.get(node.stem)
+            endpoint_dir = indexed[0] if indexed else core.endpoint_tree_dir(
+                providers_root,
+                node.country_code,
+                node.stem,
+                multi_countries,
+            )
+            endpoint_dir.mkdir(parents=True, exist_ok=True)
+            path = endpoint_dir / "pia-wg.yaml"
+            path.write_text(build_endpoint_yaml(node), encoding="utf-8", newline="\n")
+            written.append(path)
+            print(f"[WRITE] {path}")
+
+    print(f"[OK] WireGuard: {len(nodes)}/{len(infos)} regions, {len(written)} file(s).")
+    if failures:
+        print(f"[WARN] {len(failures)} region(s) failed.")
+    return written
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description=(
-            "Provision every current PIA WireGuard region and write one pia-wg.yaml "
-            "per endpoint using the same tree semantics as pia-openvpn-generator.py."
-        )
+        description="Provision PIA WireGuard regions and write Mihomo provider payloads."
     )
-    parser.add_argument("--username", help="PIA username. If omitted, prompt interactively.")
-    parser.add_argument("--password", help="PIA password. If omitted, prompt securely.")
-    parser.add_argument(
-        "--out-dir",
-        type=Path,
-        default=Path("."),
-        help="輸出根目錄，例如 P:\\Clash；預設建立 providers/<endpoint>/pia-wg.yaml。",
-    )
-    parser.add_argument(
-        "--single-yaml",
-        nargs="?",
-        const="providers/pia-wg-all.yaml",
-        default=None,
-        metavar="PATH",
-        help="額外產生 aggregate WG provider；不帶 PATH 時輸出 providers/pia-wg-all.yaml。",
-    )
-    parser.add_argument(
-        "--single-only",
-        action="store_true",
-        help="只輸出 aggregate WG provider，不建立 endpoint tree。",
-    )
-    parser.add_argument(
-        "--include-streaming",
-        action="store_true",
-        help="包含 PIA Streaming Optimized region；預設排除以對齊目前 OpenVPN/JS topology。",
-    )
-    parser.add_argument(
-        "--fail-fast",
-        action="store_true",
-        help="任一 endpoint provisioning 失敗時立即停止；預設繼續其他 endpoint 並於最後回報失敗。",
-    )
-    parser.add_argument("--ca-file", type=Path, help="Optional local PIA ca.rsa.4096.crt")
+    parser.add_argument("--username", help="PIA username; omitted = prompt")
+    parser.add_argument("--password", help="PIA password; omitted = secure prompt")
+    parser.add_argument("--out-dir", type=Path, default=Path("."))
+    parser.add_argument("--single-only", action="store_true")
+    parser.add_argument("--include-streaming", action="store_true")
     parser.add_argument("--timeout", type=float, default=15.0)
     args = parser.parse_args()
-
-    core = load_openvpn_core()
 
     username = args.username or input("PIA username: ").strip()
     password = args.password or getpass.getpass("PIA password: ")
     if not username or not password:
         parser.error("username/password cannot be empty")
 
-    providers_root = args.out_dir / "providers"
-    ov_index = build_ov_directory_index(providers_root)
-
-    print("[INFO] Fetching PIA server list...")
-    serverlist = fetch_json_first_line(SERVERLIST_URL, args.timeout)
-    infos = collect_regions(serverlist, core, args.include_streaming)
-    if not infos:
-        parser.error("PIA server list contains no usable WireGuard regions")
-
-    if ov_index:
-        available_by_stem = {info.stem: info for info in infos}
-        missing = sorted(set(ov_index) - set(available_by_stem))
-        infos = [available_by_stem[stem] for stem in ov_index if stem in available_by_stem]
-        print(f"[INFO] Aligning to {len(ov_index)} existing pia-ov.yaml endpoint markers.")
-        if missing:
-            print(f"[WARN] {len(missing)} OpenVPN endpoint(s) have no matching WireGuard region: {', '.join(missing)}")
-    else:
-        missing = []
-        print("[INFO] No pia-ov.yaml tree found; using every current PIA WireGuard region.")
-
-    print(f"[INFO] WireGuard regions selected: {len(infos)}")
-    if not args.include_streaming:
-        print("[INFO] PIA Streaming Optimized regions are excluded.")
-
-    print("[INFO] Authenticating with PIA...")
-    token = get_token(username, password, args.timeout)
-    print("[OK] Authentication succeeded.")
-
-    print("[INFO] Loading PIA certificate authority...")
-    ca_pem = fetch_pia_ca(args.timeout, args.ca_file)
-
-    multi_countries = multi_endpoint_countries(infos)
-    nodes: list[WgNode] = []
-    failures: list[tuple[RegionInfo, str]] = []
-
-    for index, info in enumerate(infos, start=1):
-        wg_server = info.region["servers"]["wg"][0]
-        server_ip = str(wg_server["ip"])
-        hostname = str(wg_server["cn"])
-        print(
-            f"[INFO] [{index}/{len(infos)}] {info.region.get('name')} — "
-            f"provisioning {hostname} ({server_ip})..."
-        )
-        try:
-            node = provision_region(
-                info=info,
-                token=token,
-                ca_pem=ca_pem,
-                timeout=args.timeout,
-                multi_countries=multi_countries,
-                core=core,
-            )
-        except Exception as exc:
-            print(f"[ERROR] {info.region.get('name')}: {exc}")
-            failures.append((info, str(exc)))
-            if args.fail_fast:
-                raise
-            continue
-
-        nodes.append(node)
-        if not args.single_only:
-            endpoint_dir = endpoint_directory(
-                providers_root=providers_root,
-                info=info,
-                multi_countries=multi_countries,
-                ov_index=ov_index,
-                core=core,
-            )
-            endpoint_dir.mkdir(parents=True, exist_ok=True)
-            path = endpoint_dir / "pia-wg.yaml"
-            path.write_text(build_endpoint_yaml(node), encoding="utf-8", newline="\n")
-            print(f"[WRITE] {path}")
-
-    if args.single_only and args.single_yaml is None:
-        args.single_yaml = "providers/pia-wg-all.yaml"
-
-    if args.single_yaml is not None:
-        path = resolve_single_yaml_path(args.out_dir, args.single_yaml)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(build_single_yaml(nodes), encoding="utf-8", newline="\n")
-        print(f"[WRITE] {path} ({len(nodes)} nodes, aggregate)")
-
-    print(f"[OK] Provisioned {len(nodes)}/{len(infos)} PIA WireGuard regions.")
-    if failures:
-        print(f"[WARN] {len(failures)} region(s) failed:")
-        for info, error in failures:
-            print(f"  - {info.region.get('name')}: {error}")
-    if missing or failures:
-        return 1
+    generate_wireguard(
+        username=username,
+        password=password,
+        out_dir=args.out_dir,
+        single_file=args.single_only,
+        exclude_streaming=not args.include_streaming,
+        timeout=args.timeout,
+    )
     return 0
 
 
