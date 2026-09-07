@@ -14,28 +14,37 @@ x-test: &TEST
 
 proxy-providers:
   # -------------------- Surfshark WireGuard --------------------
-  ss-hls:
+  # Split into the same six regions as PIA so each country can be compared 1:1.
+  ss-tw:
     type: file
     path: "P:\\Clash\\providers\\hls-wg-ss.yaml"
-    health-check:
-      <<: *TEST
-      enable: true
-
+    filter: '🇹🇼'
+    health-check: { <<: *TEST, enable: true }
+  ss-sg:
+    type: file
+    path: "P:\\Clash\\providers\\hls-wg-ss.yaml"
+    filter: '🇸🇬'
+    health-check: { <<: *TEST, enable: true }
+  ss-ph:
+    type: file
+    path: "P:\\Clash\\providers\\hls-wg-ss.yaml"
+    filter: '🇵🇭'
+    health-check: { <<: *TEST, enable: true }
   ss-hk:
     type: file
     path: "P:\\Clash\\providers\\china-wg-ss.yaml"
-    filter: '(?i)🇭🇰|香港|Hong.?Kong|HK'
-    health-check:
-      <<: *TEST
-      enable: true
-
-  ss-jp-kr:
+    filter: '🇭🇰'
+    health-check: { <<: *TEST, enable: true }
+  ss-jp:
     type: file
     path: "P:\\Clash\\providers\\asia-extra-wg-ss.yaml"
-    filter: '(?i)🇯🇵|🇰🇷|日本|韓國|Japan|Korea|JP|KR'
-    health-check:
-      <<: *TEST
-      enable: true
+    filter: '🇯🇵'
+    health-check: { <<: *TEST, enable: true }
+  ss-kr:
+    type: file
+    path: "P:\\Clash\\providers\\asia-extra-wg-ss.yaml"
+    filter: '🇰🇷'
+    health-check: { <<: *TEST, enable: true }
 
   # -------------------- PIA WireGuard --------------------
   pia-wg-tw:
@@ -107,9 +116,12 @@ proxy-groups:
   - name: SS
     type: select
     use:
-      - ss-hls
+      - ss-tw
+      - ss-sg
+      - ss-ph
       - ss-hk
-      - ss-jp-kr
+      - ss-jp
+      - ss-kr
 
   - name: PIA-WG
     type: select
