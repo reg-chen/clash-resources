@@ -143,6 +143,13 @@ def add_key(
     timeout: float,
 ) -> dict:
     context = ssl.create_default_context(cadata=ca_pem)
+    # Python 3.13 enables VERIFY_X509_STRICT by default. PIA's official legacy
+    # ca.rsa.4096.crt is accepted by their curl --cacert flow but fails strict
+    # RFC 5280 validation because its Basic Constraints extension is not critical.
+    # Keep certificate + hostname verification enabled; relax only X509 strictness.
+    if hasattr(ssl, "VERIFY_X509_STRICT"):
+        context.verify_flags &= ~ssl.VERIFY_X509_STRICT
+
     query = urllib.parse.urlencode({"pt": token, "pubkey": public_key})
     conn = FixedIPHTTPSConnection(
         hostname=hostname,
