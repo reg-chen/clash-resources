@@ -44,8 +44,8 @@ x-ss-test-slow: &SS-TEST-SLOW
 # PIA endpoint topology is injected by Clash Party JS override.
 # Protocol families can be enabled independently below.
 x-pia-endpoint-override: true
-x-pia-openvpn: false
-x-pia-wireguard: true
+x-pia-openvpn: true
+x-pia-wireguard: false
 
 x-pia-test: &PIA-TEST
   health-check:
@@ -194,14 +194,14 @@ proxy-groups:
       - LB-STICKY
       - DIRECT
       - SS-ALL
-      - OV-ALL
-      - OV-ASIA
-      - OV-MIDDLE-EAST
-      - OV-EUROPE
-      - OV-NORTH-AMERICA
-      - OV-LATIN-AMERICA
-      - OV-OCEANIA
-      - OV-AFRICA
+      - PIA-ALL
+      - PIA-ASIA
+      - PIA-MIDDLE-EAST
+      - PIA-EUROPE
+      - PIA-NORTH-AMERICA
+      - PIA-LATIN-AMERICA
+      - PIA-OCEANIA
+      - PIA-AFRICA
       
 
   # =====================================================================
@@ -232,7 +232,7 @@ proxy-groups:
       - AUTO-SAFE
       - DIRECT
       - SS-ALL
-      - OV-ASIA
+      - PIA-ASIA
 
   # =====================================================================
   # 直連優先（預設 DIRECT，但可自由選國家）
@@ -244,7 +244,7 @@ proxy-groups:
       - DIRECT
       - LB-CONSISTENT
       - SS-ALL
-      - OV-ASIA
+      - PIA-ASIA
 
   # =====================================================================
   # 銀行 / 政府專用（預設直連，必要時可手動切換國家）
@@ -256,7 +256,7 @@ proxy-groups:
       - DIRECT
       - LB-CONSISTENT
       - SS-ALL
-      - OV-ASIA
+      - PIA-ASIA
 
   - name: SS-ALL
     type: select
@@ -267,42 +267,42 @@ proxy-groups:
       - asia-extra-wg-ss
       - global-extra-wg-ss
 
-  - name: OV-ALL
+  - name: PIA-ALL
     type: select
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/OpenVPN.png
     proxies:
       - REJECT  # PIA endpoint override not loaded
-  - name: OV-ASIA
+  - name: PIA-ASIA
     type: select
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/japanese-castle.svg
     proxies:
       - REJECT  # PIA endpoint override not loaded
-  - name: OV-MIDDLE-EAST
+  - name: PIA-MIDDLE-EAST
     type: select
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/mosque.svg
     proxies:
       - REJECT  # PIA endpoint override not loaded
-  - name: OV-EUROPE
+  - name: PIA-EUROPE
     type: select
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/classical-building.svg
     proxies:
       - REJECT  # PIA endpoint override not loaded
-  - name: OV-NORTH-AMERICA
+  - name: PIA-NORTH-AMERICA
     type: select
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/statue-of-liberty.svg
     proxies:
       - REJECT  # PIA endpoint override not loaded
-  - name: OV-LATIN-AMERICA
+  - name: PIA-LATIN-AMERICA
     type: select
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/cactus.svg
     proxies:
       - REJECT  # PIA endpoint override not loaded
-  - name: OV-OCEANIA
+  - name: PIA-OCEANIA
     type: select
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/bridge-at-night.svg
     proxies:
       - REJECT  # PIA endpoint override not loaded
-  - name: OV-AFRICA
+  - name: PIA-AFRICA
     type: select
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/hut.svg
     proxies:
