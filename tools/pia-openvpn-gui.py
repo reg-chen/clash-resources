@@ -10,6 +10,7 @@ from pathlib import Path
 from PySide6.QtCore import QSettings, QThread, Signal
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QCheckBox,
     QFileDialog,
     QFormLayout,
@@ -18,10 +19,10 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QRadioButton,
-    QButtonGroup,
-    QPlainTextEdit,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -198,7 +199,7 @@ class MainWindow(QMainWindow):
         self.worker: GenerateWorker | None = None
 
         self.setWindowTitle("PIA OpenVPN → Mihomo Provider Generator")
-        self.resize(860, 650)
+        self.resize(860, 620)
 
         central = QWidget(self)
         self.setCentralWidget(central)
@@ -214,24 +215,26 @@ class MainWindow(QMainWindow):
         form.addRow("TCP ZIP", self._path_row(self.tcp_edit, self.pick_tcp_zip))
 
         self.username_edit = QLineEdit()
-        self.username_edit.setPlaceholderText("PIA OpenVPN username")
-        form.addRow("PIA Username", self.username_edit)
+        self.username_edit.setPlaceholderText("Username")
 
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.Password)
-        self.password_edit.setPlaceholderText("PIA OpenVPN password")
-        password_row = QWidget()
-        password_layout = QHBoxLayout(password_row)
-        password_layout.setContentsMargins(0, 0, 0, 0)
-        password_layout.addWidget(self.password_edit, 1)
-        self.show_password = QCheckBox("顯示")
+        self.password_edit.setPlaceholderText("Password")
+
+        credentials_row = QWidget()
+        credentials_layout = QHBoxLayout(credentials_row)
+        credentials_layout.setContentsMargins(0, 0, 0, 0)
+        credentials_layout.addWidget(self.username_edit, 1)
+        credentials_layout.addWidget(self.password_edit, 1)
+
+        self.show_password = QCheckBox("顯示密碼")
         self.show_password.toggled.connect(
             lambda checked: self.password_edit.setEchoMode(
                 QLineEdit.Normal if checked else QLineEdit.Password
             )
         )
-        password_layout.addWidget(self.show_password)
-        form.addRow("PIA Password", password_row)
+        credentials_layout.addWidget(self.show_password)
+        form.addRow("PIA 帳號 / 密碼", credentials_row)
 
         self.out_edit = QLineEdit()
         form.addRow("輸出目錄", self._path_row(self.out_edit, self.pick_output_dir))
@@ -240,13 +243,20 @@ class MainWindow(QMainWindow):
         mode_layout = QHBoxLayout(mode_row)
         mode_layout.setContentsMargins(0, 0, 0, 0)
         self.multi_radio = QRadioButton("分節點檔案")
-        self.single_radio = QRadioButton("單一檔案 (providers/pia-all.yaml)")
+        self.single_radio = QRadioButton("單一檔案")
         self.multi_radio.setChecked(True)
         mode_group = QButtonGroup(self)
         mode_group.addButton(self.multi_radio)
         mode_group.addButton(self.single_radio)
         mode_layout.addWidget(self.multi_radio)
         mode_layout.addWidget(self.single_radio)
+
+        mode_help = QToolButton()
+        mode_help.setText("?")
+        mode_help.setToolTip("輸出模式說明")
+        mode_help.setFixedSize(24, 24)
+        mode_help.clicked.connect(self.show_output_mode_help)
+        mode_layout.addWidget(mode_help)
         mode_layout.addStretch(1)
         form.addRow("輸出模式", mode_row)
 
@@ -274,6 +284,17 @@ class MainWindow(QMainWindow):
         button.clicked.connect(callback)
         layout.addWidget(button)
         return row
+
+    def show_output_mode_help(self) -> None:
+        QMessageBox.information(
+            self,
+            "輸出模式說明",
+            "分節點檔案\n"
+            "每個 PIA endpoint 各產生一份 providers/<endpoint>/pia.yaml，"
+            "同一檔案內包含 UDP 與 TCP 節點。\n\n"
+            "單一檔案\n"
+            "將全部 endpoint 與 transport 合併輸出為 providers/pia-all.yaml。",
+        )
 
     def pick_udp_zip(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
