@@ -1,0 +1,53 @@
+name: Build PIA Mihomo Generator
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - tools/pia-openvpn-generator.py
+      - tools/pia-openvpn-gui.py
+      - .github/workflows/build-pia-generator.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install PySide6 PyInstaller
+
+      - name: Build Windows executable
+        shell: pwsh
+        run: |
+          pyinstaller `
+            --noconfirm `
+            --clean `
+            --onefile `
+            --windowed `
+            --name PIA-Mihomo-Generator `
+            --add-data "tools/pia-openvpn-generator.py;." `
+            tools/pia-openvpn-gui.py
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: PIA-Mihomo-Generator-win-x64
+          path: dist/PIA-Mihomo-Generator.exe
+          if-no-files-found: error
