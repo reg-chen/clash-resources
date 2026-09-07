@@ -214,6 +214,9 @@ def canonical_region_info(region: dict, core) -> RegionInfo:
     if not server_cc:
         raise ValueError(f"Region has no country: {region}")
 
+    # PIA's display names line up closely with Strong OpenVPN bundle stems
+    # (CA Montreal -> ca_montreal, JP Tokyo -> jp_tokyo, Netherlands -> netherlands).
+    # Prefer that form, then fall back to the server-list id.
     candidates = []
     display_stem = normalized_region_stem(str(region.get("name", "")))
     region_id = str(region.get("id", "")).lower().strip()
@@ -229,6 +232,8 @@ def canonical_region_info(region: dict, core) -> RegionInfo:
         if cc == server_cc:
             return RegionInfo(region=region, stem=stem, country_code=cc, location_label=label)
 
+    # Future PIA regions should still be usable even before the OpenVPN mapping table
+    # learns their display name. The country code remains authoritative from serverlist.
     fallback_stem = region_id or display_stem
     if not fallback_stem:
         raise ValueError(f"Cannot derive endpoint stem from region: {region}")
@@ -299,6 +304,8 @@ def endpoint_directory(
     ov_index: dict[str, Path],
     core,
 ) -> Path:
+    # If the OpenVPN tree already exists, use its own source-stem marker as the
+    # authoritative placement. This keeps pia-wg.yaml literally beside pia-ov.yaml.
     if info.stem in ov_index:
         return ov_index[info.stem]
 
@@ -455,13 +462,27 @@ def main() -> int:
     if not username or not password:
         parser.error("username/password cannot be empty")
 
+    providers_root = args.out_dir / "providers"
+    ov_index = build_ov_directory_index(providers_root)
+
     print("[INFO] Fetching PIA server list...")
     serverlist = fetch_json_first_line(SERVERLIST_URL, args.timeout)
     infos = collect_regions(serverlist, core, args.include_streaming)
     if not infos:
         parser.error("PIA server list contains no usable WireGuard regions")
 
-    print(f"[INFO] WireGuard regions: {len(infos)}")
+    if ov_index:
+        available_by_stem = {info.stem: info for info in infos}
+        missing = sorted(set(ov_index) - set(available_by_stem))
+        infos = [available_by_stem[stem] for stem in ov_index if stem in available_by_stem]
+        print(f"[INFO] Aligning to {len(ov_index)} existing pia-ov.yaml endpoint markers.")
+        if missing:
+            print(f"[WARN] {len(missing)} OpenVPN endpoint(s) have no matching WireGuard region: {', '.join(missing)}")
+    else:
+        missing = []
+        print("[INFO] No pia-ov.yaml tree found; using every current PIA WireGuard region.")
+
+    print(f"[INFO] WireGuard regions selected: {len(infos)}")
     if not args.include_streaming:
         print("[INFO] PIA Streaming Optimized regions are excluded.")
 
@@ -471,11 +492,6 @@ def main() -> int:
 
     print("[INFO] Loading PIA certificate authority...")
     ca_pem = fetch_pia_ca(args.timeout, args.ca_file)
-
-    providers_root = args.out_dir / "providers"
-    ov_index = build_ov_directory_index(providers_root)
-    if ov_index:
-        print(f"[INFO] Found {len(ov_index)} existing pia-ov.yaml endpoint markers for path alignment.")
 
     multi_countries = multi_endpoint_countries(infos)
     nodes: list[WgNode] = []
@@ -533,6 +549,7 @@ def main() -> int:
         print(f"[WARN] {len(failures)} region(s) failed:")
         for info, error in failures:
             print(f"  - {info.region.get('name')}: {error}")
+    if missing or failures:
         return 1
     return 0
 
