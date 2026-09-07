@@ -173,6 +173,17 @@ function countryCode(endpoint) {
   return endpoint.path.split('\\')[0];
 }
 
+const countryCounts = PIA_ENDPOINTS.reduce((counts, endpoint) => {
+  const cc = countryCode(endpoint);
+  counts[cc] = (counts[cc] || 0) + 1;
+  return counts;
+}, {});
+
+function endpointPath(endpoint) {
+  const cc = countryCode(endpoint);
+  return countryCounts[cc] > 1 ? endpoint.path : cc;
+}
+
 function endpointNames(predicate) {
   return PIA_ENDPOINTS.filter(predicate).map((endpoint) => endpoint.name);
 }
@@ -229,6 +240,7 @@ function main(config) {
     ? config['proxy-providers']
     : {};
 
+  // Remove both generations so switching x-pia-wireguard on/off is deterministic.
   const nonPiaProviders = Object.fromEntries(
     Object.entries(existingProviders).filter(([name]) => !/^(?:ov|wg)-pia-/i.test(name))
   );
@@ -237,7 +249,7 @@ function main(config) {
 
   for (const endpoint of PIA_ENDPOINTS) {
     const healthCheck = endpoint.hot ? hot : cold;
-    const basePath = `${PIA_PROVIDER_ROOT}\\${endpoint.path}`;
+    const basePath = `${PIA_PROVIDER_ROOT}\\${endpointPath(endpoint)}`;
     const ovProviderName = `ov-pia-${endpoint.id}`;
 
     piaProviders[ovProviderName] = {
