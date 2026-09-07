@@ -1,5 +1,5 @@
 // Clash Party JavaScript override
-// v10: PIA endpoint override has independent OpenVPN and WireGuard toggles.
+// v11: protocol-neutral PIA endpoint/group names with independent OpenVPN/WireGuard toggles.
 // Scope: PIA provider declarations, hidden per-endpoint transport groups, and only
 // the PIA endpoint members of existing high-level groups. Routing rules remain YAML.
 
@@ -169,8 +169,25 @@ const LATIN_AMERICA = new Set(['MX', 'BR', 'AR', 'CL', 'CO', 'BO', 'BS', 'CR', '
 const OCEANIA = new Set(['AU', 'NZ']);
 const AFRICA = new Set(['ZA', 'NG', 'MA', 'DZ']);
 
+const LEGACY_GROUP_RENAMES = {
+  'OV-ALL': 'PIA-ALL',
+  'OV-ASIA': 'PIA-ASIA',
+  'OV-MIDDLE-EAST': 'PIA-MIDDLE-EAST',
+  'OV-EUROPE': 'PIA-EUROPE',
+  'OV-NORTH-AMERICA': 'PIA-NORTH-AMERICA',
+  'OV-LATIN-AMERICA': 'PIA-LATIN-AMERICA',
+  'OV-OCEANIA': 'PIA-OCEANIA',
+  'OV-AFRICA': 'PIA-AFRICA',
+};
+
 function countryCode(endpoint) {
   return endpoint.path.split('\\')[0];
+}
+
+function endpointDisplayName(endpoint) {
+  // The endpoint table predates WireGuard support. Keep it stable as metadata,
+  // but expose a protocol-neutral group name to the final Mihomo config.
+  return endpoint.name.replace(' OV-PIA-', ' PIA-');
 }
 
 const countryCounts = PIA_ENDPOINTS.reduce((counts, endpoint) => {
@@ -185,13 +202,33 @@ function endpointPath(endpoint) {
 }
 
 function endpointNames(predicate) {
-  return PIA_ENDPOINTS.filter(predicate).map((endpoint) => endpoint.name);
+  return PIA_ENDPOINTS.filter(predicate).map(endpointDisplayName);
+}
+
+function isPiaEndpointName(name) {
+  return typeof name === 'string' && (
+    name.includes(' PIA-') || name.includes(' OV-PIA-')
+  );
+}
+
+function migrateLegacyPiaGroupNames(groups) {
+  for (const group of groups) {
+    if (!group || typeof group !== 'object') continue;
+
+    if (LEGACY_GROUP_RENAMES[group.name]) {
+      group.name = LEGACY_GROUP_RENAMES[group.name];
+    }
+
+    if (Array.isArray(group.proxies)) {
+      group.proxies = group.proxies.map((name) => LEGACY_GROUP_RENAMES[name] || name);
+    }
+  }
 }
 
 const ASIA_ENDPOINTS = endpointNames((endpoint) => endpoint.hot);
 const HLS_ENDPOINTS = endpointNames((endpoint) => ['TW', 'PH', 'SG'].includes(countryCode(endpoint)));
 const AI_ENDPOINTS = endpointNames((endpoint) => endpoint.hot && !CHINA.has(countryCode(endpoint)));
-const ALL_ENDPOINTS = PIA_ENDPOINTS.map((endpoint) => endpoint.name);
+const ALL_ENDPOINTS = PIA_ENDPOINTS.map(endpointDisplayName);
 
 const EUROPE_ENDPOINTS = endpointNames((endpoint) => {
   const cc = countryCode(endpoint);
@@ -207,14 +244,14 @@ const PIA_GROUP_MEMBERS = {
   'LB-ROBIN': ASIA_ENDPOINTS,
   'LB-CONSISTENT': ASIA_ENDPOINTS,
   'AI-PROXY': AI_ENDPOINTS,
-  'OV-ALL': ALL_ENDPOINTS,
-  'OV-ASIA': ASIA_ENDPOINTS,
-  'OV-MIDDLE-EAST': endpointNames((endpoint) => MIDDLE_EAST.has(countryCode(endpoint))),
-  'OV-EUROPE': EUROPE_ENDPOINTS,
-  'OV-NORTH-AMERICA': endpointNames((endpoint) => NORTH_AMERICA.has(countryCode(endpoint))),
-  'OV-LATIN-AMERICA': endpointNames((endpoint) => LATIN_AMERICA.has(countryCode(endpoint))),
-  'OV-OCEANIA': endpointNames((endpoint) => OCEANIA.has(countryCode(endpoint))),
-  'OV-AFRICA': endpointNames((endpoint) => AFRICA.has(countryCode(endpoint))),
+  'PIA-ALL': ALL_ENDPOINTS,
+  'PIA-ASIA': ASIA_ENDPOINTS,
+  'PIA-MIDDLE-EAST': endpointNames((endpoint) => MIDDLE_EAST.has(countryCode(endpoint))),
+  'PIA-EUROPE': EUROPE_ENDPOINTS,
+  'PIA-NORTH-AMERICA': endpointNames((endpoint) => NORTH_AMERICA.has(countryCode(endpoint))),
+  'PIA-LATIN-AMERICA': endpointNames((endpoint) => LATIN_AMERICA.has(countryCode(endpoint))),
+  'PIA-OCEANIA': endpointNames((endpoint) => OCEANIA.has(countryCode(endpoint))),
+  'PIA-AFRICA': endpointNames((endpoint) => AFRICA.has(countryCode(endpoint))),
 };
 
 function clone(value) {
@@ -277,7 +314,7 @@ function main(config) {
 
     if (uses.length > 0) {
       endpointGroups.push({
-        name: endpoint.name,
+        name: endpointDisplayName(endpoint),
         type: endpoint.hot ? 'fallback' : 'select',
         hidden: true,
         use: uses,
@@ -288,12 +325,11 @@ function main(config) {
   config['proxy-providers'] = { ...piaProviders, ...nonPiaProviders };
 
   const existingGroups = Array.isArray(config['proxy-groups']) ? config['proxy-groups'] : [];
+  migrateLegacyPiaGroupNames(existingGroups);
+
   const nonEndpointGroups = existingGroups.filter((group) => {
     const name = group?.name;
-    const isPiaEndpointGroup =
-      group?.hidden === true &&
-      typeof name === 'string' &&
-      name.includes('OV-PIA-');
+    const isPiaEndpointGroup = group?.hidden === true && isPiaEndpointName(name);
     return !isPiaEndpointGroup;
   });
 
@@ -303,9 +339,7 @@ function main(config) {
       if (!piaMembers) continue;
 
       const current = Array.isArray(group.proxies) ? group.proxies : [];
-      const nonPia = current.filter(
-        (name) => typeof name !== 'string' || !name.includes('OV-PIA-')
-      );
+      const nonPia = current.filter((name) => !isPiaEndpointName(name));
       const isPiaOnlyGroup = nonPia.length === 1 && nonPia[0] === 'REJECT';
       group.proxies = [...(isPiaOnlyGroup ? [] : nonPia), ...piaMembers];
     }
