@@ -73,35 +73,35 @@ proxy-providers:
     health-check: { <<: *TEST, enable: true }
 
   # -------------------- PIA OpenVPN UDP --------------------
-  # Existing pia.yaml contains UDP + TCP; test profile keeps UDP only.
+  # Existing pia-ov.yaml contains UDP + TCP; test profile keeps UDP only.
   pia-ov-tw:
     type: file
-    path: "P:\\Clash\\providers\\TW\\pia.yaml"
+    path: "P:\\Clash\\providers\\TW\\pia-ov.yaml"
     filter: '-UDP$'
     health-check: { <<: *TEST, enable: true }
   pia-ov-sg:
     type: file
-    path: "P:\\Clash\\providers\\SG\\pia.yaml"
+    path: "P:\\Clash\\providers\\SG\\pia-ov.yaml"
     filter: '-UDP$'
     health-check: { <<: *TEST, enable: true }
   pia-ov-ph:
     type: file
-    path: "P:\\Clash\\providers\\PH\\pia.yaml"
+    path: "P:\\Clash\\providers\\PH\\pia-ov.yaml"
     filter: '-UDP$'
     health-check: { <<: *TEST, enable: true }
   pia-ov-hk:
     type: file
-    path: "P:\\Clash\\providers\\HK\\pia.yaml"
+    path: "P:\\Clash\\providers\\HK\\pia-ov.yaml"
     filter: '-UDP$'
     health-check: { <<: *TEST, enable: true }
   pia-ov-jp:
     type: file
-    path: "P:\\Clash\\providers\\JP\\pia.yaml"
+    path: "P:\\Clash\\providers\\JP\\pia-ov.yaml"
     filter: '-UDP$'
     health-check: { <<: *TEST, enable: true }
   pia-ov-kr:
     type: file
-    path: "P:\\Clash\\providers\\KR\\pia.yaml"
+    path: "P:\\Clash\\providers\\KR\\pia-ov.yaml"
     filter: '-UDP$'
     health-check: { <<: *TEST, enable: true }
 
