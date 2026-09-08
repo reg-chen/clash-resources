@@ -1,4 +1,4 @@
-name: Build PIA Mihomo Generator
+name: Build VPN Mihomo Generator
 
 on:
   workflow_dispatch:
@@ -10,6 +10,7 @@ on:
       - tools/pia-openvpn-generator.py
       - tools/pia-openvpn-generator-impl.py
       - tools/pia-wireguard-generator.py
+      - tools/surfshark-openvpn-generator.py
       - tools/pia-generator-gui.py
       - .github/workflows/build-pia-generator.yml
 
@@ -44,6 +45,7 @@ jobs:
             tools/pia-openvpn-generator.py `
             tools/pia-openvpn-generator-impl.py `
             tools/pia-wireguard-generator.py `
+            tools/surfshark-openvpn-generator.py `
             tools/pia-generator-gui.py
 
       - name: Build Windows executable
@@ -54,16 +56,17 @@ jobs:
             --clean `
             --onefile `
             --windowed `
-            --name PIA-Mihomo-Generator `
+            --name VPN-Mihomo-Generator `
             --collect-all cryptography `
             --add-data "tools/pia-openvpn-generator.py;." `
             --add-data "tools/pia-openvpn-generator-impl.py;." `
             --add-data "tools/pia-wireguard-generator.py;." `
+            --add-data "tools/surfshark-openvpn-generator.py;." `
             tools/pia-generator-gui.py
 
       - name: Upload executable
         uses: actions/upload-artifact@v7
         with:
-          name: PIA-Mihomo-Generator-win-x64
-          path: dist/PIA-Mihomo-Generator.exe
+          name: VPN-Mihomo-Generator-win-x64
+          path: dist/VPN-Mihomo-Generator.exe
           if-no-files-found: error
