@@ -269,7 +269,7 @@ proxy-groups:
 
   - name: PIA-ALL
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/PIA.svg
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/PrivateInternetAccess.svg
     proxies:
       - REJECT  # PIA endpoint override not loaded
   - name: PIA-ASIA
