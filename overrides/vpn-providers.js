@@ -371,19 +371,30 @@ function main(config) {
     }
   }
 
-  const ssProviderNames = [];
+  const ssBuckets = {
+    hls: [],
+    china: [],
+    asiaExtra: [],
+    globalExtra: [],
+  };
+  const ssOpenvpnByCountry = new Map();
+
   if (ssWireguardEnabled) {
     const defs = [
-      ['hls-wg-ss', 'hls-wg-ss.yaml', 'hls'],
-      ['china-wg-ss', 'china-wg-ss.yaml', 'china'],
-      ['asia-extra-wg-ss', 'asia-extra-wg-ss.yaml', 'asia-extra'],
-      ['global-extra-wg-ss', 'global-extra-wg-ss.yaml', 'global-extra'],
+      ['hls', 'hls-wg-ss', 'hls-wg-ss.yaml'],
+      ['china', 'china-wg-ss', 'china-wg-ss.yaml'],
+      ['asiaExtra', 'asia-extra-wg-ss', 'asia-extra-wg-ss.yaml'],
+      ['globalExtra', 'global-extra-wg-ss', 'global-extra-wg-ss.yaml'],
     ];
-    for (const [providerName, filename] of defs) {
-      generatedProviders[providerName] = makeProvider(`${PROVIDER_ROOT}\\${filename}`, ssHealth);
-      ssProviderNames.push(providerName);
+    for (const [bucket, providerName, filename] of defs) {
+      generatedProviders[providerName] = makeProvider(
+        `${PROVIDER_ROOT}\\${filename}`,
+        ssHealth
+      );
+      ssBuckets[bucket].push(providerName);
     }
   }
+
   if (ssOpenvpnEnabled) {
     for (const countryCode of SURFSHARK_COUNTRIES) {
       const providerName = `ov-ss-${countryCode.toLowerCase()}`;
@@ -391,9 +402,28 @@ function main(config) {
         `${PROVIDER_ROOT}\\${countryCode}\\surfshark-ov.yaml`,
         ssHealth
       );
-      ssProviderNames.push(providerName);
+      ssOpenvpnByCountry.set(countryCode, providerName);
+
+      if (HLS.has(countryCode)) ssBuckets.hls.push(providerName);
+      else if (CHINA.has(countryCode)) ssBuckets.china.push(providerName);
+      else if (ASIA_EXTRA.has(countryCode)) ssBuckets.asiaExtra.push(providerName);
+      else ssBuckets.globalExtra.push(providerName);
     }
   }
+
+  const ssAsiaProviders = [
+    ...ssBuckets.hls,
+    ...ssBuckets.china,
+    ...ssBuckets.asiaExtra,
+  ];
+  const ssAiProviders = [
+    ...ssBuckets.hls,
+    ...ssBuckets.asiaExtra,
+  ];
+  const ssProviderNames = [
+    ...ssAsiaProviders,
+    ...ssBuckets.globalExtra,
+  ];
 
   config['proxy-providers'] = { ...generatedProviders, ...baseProviders };
 
@@ -415,13 +445,13 @@ function main(config) {
   );
 
   const automationPolicy = {
-    'AUTO-FAST': { pia: piaAsia, ss: 'all' },
-    'AUTO-SAFE': { pia: piaAsia, ss: 'all' },
-    'LB-HLS': { pia: piaHls, ss: 'hls' },
-    'LB-STICKY': { pia: piaAsia, ss: 'asia' },
-    'LB-ROBIN': { pia: piaAsia, ss: 'asia' },
-    'LB-CONSISTENT': { pia: piaAsia, ss: 'asia' },
-    'AI-PROXY': { pia: piaAi, ss: 'not-china' },
+    'AUTO-FAST': { pia: piaAsia, ss: ssAsiaProviders },
+    'AUTO-SAFE': { pia: piaAsia, ss: ssAsiaProviders },
+    'LB-HLS': { pia: piaHls, ss: ssBuckets.hls },
+    'LB-STICKY': { pia: piaAsia, ss: ssAsiaProviders },
+    'LB-ROBIN': { pia: piaAsia, ss: ssAsiaProviders },
+    'LB-CONSISTENT': { pia: piaAsia, ss: ssAsiaProviders },
+    'AI-PROXY': { pia: piaAi, ss: ssAiProviders },
   };
 
   for (const group of baseGroups) {
@@ -430,14 +460,9 @@ function main(config) {
     delete group.filter;
     delete group['exclude-filter'];
     if (policy.pia.length > 0) addProxies(group, policy.pia);
-    if (ssProviderNames.length > 0) {
-      addUses(group, ssProviderNames);
-      if (policy.ss === 'hls') group.filter = flagFilter(HLS);
-      else if (policy.ss === 'asia') group.filter = flagFilter(ASIA);
-      else if (policy.ss === 'not-china') group['exclude-filter'] = flagFilter(CHINA);
-    }
+    if (policy.ss.length > 0) addUses(group, policy.ss);
 
-    const hasDynamicSource = policy.pia.length > 0 || ssProviderNames.length > 0;
+    const hasDynamicSource = policy.pia.length > 0 || policy.ss.length > 0;
     if (hasDynamicSource && Array.isArray(group.proxies)) {
       group.proxies = group.proxies.filter((name) => name !== 'REJECT');
       if (group.proxies.length === 0) delete group.proxies;
@@ -475,21 +500,40 @@ function main(config) {
       icon: `${ICON_ROOT}/Surfshark.svg`,
       use: [...ssProviderNames],
     });
-    const ssOpenvpnActive = ssProviderNames.some((name) => name.startsWith('ov-ss-'));
-    const ssAsiaActive = ssOpenvpnActive || ssProviderNames.some((name) =>
-      ['hls-wg-ss', 'china-wg-ss', 'asia-extra-wg-ss'].includes(name)
-    );
-    const ssGlobalActive = ssOpenvpnActive || ssProviderNames.includes('global-extra-wg-ss');
-    for (const [regionName, countries, icon] of REGION_DEFS) {
-      const regionAvailable = regionName === 'ASIA' ? ssAsiaActive : ssGlobalActive;
-      if (!regionAvailable) continue;
+
+    if (ssAsiaProviders.length > 0) {
       vendorGroups.push({
+        name: 'SS-ASIA',
+        type: 'select',
+        icon: `${ICON_ROOT}/fluent-emoji-flat/japanese-castle.svg`,
+        use: [...ssAsiaProviders],
+      });
+    }
+
+    for (const [regionName, countries, icon] of REGION_DEFS) {
+      if (regionName === 'ASIA') continue;
+
+      const regionProviders = [];
+      if (ssWireguardEnabled && ssBuckets.globalExtra.includes('global-extra-wg-ss')) {
+        regionProviders.push('global-extra-wg-ss');
+      }
+      for (const countryCode of SURFSHARK_COUNTRIES) {
+        if (!countries.has(countryCode)) continue;
+        const providerName = ssOpenvpnByCountry.get(countryCode);
+        if (providerName) regionProviders.push(providerName);
+      }
+      if (regionProviders.length === 0) continue;
+
+      const group = {
         name: `SS-${regionName}`,
         type: 'select',
         icon: `${ICON_ROOT}/${icon}`,
-        use: [...ssProviderNames],
-        filter: flagFilter(countries),
-      });
+        use: regionProviders,
+      };
+      if (regionProviders.includes('global-extra-wg-ss')) {
+        group.filter = flagFilter(countries);
+      }
+      vendorGroups.push(group);
     }
   }
 
