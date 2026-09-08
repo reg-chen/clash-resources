@@ -49,19 +49,6 @@ x-pia-wireguard: false
 x-ss-openvpn: false
 x-ss-wireguard: true
 
-# Clash Party's JS override sandbox cannot read P:\ directly.
-# Explicit provider-file presence gate: set true only after the corresponding
-# generated YAML exists. JS requires BOTH the protocol toggle and this key.
-x-vpn-provider-files:
-  pia-openvpn: true
-  pia-wireguard: true
-  ss-openvpn: false
-  ss-wireguard:
-    hls: true
-    china: true
-    asia-extra: true
-    global-extra: true
-
 x-pia-test: &PIA-TEST
   health-check:
     <<: *TEST
