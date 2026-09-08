@@ -333,6 +333,31 @@ def write_endpoint_tree(out_dir: Path, nodes: list[OvpnNode], username: str, pas
         print(f"[WRITE] {path} ({len(provider_nodes)} nodes: UDP + TCP)")
 
 
+def write_country_tree(out_dir: Path, nodes: list[OvpnNode], username: str, password: str) -> None:
+    """Stable desktop entry points: one aggregate provider per country folder."""
+    providers_root = out_dir / "providers"
+    country_codes = sorted({node.country_code for node in nodes})
+    for country_code in country_codes:
+        country_nodes = [node for node in nodes if node.country_code == country_code]
+        country_dir = providers_root / country_code.upper()
+        country_dir.mkdir(parents=True, exist_ok=True)
+        path = country_dir / "surfshark-ov.yaml"
+        path.write_text(
+            build_provider_yaml(
+                country_nodes,
+                username,
+                password,
+                [
+                    "# GENERATED FILE — Surfshark country aggregate for desktop Mihomo.",
+                    f"# Country: {country_code.upper()} | vendor: Surfshark | transports: UDP + TCP",
+                ],
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+        print(f"[WRITE] {path} ({len(country_nodes)} nodes)")
+
+
 def write_single_yaml(out_dir: Path, nodes: list[OvpnNode], username: str, password: str) -> None:
     path = out_dir / "providers" / "surfshark-ov-all.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -360,11 +385,13 @@ def generate_openvpn(*, bundle_zip: Path, username: str, password: str, out_dir:
         raise RuntimeError("沒有任何 Surfshark OpenVPN 節點可輸出。")
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    # surfshark-ov-all.yaml is always emitted as the stable JS/provider entry point.
-    # Multi-file mode additionally writes the per-endpoint tree.
-    write_single_yaml(out_dir, nodes, username, password)
-    if not single_file:
+    if single_file:
+        write_single_yaml(out_dir, nodes, username, password)
+    else:
+        # Desktop consumes the stable country-root providers; endpoint files remain
+        # available below multi-endpoint country folders for finer manual use.
         write_endpoint_tree(out_dir, nodes, username, password)
+        write_country_tree(out_dir, nodes, username, password)
 
     print(f"節點總數：{len(nodes)}")
     print(f"endpoint 數：{len({node.endpoint for node in nodes})}")
