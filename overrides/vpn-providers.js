@@ -189,6 +189,11 @@ const ASIA = new Set([...HLS, ...CHINA, ...ASIA_EXTRA]);
 
 const SURFSHARK_COUNTRIES = ["AL","DZ","AD","AR","AM","AU","AT","AZ","BS","BD","BE","BZ","BT","BO","BA","BR","BN","BG","KH","CA","CL","CO","CR","HR","CY","CZ","DK","EC","EG","EE","FI","FR","GE","DE","GH","GR","GL","HK","HU","IS","IN","ID","IE","IM","IL","IT","JP","KZ","LA","LV","LI","LT","LU","MO","MY","MT","MA","MX","MD","MC","MN","ME","MM","NP","NL","NZ","NG","MK","NO","PK","PA","PY","PE","PH","PL","PT","PR","RO","SA","RS","SG","SK","SI","ZA","KR","ES","LK","SE","CH","TW","TH","TR","UA","AE","GB","US","UY","UZ","VE","VN"];
 
+const PIA_HOT_COUNTRY_ORDER = [
+  'TW', 'PH', 'SG', 'MO', 'HK', 'CN', 'JP', 'KR', 'MY', 'ID', 'VN', 'IN',
+  'KH', 'MN', 'NP', 'BD', 'LK'
+];
+
 const REGION_DEFS = [
   ['ASIA', ASIA, 'fluent-emoji-flat/japanese-castle.svg'],
   ['MIDDLE-EAST', MIDDLE_EAST, 'fluent-emoji-flat/mosque.svg'],
@@ -330,9 +335,10 @@ function main(config) {
 
   const piaHot = config['x-pia-test']?.['health-check'];
   const piaCold = config['x-pia-test-slow']?.['health-check'];
-  const ssHealth = config['x-ss-test']?.['health-check'];
-  if (!piaHot || !piaCold || !ssHealth) {
-    throw new Error('VPN provider override requires x-pia-test, x-pia-test-slow and x-ss-test');
+  const ssHot = config['x-ss-test']?.['health-check'];
+  const ssCold = config['x-ss-test-slow']?.['health-check'];
+  if (!piaHot || !piaCold || !ssHot || !ssCold) {
+    throw new Error('VPN provider override requires x-pia-test, x-pia-test-slow, x-ss-test and x-ss-test-slow');
   }
 
   const existingProviders = config['proxy-providers'] && typeof config['proxy-providers'] === 'object'
@@ -392,54 +398,71 @@ function main(config) {
     for (const [bucket, providerName, filename] of defs) {
       generatedProviders[providerName] = makeProvider(
         `${PROVIDER_ROOT}\\${filename}`,
-        ssHealth
+        ssHot
       );
       ssBuckets[bucket].push(providerName);
     }
   }
 
+  const ssCountryGroups = [];
+  const ssCountryGroupByCode = new Map();
+
   if (ssOpenvpnEnabled) {
     for (const countryCode of SURFSHARK_COUNTRIES) {
       const providerName = `ov-ss-${countryCode.toLowerCase()}`;
+      const hotCountry = PIA_HOT_COUNTRY_ORDER.includes(countryCode);
       generatedProviders[providerName] = makeProvider(
         `${PROVIDER_ROOT}\\${countryCode}\\surfshark-ov.yaml`,
-        ssHealth
+        hotCountry ? ssHot : ssCold
       );
       ssOpenvpnByCountry.set(countryCode, providerName);
 
-      if (HLS.has(countryCode)) ssBuckets.hls.push(providerName);
-      else if (CHINA.has(countryCode)) ssBuckets.china.push(providerName);
-      else if (ASIA_EXTRA.has(countryCode)) ssBuckets.asiaExtra.push(providerName);
-
-      for (const [regionName, countries] of REGION_DEFS) {
-        if (countries.has(countryCode)) {
-          ssRegionBuckets[regionName].push(providerName);
-          break;
-        }
-      }
+      const countryGroupName = `${flagEmoji(countryCode)} SS-${countryCode}`;
+      ssCountryGroupByCode.set(countryCode, countryGroupName);
+      ssCountryGroups.push({
+        name: countryGroupName,
+        type: 'fallback',
+        hidden: true,
+        use: [providerName],
+      });
     }
   }
 
-  const ssAsiaProviders = [
+  const orderedSsAsiaCodes = PIA_HOT_COUNTRY_ORDER.filter((code) => ASIA.has(code));
+  const ssOvHlsGroups = orderedSsAsiaCodes
+    .filter((code) => HLS.has(code))
+    .map((code) => ssCountryGroupByCode.get(code))
+    .filter(Boolean);
+  const ssOvChinaGroups = orderedSsAsiaCodes
+    .filter((code) => CHINA.has(code))
+    .map((code) => ssCountryGroupByCode.get(code))
+    .filter(Boolean);
+  const ssOvAsiaExtraGroups = orderedSsAsiaCodes
+    .filter((code) => ASIA_EXTRA.has(code))
+    .map((code) => ssCountryGroupByCode.get(code))
+    .filter(Boolean);
+  const ssOvAsiaGroups = [
+    ...ssOvHlsGroups,
+    ...ssOvChinaGroups,
+    ...ssOvAsiaExtraGroups,
+  ];
+  const ssOvAiGroups = [
+    ...ssOvHlsGroups,
+    ...ssOvAsiaExtraGroups,
+  ];
+
+  const ssWgAsiaProviders = [
     ...ssBuckets.hls,
     ...ssBuckets.china,
     ...ssBuckets.asiaExtra,
   ];
-  const ssAiProviders = [
+  const ssWgAiProviders = [
     ...ssBuckets.hls,
     ...ssBuckets.asiaExtra,
   ];
-  const ssOpenvpnRegionalProviders = [
-    ...ssRegionBuckets['MIDDLE-EAST'],
-    ...ssRegionBuckets['EUROPE'],
-    ...ssRegionBuckets['NORTH-AMERICA'],
-    ...ssRegionBuckets['LATIN-AMERICA'],
-    ...ssRegionBuckets['OCEANIA'],
-    ...ssRegionBuckets['AFRICA'],
-  ];
+
   const ssProviderNames = [
-    ...ssAsiaProviders,
-    ...ssOpenvpnRegionalProviders,
+    ...ssWgAsiaProviders,
     ...ssBuckets.wgGlobalExtra,
   ];
 
@@ -463,13 +486,34 @@ function main(config) {
   );
 
   const automationPolicy = {
-    'AUTO-FAST': { pia: piaAsia, ss: ssAsiaProviders },
-    'AUTO-SAFE': { pia: piaAsia, ss: ssAsiaProviders },
-    'LB-HLS': { pia: piaHls, ss: ssBuckets.hls },
-    'LB-STICKY': { pia: piaAsia, ss: ssAsiaProviders },
-    'LB-ROBIN': { pia: piaAsia, ss: ssAsiaProviders },
-    'LB-CONSISTENT': { pia: piaAsia, ss: ssAsiaProviders },
-    'AI-PROXY': { pia: piaAi, ss: ssAiProviders },
+    'AUTO-FAST': {
+      proxies: [...piaAsia, ...ssOvAsiaGroups],
+      use: ssWgAsiaProviders,
+    },
+    'AUTO-SAFE': {
+      proxies: [...piaAsia, ...ssOvAsiaGroups],
+      use: ssWgAsiaProviders,
+    },
+    'LB-HLS': {
+      proxies: [...piaHls, ...ssOvHlsGroups],
+      use: ssBuckets.hls,
+    },
+    'LB-STICKY': {
+      proxies: [...piaAsia, ...ssOvAsiaGroups],
+      use: ssWgAsiaProviders,
+    },
+    'LB-ROBIN': {
+      proxies: [...piaAsia, ...ssOvAsiaGroups],
+      use: ssWgAsiaProviders,
+    },
+    'LB-CONSISTENT': {
+      proxies: [...piaAsia, ...ssOvAsiaGroups],
+      use: ssWgAsiaProviders,
+    },
+    'AI-PROXY': {
+      proxies: [...piaAi, ...ssOvAiGroups],
+      use: ssWgAiProviders,
+    },
   };
 
   for (const group of baseGroups) {
@@ -477,10 +521,10 @@ function main(config) {
     if (!policy) continue;
     delete group.filter;
     delete group['exclude-filter'];
-    if (policy.pia.length > 0) addProxies(group, policy.pia);
-    if (policy.ss.length > 0) addUses(group, policy.ss);
+    if (policy.proxies.length > 0) addProxies(group, policy.proxies);
+    if (policy.use.length > 0) addUses(group, policy.use);
 
-    const hasDynamicSource = policy.pia.length > 0 || policy.ss.length > 0;
+    const hasDynamicSource = policy.proxies.length > 0 || policy.use.length > 0;
     if (hasDynamicSource && Array.isArray(group.proxies)) {
       group.proxies = group.proxies.filter((name) => name !== 'REJECT');
       if (group.proxies.length === 0) delete group.proxies;
@@ -511,46 +555,51 @@ function main(config) {
     }
   }
 
-  if (ssProviderNames.length > 0) {
-    vendorGroups.push({
+  const hasSsOpenvpn = ssCountryGroups.length > 0;
+  const hasSsWireguard = ssProviderNames.length > 0;
+  if (hasSsOpenvpn || hasSsWireguard) {
+    const ssAllGroup = {
       name: 'SS-ALL',
       type: 'select',
       icon: `${ICON_ROOT}/Surfshark.svg`,
-      use: [...ssProviderNames],
-    });
+    };
+    const allProxies = SURFSHARK_COUNTRIES
+      .map((code) => ssCountryGroupByCode.get(code))
+      .filter(Boolean);
+    if (allProxies.length > 0) ssAllGroup.proxies = allProxies;
+    if (ssProviderNames.length > 0) ssAllGroup.use = [...ssProviderNames];
+    vendorGroups.push(ssAllGroup);
 
-    if (ssAsiaProviders.length > 0) {
-      vendorGroups.push({
-        name: 'SS-ASIA',
-        type: 'select',
-        icon: `${ICON_ROOT}/fluent-emoji-flat/japanese-castle.svg`,
-        use: [...ssAsiaProviders],
-      });
-    }
+    const asiaGroup = {
+      name: 'SS-ASIA',
+      type: 'select',
+      icon: `${ICON_ROOT}/fluent-emoji-flat/japanese-castle.svg`,
+    };
+    if (ssOvAsiaGroups.length > 0) asiaGroup.proxies = [...ssOvAsiaGroups];
+    if (ssWgAsiaProviders.length > 0) asiaGroup.use = [...ssWgAsiaProviders];
+    if (asiaGroup.proxies || asiaGroup.use) vendorGroups.push(asiaGroup);
 
     for (const [regionName, countries, icon] of REGION_DEFS) {
       if (regionName === 'ASIA') continue;
-
-      const regionProviders = [...ssRegionBuckets[regionName]];
-
-      // Legacy Surfshark WG is still stored as one broad global-extra file.
-      // Keep it usable in regional groups through a flag filter, but do not
-      // use global-extra as the OpenVPN classification model.
-      if (ssBuckets.wgGlobalExtra.includes('global-extra-wg-ss')) {
-        regionProviders.unshift('global-extra-wg-ss');
-      }
-      if (regionProviders.length === 0) continue;
 
       const group = {
         name: `SS-${regionName}`,
         type: 'select',
         icon: `${ICON_ROOT}/${icon}`,
-        use: regionProviders,
       };
-      if (regionProviders.includes('global-extra-wg-ss')) {
+
+      const regionProxies = SURFSHARK_COUNTRIES
+        .filter((code) => countries.has(code))
+        .map((code) => ssCountryGroupByCode.get(code))
+        .filter(Boolean);
+      if (regionProxies.length > 0) group.proxies = regionProxies;
+
+      if (ssBuckets.wgGlobalExtra.includes('global-extra-wg-ss')) {
+        group.use = ['global-extra-wg-ss'];
         group.filter = flagFilter(countries);
       }
-      vendorGroups.push(group);
+
+      if (group.proxies || group.use) vendorGroups.push(group);
     }
   }
 
@@ -572,6 +621,11 @@ function main(config) {
     addProxies(group, candidates.filter((name) => activeVendorGroupNames.has(name)));
   }
 
-  config['proxy-groups'] = [...piaEndpointGroups, ...baseGroups, ...vendorGroups];
+  config['proxy-groups'] = [
+    ...piaEndpointGroups,
+    ...ssCountryGroups,
+    ...baseGroups,
+    ...vendorGroups,
+  ];
   return config;
 }
