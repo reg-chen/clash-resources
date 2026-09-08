@@ -100,6 +100,8 @@ proxy-groups:
     <<: *TEST
     interval: 900
     tolerance: 50
+    proxies:
+      - REJECT
 
   # =====================================================================
   # 故障自動切換（fallback：依順序 → 第一個掛掉才換下一個）
@@ -110,6 +112,8 @@ proxy-groups:
     <<: *TEST
     interval: 900
     tolerance: 120
+    proxies:
+      - REJECT
 
   # =====================================================================
   # 負載平衡（挑選串流敏感的節點）
@@ -118,6 +122,8 @@ proxy-groups:
     type: load-balance
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/repeat-button.svg
     strategy: round-robin
+    proxies:
+      - REJECT
 
   # =====================================================================
   # 負載平衡（Sticky：同一連線會黏著同節點）
@@ -126,6 +132,8 @@ proxy-groups:
     type: load-balance
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/repeat-button.svg
     strategy: sticky-sessions
+    proxies:
+      - REJECT
 
   # =====================================================================
   # 負載平衡（Non-sticky：每次請求可能不同節點）
@@ -134,6 +142,8 @@ proxy-groups:
     type: load-balance
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/repeat-button.svg
     strategy: round-robin
+    proxies:
+      - REJECT
 
   # =====================================================================
   # 一致性哈希（登入 / API / 風控最穩，不跳不同 IP）
@@ -142,6 +152,8 @@ proxy-groups:
     type: load-balance
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/repeat-button.svg
     strategy: consistent-hashing
+    proxies:
+      - REJECT
 
   # =====================================================================
   # DIRECT / PROXY 總切換（平常 DIRECT；出國時可整組切到 PROXY）
