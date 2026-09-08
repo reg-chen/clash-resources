@@ -61,6 +61,9 @@ payload:
   # Shopping
   - PROCESS-NAME,com.coupang.mobile.lightspeed
 
+  # Customs / import
+  - PROCESS-NAME,com.tradevan.android.forms
+
   # Transportation / taxi
   - PROCESS-NAME,dbx.taiwantaxi
   - PROCESS-NAME,com.tmc.mtaxi
