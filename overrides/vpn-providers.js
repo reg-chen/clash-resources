@@ -187,6 +187,8 @@ const OCEANIA = new Set(['AU', 'NZ']);
 const AFRICA = new Set(['ZA', 'NG', 'GH', 'MA', 'DZ']);
 const ASIA = new Set([...HLS, ...CHINA, ...ASIA_EXTRA]);
 
+const SURFSHARK_COUNTRIES = ["AL","DZ","AD","AR","AM","AU","AT","AZ","BS","BD","BE","BZ","BT","BO","BA","BR","BN","BG","KH","CA","CL","CO","CR","HR","CY","CZ","DK","EC","EG","EE","FI","FR","GE","DE","GH","GR","GL","HK","HU","IS","IN","ID","IE","IM","IL","IT","JP","KZ","LA","LV","LI","LT","LU","MO","MY","MT","MA","MX","MD","MC","MN","ME","MM","NP","NL","NZ","NG","MK","NO","PK","PA","PY","PE","PH","PL","PT","PR","RO","SA","RS","SG","SK","SI","ZA","KR","ES","LK","SE","CH","TW","TH","TR","UA","AE","GB","US","UY","UZ","VE","VN"];
+
 const REGION_DEFS = [
   ['ASIA', ASIA, 'fluent-emoji-flat/japanese-castle.svg'],
   ['MIDDLE-EAST', MIDDLE_EAST, 'fluent-emoji-flat/mosque.svg'],
@@ -383,10 +385,14 @@ function main(config) {
     }
   }
   if (ssOpenvpnEnabled) {
-    generatedProviders['ov-ss-all'] = makeProvider(
-      `${PROVIDER_ROOT}\\surfshark-ov-all.yaml`, ssHealth
-    );
-    ssProviderNames.push('ov-ss-all');
+    for (const countryCode of SURFSHARK_COUNTRIES) {
+      const providerName = `ov-ss-${countryCode.toLowerCase()}`;
+      generatedProviders[providerName] = makeProvider(
+        `${PROVIDER_ROOT}\\${countryCode}\\surfshark-ov.yaml`,
+        ssHealth
+      );
+      ssProviderNames.push(providerName);
+    }
   }
 
   config['proxy-providers'] = { ...generatedProviders, ...baseProviders };
@@ -469,7 +475,7 @@ function main(config) {
       icon: `${ICON_ROOT}/Surfshark.svg`,
       use: [...ssProviderNames],
     });
-    const ssOpenvpnActive = ssProviderNames.includes('ov-ss-all');
+    const ssOpenvpnActive = ssProviderNames.some((name) => name.startsWith('ov-ss-'));
     const ssAsiaActive = ssOpenvpnActive || ssProviderNames.some((name) =>
       ['hls-wg-ss', 'china-wg-ss', 'asia-extra-wg-ss'].includes(name)
     );
