@@ -180,7 +180,7 @@ const EUROPE = new Set([
 ]);
 const NORTH_AMERICA = new Set(['US', 'CA', 'GL']);
 const LATIN_AMERICA = new Set([
-  'MX', 'BR', 'AR', 'CL', 'CO', 'BO', 'BS', 'CR', 'EC', 'GT', 'PA', 'PE',
+  'MX', 'BR', 'AR', 'CL', 'CO', 'BO', 'BS', 'BZ', 'CR', 'EC', 'GT', 'PA', 'PE',
   'PR', 'PY', 'UY', 'VE'
 ]);
 const OCEANIA = new Set(['AU', 'NZ']);
@@ -375,8 +375,11 @@ function main(config) {
     hls: [],
     china: [],
     asiaExtra: [],
-    globalExtra: [],
+    wgGlobalExtra: [],
   };
+  const ssRegionBuckets = Object.fromEntries(
+    REGION_DEFS.map(([regionName]) => [regionName, []])
+  );
   const ssOpenvpnByCountry = new Map();
 
   if (ssWireguardEnabled) {
@@ -384,7 +387,7 @@ function main(config) {
       ['hls', 'hls-wg-ss', 'hls-wg-ss.yaml'],
       ['china', 'china-wg-ss', 'china-wg-ss.yaml'],
       ['asiaExtra', 'asia-extra-wg-ss', 'asia-extra-wg-ss.yaml'],
-      ['globalExtra', 'global-extra-wg-ss', 'global-extra-wg-ss.yaml'],
+      ['wgGlobalExtra', 'global-extra-wg-ss', 'global-extra-wg-ss.yaml'],
     ];
     for (const [bucket, providerName, filename] of defs) {
       generatedProviders[providerName] = makeProvider(
@@ -407,7 +410,13 @@ function main(config) {
       if (HLS.has(countryCode)) ssBuckets.hls.push(providerName);
       else if (CHINA.has(countryCode)) ssBuckets.china.push(providerName);
       else if (ASIA_EXTRA.has(countryCode)) ssBuckets.asiaExtra.push(providerName);
-      else ssBuckets.globalExtra.push(providerName);
+
+      for (const [regionName, countries] of REGION_DEFS) {
+        if (countries.has(countryCode)) {
+          ssRegionBuckets[regionName].push(providerName);
+          break;
+        }
+      }
     }
   }
 
@@ -420,9 +429,18 @@ function main(config) {
     ...ssBuckets.hls,
     ...ssBuckets.asiaExtra,
   ];
+  const ssOpenvpnRegionalProviders = [
+    ...ssRegionBuckets['MIDDLE-EAST'],
+    ...ssRegionBuckets['EUROPE'],
+    ...ssRegionBuckets['NORTH-AMERICA'],
+    ...ssRegionBuckets['LATIN-AMERICA'],
+    ...ssRegionBuckets['OCEANIA'],
+    ...ssRegionBuckets['AFRICA'],
+  ];
   const ssProviderNames = [
     ...ssAsiaProviders,
-    ...ssBuckets.globalExtra,
+    ...ssOpenvpnRegionalProviders,
+    ...ssBuckets.wgGlobalExtra,
   ];
 
   config['proxy-providers'] = { ...generatedProviders, ...baseProviders };
@@ -513,14 +531,13 @@ function main(config) {
     for (const [regionName, countries, icon] of REGION_DEFS) {
       if (regionName === 'ASIA') continue;
 
-      const regionProviders = [];
-      if (ssWireguardEnabled && ssBuckets.globalExtra.includes('global-extra-wg-ss')) {
-        regionProviders.push('global-extra-wg-ss');
-      }
-      for (const countryCode of SURFSHARK_COUNTRIES) {
-        if (!countries.has(countryCode)) continue;
-        const providerName = ssOpenvpnByCountry.get(countryCode);
-        if (providerName) regionProviders.push(providerName);
+      const regionProviders = [...ssRegionBuckets[regionName]];
+
+      // Legacy Surfshark WG is still stored as one broad global-extra file.
+      // Keep it usable in regional groups through a flag filter, but do not
+      // use global-extra as the OpenVPN classification model.
+      if (ssBuckets.wgGlobalExtra.includes('global-extra-wg-ss')) {
+        regionProviders.unshift('global-extra-wg-ss');
       }
       if (regionProviders.length === 0) continue;
 
