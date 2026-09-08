@@ -181,6 +181,7 @@ class MainWindow(QMainWindow):
         self.settings = QSettings(ORG_NAME, APP_NAME)
         self.worker: GenerateWorker | None = None
         self._pia_wireguard_preference = True
+        self._active_provider = "pia"
 
         self.setWindowTitle("VPN → Mihomo Provider Generator")
         self.resize(880, 690)
@@ -317,6 +318,12 @@ class MainWindow(QMainWindow):
 
     def update_provider_controls(self, *_args) -> None:
         provider = self.selected_provider()
+
+        if provider != self._active_provider:
+            self.save_provider_settings(self._active_provider)
+            self.restore_provider_settings(provider)
+            self._active_provider = provider
+
         surfshark = provider == "surfshark"
 
         if surfshark:
@@ -494,32 +501,85 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "失敗", detail)
         self.worker = None
 
-    def restore_settings(self) -> None:
-        self.udp_edit.setText(self.settings.value("udp_zip", "", str))
-        self.tcp_edit.setText(self.settings.value("tcp_zip", "", str))
-        self.out_edit.setText(self.settings.value("out_dir", "", str))
-        self.openvpn_checkbox.setChecked(self.settings.value("generate_openvpn", True, bool))
-        self._pia_wireguard_preference = self.settings.value("generate_wireguard", True, bool)
-        self.exclude_streaming.setChecked(self.settings.value("exclude_streaming", True, bool))
+    def provider_setting_key(self, provider: str, name: str) -> str:
+        return f"{provider}/{name}"
 
-        provider = self.settings.value("provider", "pia", str)
-        self.surfshark_radio.setChecked(provider == "surfshark")
-        self.pia_radio.setChecked(provider != "surfshark")
+    def restore_provider_settings(self, provider: str) -> None:
+        self.udp_edit.setText(
+            self.settings.value(self.provider_setting_key(provider, "udp_zip"), "", str)
+        )
+        self.tcp_edit.setText(
+            self.settings.value(self.provider_setting_key(provider, "tcp_zip"), "", str)
+        )
+        self.out_edit.setText(
+            self.settings.value(self.provider_setting_key(provider, "out_dir"), "", str)
+        )
+        self.openvpn_checkbox.setChecked(
+            self.settings.value(self.provider_setting_key(provider, "generate_openvpn"), True, bool)
+        )
 
-        single = self.settings.value("single_file", False, bool)
+        if provider == "pia":
+            self._pia_wireguard_preference = self.settings.value(
+                self.provider_setting_key(provider, "generate_wireguard"), True, bool
+            )
+            self.exclude_streaming.setChecked(
+                self.settings.value(
+                    self.provider_setting_key(provider, "exclude_streaming"), True, bool
+                )
+            )
+
+        single = self.settings.value(
+            self.provider_setting_key(provider, "single_file"), False, bool
+        )
         self.single_radio.setChecked(single)
         self.multi_radio.setChecked(not single)
 
+    def save_provider_settings(self, provider: str) -> None:
+        self.settings.setValue(
+            self.provider_setting_key(provider, "udp_zip"), self.udp_edit.text().strip()
+        )
+        self.settings.setValue(
+            self.provider_setting_key(provider, "tcp_zip"), self.tcp_edit.text().strip()
+        )
+        self.settings.setValue(
+            self.provider_setting_key(provider, "out_dir"), self.out_edit.text().strip()
+        )
+        self.settings.setValue(
+            self.provider_setting_key(provider, "generate_openvpn"),
+            self.openvpn_checkbox.isChecked(),
+        )
+        self.settings.setValue(
+            self.provider_setting_key(provider, "single_file"),
+            self.single_radio.isChecked(),
+        )
+
+        if provider == "pia":
+            self.settings.setValue(
+                self.provider_setting_key(provider, "generate_wireguard"),
+                self._pia_wireguard_preference,
+            )
+            self.settings.setValue(
+                self.provider_setting_key(provider, "exclude_streaming"),
+                self.exclude_streaming.isChecked(),
+            )
+
+    def restore_settings(self) -> None:
+        provider = self.settings.value("provider", "pia", str)
+        self.pia_radio.blockSignals(True)
+        self.surfshark_radio.blockSignals(True)
+        self.surfshark_radio.setChecked(provider == "surfshark")
+        self.pia_radio.setChecked(provider != "surfshark")
+        self.pia_radio.blockSignals(False)
+        self.surfshark_radio.blockSignals(False)
+
+        self._active_provider = self.selected_provider()
+        self.restore_provider_settings(self._active_provider)
+
     def save_settings(self) -> None:
         # Credentials are deliberately never persisted.
-        self.settings.setValue("provider", self.selected_provider())
-        self.settings.setValue("udp_zip", self.udp_edit.text().strip())
-        self.settings.setValue("tcp_zip", self.tcp_edit.text().strip())
-        self.settings.setValue("out_dir", self.out_edit.text().strip())
-        self.settings.setValue("generate_openvpn", self.openvpn_checkbox.isChecked())
-        self.settings.setValue("generate_wireguard", self._pia_wireguard_preference)
-        self.settings.setValue("exclude_streaming", self.exclude_streaming.isChecked())
-        self.settings.setValue("single_file", self.single_radio.isChecked())
+        provider = self.selected_provider()
+        self.save_provider_settings(provider)
+        self.settings.setValue("provider", provider)
 
     def closeEvent(self, event) -> None:
         self.save_settings()
