@@ -443,9 +443,16 @@ function main(config) {
       else if (policy.ss === 'asia') group.filter = flagFilter(ASIA);
       else if (policy.ss === 'not-china') group['exclude-filter'] = flagFilter(CHINA);
     }
+
+    const hasDynamicSource = policy.pia.length > 0 || ssProviderNames.length > 0;
+    if (hasDynamicSource && Array.isArray(group.proxies)) {
+      group.proxies = group.proxies.filter((name) => name !== 'REJECT');
+      if (group.proxies.length === 0) delete group.proxies;
+    }
+
     const hasSource = (Array.isArray(group.proxies) && group.proxies.length > 0) ||
       (Array.isArray(group.use) && group.use.length > 0);
-    if (!hasSource) group.proxies = ['DIRECT'];
+    if (!hasSource) group.proxies = ['REJECT'];
   }
 
   const vendorGroups = [];
