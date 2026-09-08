@@ -1,9 +1,9 @@
 // Clash Party JavaScript override
 // v13: VPN provider/group topology is injected from YAML feature flags.
 // PIA and Surfshark protocol families are independent. Routing rules remain YAML.
-// Clash Party's JS sandbox cannot access the local filesystem, so x-vpn-provider-files
-// is the explicit preflight/presence manifest; providers are never injected unless
-// both the protocol toggle and its corresponding presence entry are enabled.
+// Clash Party's JS sandbox cannot access the local filesystem directly.
+// Protocol family toggles are therefore the single source of truth. Provider files
+// use stable generator-defined paths so a missing file fails visibly in Mihomo.
 
 const PROVIDER_ROOT = String.raw`P:\Clash\providers`;
 const ICON_ROOT = 'https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons';
@@ -326,18 +326,6 @@ function main(config) {
   delete config['x-ss-openvpn'];
   delete config['x-ss-wireguard'];
 
-  const fileManifest = config['x-vpn-provider-files'];
-  delete config['x-vpn-provider-files'];
-  if (!fileManifest || typeof fileManifest !== 'object') {
-    throw new Error('VPN provider override requires x-vpn-provider-files in the base YAML');
-  }
-
-  const piaOpenvpnReady = fileManifest['pia-openvpn'] === true;
-  const piaWireguardReady = fileManifest['pia-wireguard'] === true;
-  const ssOpenvpnReady = fileManifest['ss-openvpn'] === true;
-  const ssWireguardFiles = fileManifest['ss-wireguard'] && typeof fileManifest['ss-wireguard'] === 'object'
-    ? fileManifest['ss-wireguard'] : {};
-
   const piaHot = config['x-pia-test']?.['health-check'];
   const piaCold = config['x-pia-test-slow']?.['health-check'];
   const ssHealth = config['x-ss-test']?.['health-check'];
@@ -360,12 +348,12 @@ function main(config) {
     const basePath = `${PROVIDER_ROOT}\\${endpointPath(endpoint)}`;
     const uses = [];
 
-    if (piaWireguardEnabled && piaWireguardReady) {
+    if (piaWireguardEnabled) {
       const providerName = `wg-pia-${endpoint.id}`;
       generatedProviders[providerName] = makeProvider(`${basePath}\\pia-wg.yaml`, healthCheck);
       uses.push(providerName);
     }
-    if (piaOpenvpnEnabled && piaOpenvpnReady) {
+    if (piaOpenvpnEnabled) {
       const providerName = `ov-pia-${endpoint.id}`;
       generatedProviders[providerName] = makeProvider(`${basePath}\\pia-ov.yaml`, healthCheck);
       uses.push(providerName);
@@ -389,13 +377,12 @@ function main(config) {
       ['asia-extra-wg-ss', 'asia-extra-wg-ss.yaml', 'asia-extra'],
       ['global-extra-wg-ss', 'global-extra-wg-ss.yaml', 'global-extra'],
     ];
-    for (const [providerName, filename, manifestKey] of defs) {
-      if (ssWireguardFiles[manifestKey] !== true) continue;
+    for (const [providerName, filename] of defs) {
       generatedProviders[providerName] = makeProvider(`${PROVIDER_ROOT}\\${filename}`, ssHealth);
       ssProviderNames.push(providerName);
     }
   }
-  if (ssOpenvpnEnabled && ssOpenvpnReady) {
+  if (ssOpenvpnEnabled) {
     generatedProviders['ov-ss-all'] = makeProvider(
       `${PROVIDER_ROOT}\\surfshark-ov-all.yaml`, ssHealth
     );
