@@ -360,9 +360,10 @@ def generate_openvpn(*, bundle_zip: Path, username: str, password: str, out_dir:
         raise RuntimeError("沒有任何 Surfshark OpenVPN 節點可輸出。")
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    if single_file:
-        write_single_yaml(out_dir, nodes, username, password)
-    else:
+    # surfshark-ov-all.yaml is always emitted as the stable JS/provider entry point.
+    # Multi-file mode additionally writes the per-endpoint tree.
+    write_single_yaml(out_dir, nodes, username, password)
+    if not single_file:
         write_endpoint_tree(out_dir, nodes, username, password)
 
     print(f"節點總數：{len(nodes)}")
