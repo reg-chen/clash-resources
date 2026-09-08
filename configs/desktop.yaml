@@ -174,7 +174,7 @@ proxy-groups:
   # =====================================================================
   - name: DIRECT-PROXY
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/electric-plug.svg
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/satellite.svg
     proxies:
       - DIRECT
       - PROXY
