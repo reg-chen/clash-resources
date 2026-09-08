@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 
 import pia_generator_core as core
 
-APP_NAME = "PIA Mihomo Generator"
+APP_NAME = "PIA Mihomo Generator"  # keep existing QSettings namespace for migration compatibility
 ORG_NAME = "reg-chen"
 
 
@@ -60,6 +60,7 @@ class GenerateWorker(QThread):
     def __init__(
         self,
         *,
+        provider: str,
         generate_openvpn: bool,
         generate_wireguard: bool,
         udp_zip: Path | None,
@@ -71,6 +72,7 @@ class GenerateWorker(QThread):
         exclude_streaming: bool,
     ) -> None:
         super().__init__()
+        self.provider = provider
         self.generate_openvpn = generate_openvpn
         self.generate_wireguard = generate_wireguard
         self.udp_zip = udp_zip
@@ -91,50 +93,76 @@ class GenerateWorker(QThread):
                 if self.generate_wireguard:
                     selected.append("WireGuard")
 
+                provider_name = "PIA" if self.provider == "pia" else "Surfshark"
+                print(f"[INFO] Provider: {provider_name}")
                 print(f"[INFO] Protocol: {' + '.join(selected)}")
                 print(f"[INFO] 輸出目錄: {self.out_dir}")
                 print(f"[INFO] 輸出模式: {'單一檔案' if self.single_file else '分節點檔案'}")
-                print(f"[INFO] 排除 Streaming Optimized: {'是' if self.exclude_streaming else '否'}")
+                if self.provider == "pia":
+                    print(f"[INFO] 排除 Streaming Optimized: {'是' if self.exclude_streaming else '否'}")
 
                 self.out_dir.mkdir(parents=True, exist_ok=True)
 
-                # OpenVPN runs first when both are selected. WireGuard can then use
-                # pia-ov.yaml endpoint markers to mirror the exact tree and display names.
-                if self.generate_openvpn:
-                    assert self.udp_zip is not None
-                    assert self.tcp_zip is not None
-                    print("\n===== OpenVPN =====")
-                    print(f"[INFO] UDP ZIP: {self.udp_zip}")
-                    print(f"[INFO] TCP ZIP: {self.tcp_zip}")
-                    ov = core.load_sibling(
-                        "pia-openvpn-generator.py",
-                        "pia_openvpn_generator_gui",
-                    )
-                    ov.generate_openvpn(
-                        udp_zip=self.udp_zip,
-                        tcp_zip=self.tcp_zip,
-                        username=self.username,
-                        password=self.password,
-                        out_dir=self.out_dir,
-                        single_file=self.single_file,
-                        exclude_streaming=self.exclude_streaming,
-                    )
-                    print("[OK] OpenVPN 完成。")
+                if self.provider == "pia":
+                    # OpenVPN runs first when both are selected. WireGuard can then use
+                    # pia-ov.yaml endpoint markers to mirror the exact tree and display names.
+                    if self.generate_openvpn:
+                        assert self.udp_zip is not None
+                        assert self.tcp_zip is not None
+                        print("\n===== PIA OpenVPN =====")
+                        print(f"[INFO] UDP ZIP: {self.udp_zip}")
+                        print(f"[INFO] TCP ZIP: {self.tcp_zip}")
+                        ov = core.load_sibling(
+                            "pia-openvpn-generator.py",
+                            "pia_openvpn_generator_gui",
+                        )
+                        ov.generate_openvpn(
+                            udp_zip=self.udp_zip,
+                            tcp_zip=self.tcp_zip,
+                            username=self.username,
+                            password=self.password,
+                            out_dir=self.out_dir,
+                            single_file=self.single_file,
+                            exclude_streaming=self.exclude_streaming,
+                        )
+                        print("[OK] PIA OpenVPN 完成。")
 
-                if self.generate_wireguard:
-                    print("\n===== WireGuard =====")
-                    wg = core.load_sibling(
-                        "pia-wireguard-generator.py",
-                        "pia_wireguard_generator_gui",
-                    )
-                    wg.generate_wireguard(
-                        username=self.username,
-                        password=self.password,
-                        out_dir=self.out_dir,
-                        single_file=self.single_file,
-                        exclude_streaming=self.exclude_streaming,
-                    )
-                    print("[OK] WireGuard 完成。")
+                    if self.generate_wireguard:
+                        print("\n===== PIA WireGuard =====")
+                        wg = core.load_sibling(
+                            "pia-wireguard-generator.py",
+                            "pia_wireguard_generator_gui",
+                        )
+                        wg.generate_wireguard(
+                            username=self.username,
+                            password=self.password,
+                            out_dir=self.out_dir,
+                            single_file=self.single_file,
+                            exclude_streaming=self.exclude_streaming,
+                        )
+                        print("[OK] PIA WireGuard 完成。")
+
+                elif self.provider == "surfshark":
+                    if self.generate_wireguard:
+                        raise RuntimeError("Surfshark WireGuard generator 尚未實作。")
+                    if self.generate_openvpn:
+                        assert self.udp_zip is not None
+                        print("\n===== Surfshark OpenVPN =====")
+                        print(f"[INFO] Configurations ZIP: {self.udp_zip}")
+                        ov = core.load_sibling(
+                            "surfshark-openvpn-generator.py",
+                            "surfshark_openvpn_generator_gui",
+                        )
+                        ov.generate_openvpn(
+                            bundle_zip=self.udp_zip,
+                            username=self.username,
+                            password=self.password,
+                            out_dir=self.out_dir,
+                            single_file=self.single_file,
+                        )
+                        print("[OK] Surfshark OpenVPN 完成。")
+                else:
+                    raise RuntimeError(f"未知 provider：{self.provider}")
 
                 print("\n[OK] 全部完成。")
                 stream.flush()
@@ -152,9 +180,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.settings = QSettings(ORG_NAME, APP_NAME)
         self.worker: GenerateWorker | None = None
+        self._pia_wireguard_preference = True
 
-        self.setWindowTitle("PIA → Mihomo Provider Generator")
-        self.resize(880, 650)
+        self.setWindowTitle("VPN → Mihomo Provider Generator")
+        self.resize(880, 690)
 
         central = QWidget(self)
         self.setCentralWidget(central)
@@ -162,6 +191,20 @@ class MainWindow(QMainWindow):
 
         form = QFormLayout()
         root.addLayout(form)
+
+        provider_row = QWidget()
+        provider_layout = QHBoxLayout(provider_row)
+        provider_layout.setContentsMargins(0, 0, 0, 0)
+        self.pia_radio = QRadioButton("PIA")
+        self.surfshark_radio = QRadioButton("Surfshark")
+        self.pia_radio.setChecked(True)
+        provider_group = QButtonGroup(self)
+        provider_group.addButton(self.pia_radio)
+        provider_group.addButton(self.surfshark_radio)
+        provider_layout.addWidget(self.pia_radio)
+        provider_layout.addWidget(self.surfshark_radio)
+        provider_layout.addStretch(1)
+        form.addRow("Provider", provider_row)
 
         protocol_row = QWidget()
         protocol_layout = QHBoxLayout(protocol_row)
@@ -177,11 +220,13 @@ class MainWindow(QMainWindow):
 
         self.udp_edit = QLineEdit()
         self.udp_row = self._path_row(self.udp_edit, self.pick_udp_zip)
-        form.addRow("OpenVPN UDP ZIP", self.udp_row)
+        self.udp_label = QLabel("OpenVPN UDP ZIP")
+        form.addRow(self.udp_label, self.udp_row)
 
         self.tcp_edit = QLineEdit()
         self.tcp_row = self._path_row(self.tcp_edit, self.pick_tcp_zip)
-        form.addRow("OpenVPN TCP ZIP", self.tcp_row)
+        self.tcp_label = QLabel("OpenVPN TCP ZIP")
+        form.addRow(self.tcp_label, self.tcp_row)
 
         self.username_edit = QLineEdit()
         self.username_edit.setPlaceholderText("Username")
@@ -203,7 +248,8 @@ class MainWindow(QMainWindow):
             )
         )
         credentials_layout.addWidget(self.show_password)
-        form.addRow("PIA 帳號 / 密碼", credentials_row)
+        self.credentials_label = QLabel("PIA 帳號 / 密碼")
+        form.addRow(self.credentials_label, credentials_row)
 
         self.out_edit = QLineEdit()
         form.addRow("輸出目錄", self._path_row(self.out_edit, self.pick_output_dir))
@@ -232,7 +278,8 @@ class MainWindow(QMainWindow):
 
         self.exclude_streaming = QCheckBox("排除 PIA Streaming Optimized")
         self.exclude_streaming.setChecked(True)
-        form.addRow("節點過濾", self.exclude_streaming)
+        self.exclude_streaming_label = QLabel("節點過濾")
+        form.addRow(self.exclude_streaming_label, self.exclude_streaming)
 
         self.run_button = QPushButton("執行")
         self.run_button.clicked.connect(self.start_generation)
@@ -244,8 +291,15 @@ class MainWindow(QMainWindow):
         root.addWidget(self.log_view, 1)
 
         self.openvpn_checkbox.toggled.connect(self.update_protocol_controls)
+        self.pia_radio.toggled.connect(self.update_provider_controls)
+        self.wireguard_checkbox.toggled.connect(self.remember_pia_wireguard_preference)
+
         self.restore_settings()
+        self.update_provider_controls()
         self.update_protocol_controls()
+
+    def selected_provider(self) -> str:
+        return "surfshark" if self.surfshark_radio.isChecked() else "pia"
 
     def _path_row(self, edit: QLineEdit, callback) -> QWidget:
         row = QWidget()
@@ -257,29 +311,78 @@ class MainWindow(QMainWindow):
         layout.addWidget(button)
         return row
 
-    def update_protocol_controls(self) -> None:
+    def remember_pia_wireguard_preference(self, checked: bool) -> None:
+        if self.selected_provider() == "pia" and self.wireguard_checkbox.isEnabled():
+            self._pia_wireguard_preference = checked
+
+    def update_provider_controls(self, *_args) -> None:
+        provider = self.selected_provider()
+        surfshark = provider == "surfshark"
+
+        if surfshark:
+            if self.wireguard_checkbox.isEnabled():
+                self._pia_wireguard_preference = self.wireguard_checkbox.isChecked()
+            self.wireguard_checkbox.blockSignals(True)
+            self.wireguard_checkbox.setChecked(False)
+            self.wireguard_checkbox.blockSignals(False)
+            self.wireguard_checkbox.setEnabled(False)
+            self.wireguard_checkbox.setToolTip("Surfshark WireGuard generator 尚未實作；預留給未來 provisioning/API。")
+
+            self.udp_label.setText("OpenVPN Configurations ZIP")
+            self.tcp_label.hide()
+            self.tcp_row.hide()
+            self.credentials_label.setText("Surfshark service 帳號 / 密碼")
+            self.exclude_streaming_label.hide()
+            self.exclude_streaming.hide()
+        else:
+            self.wireguard_checkbox.setEnabled(True)
+            self.wireguard_checkbox.setToolTip("")
+            self.wireguard_checkbox.blockSignals(True)
+            self.wireguard_checkbox.setChecked(self._pia_wireguard_preference)
+            self.wireguard_checkbox.blockSignals(False)
+
+            self.udp_label.setText("OpenVPN UDP ZIP")
+            self.tcp_label.show()
+            self.tcp_row.show()
+            self.credentials_label.setText("PIA 帳號 / 密碼")
+            self.exclude_streaming_label.show()
+            self.exclude_streaming.show()
+
+        self.update_protocol_controls()
+
+    def update_protocol_controls(self, *_args) -> None:
         enabled = self.openvpn_checkbox.isChecked()
         self.udp_row.setEnabled(enabled)
-        self.tcp_row.setEnabled(enabled)
+        if self.selected_provider() == "pia":
+            self.tcp_row.setEnabled(enabled)
 
     def show_output_mode_help(self) -> None:
-        QMessageBox.information(
-            self,
-            "輸出模式說明",
-            "分節點檔案\n"
-            "OpenVPN：providers/<endpoint>/pia-ov.yaml\n"
-            "WireGuard：providers/<endpoint>/pia-wg.yaml\n"
-            "兩者同時輸出時會放在相同 endpoint 目錄。\n\n"
-            "單一檔案\n"
-            "OpenVPN：providers/pia-ov-all.yaml\n"
-            "WireGuard：providers/pia-wg-all.yaml\n"
-            "兩者同時輸出時仍維持兩份獨立 provider payload。",
-        )
+        if self.selected_provider() == "surfshark":
+            text = (
+                "分節點檔案\n"
+                "OpenVPN：providers/<endpoint>/surfshark-ov.yaml\n\n"
+                "單一檔案\n"
+                "OpenVPN：providers/surfshark-ov-all.yaml"
+            )
+        else:
+            text = (
+                "分節點檔案\n"
+                "OpenVPN：providers/<endpoint>/pia-ov.yaml\n"
+                "WireGuard：providers/<endpoint>/pia-wg.yaml\n"
+                "兩者同時輸出時會放在相同 endpoint 目錄。\n\n"
+                "單一檔案\n"
+                "OpenVPN：providers/pia-ov-all.yaml\n"
+                "WireGuard：providers/pia-wg-all.yaml\n"
+                "兩者同時輸出時仍維持兩份獨立 provider payload。"
+            )
+        QMessageBox.information(self, "輸出模式說明", text)
 
     def pick_udp_zip(self) -> None:
+        provider = self.selected_provider()
+        title = "選擇 Surfshark OpenVPN Configurations ZIP" if provider == "surfshark" else "選擇 PIA OpenVPN UDP ZIP"
         path, _ = QFileDialog.getOpenFileName(
             self,
-            "選擇 PIA OpenVPN UDP ZIP",
+            title,
             self._dialog_start(self.udp_edit.text()),
             "ZIP files (*.zip);;All files (*)",
         )
@@ -319,25 +422,35 @@ class MainWindow(QMainWindow):
 
     def validate_inputs(self) -> list[str]:
         problems: list[str] = []
+        provider = self.selected_provider()
         ov_enabled = self.openvpn_checkbox.isChecked()
-        wg_enabled = self.wireguard_checkbox.isChecked()
+        wg_enabled = self.wireguard_checkbox.isChecked() and provider == "pia"
 
         if not ov_enabled and not wg_enabled:
-            problems.append("請至少選擇 OpenVPN 或 WireGuard。")
+            problems.append("請至少選擇一個目前支援的協定。")
 
         if ov_enabled:
             udp = Path(self.udp_edit.text().strip())
-            tcp = Path(self.tcp_edit.text().strip())
             if not udp.is_file() or udp.suffix.lower() != ".zip":
-                problems.append("請選擇有效的 OpenVPN UDP ZIP。")
-            if not tcp.is_file() or tcp.suffix.lower() != ".zip":
-                problems.append("請選擇有效的 OpenVPN TCP ZIP。")
+                if provider == "surfshark":
+                    problems.append("請選擇有效的 Surfshark OpenVPN Configurations ZIP。")
+                else:
+                    problems.append("請選擇有效的 OpenVPN UDP ZIP。")
 
-        if wg_enabled and (
+            if provider == "pia":
+                tcp = Path(self.tcp_edit.text().strip())
+                if not tcp.is_file() or tcp.suffix.lower() != ".zip":
+                    problems.append("請選擇有效的 OpenVPN TCP ZIP。")
+
+        credentials_required = wg_enabled or (provider == "surfshark" and ov_enabled)
+        if credentials_required and (
             not self.username_edit.text().strip()
             or not self.password_edit.text()
         ):
-            problems.append("WireGuard provisioning 需要 PIA 帳號與密碼。")
+            if provider == "surfshark":
+                problems.append("Surfshark OpenVPN 需要 service username / password。")
+            else:
+                problems.append("WireGuard provisioning 需要 PIA 帳號與密碼。")
 
         if not self.out_edit.text().strip():
             problems.append("請選擇輸出目錄。")
@@ -354,12 +467,15 @@ class MainWindow(QMainWindow):
         self.log_view.clear()
         self.run_button.setEnabled(False)
 
+        provider = self.selected_provider()
         ov_enabled = self.openvpn_checkbox.isChecked()
+        wg_enabled = self.wireguard_checkbox.isChecked() and provider == "pia"
         self.worker = GenerateWorker(
+            provider=provider,
             generate_openvpn=ov_enabled,
-            generate_wireguard=self.wireguard_checkbox.isChecked(),
+            generate_wireguard=wg_enabled,
             udp_zip=Path(self.udp_edit.text().strip()) if ov_enabled else None,
-            tcp_zip=Path(self.tcp_edit.text().strip()) if ov_enabled else None,
+            tcp_zip=(Path(self.tcp_edit.text().strip()) if ov_enabled and provider == "pia" else None),
             username=self.username_edit.text().strip(),
             password=self.password_edit.text(),
             out_dir=Path(self.out_edit.text().strip()),
@@ -382,26 +498,26 @@ class MainWindow(QMainWindow):
         self.udp_edit.setText(self.settings.value("udp_zip", "", str))
         self.tcp_edit.setText(self.settings.value("tcp_zip", "", str))
         self.out_edit.setText(self.settings.value("out_dir", "", str))
-        self.openvpn_checkbox.setChecked(
-            self.settings.value("generate_openvpn", True, bool)
-        )
-        self.wireguard_checkbox.setChecked(
-            self.settings.value("generate_wireguard", True, bool)
-        )
-        self.exclude_streaming.setChecked(
-            self.settings.value("exclude_streaming", True, bool)
-        )
+        self.openvpn_checkbox.setChecked(self.settings.value("generate_openvpn", True, bool))
+        self._pia_wireguard_preference = self.settings.value("generate_wireguard", True, bool)
+        self.exclude_streaming.setChecked(self.settings.value("exclude_streaming", True, bool))
+
+        provider = self.settings.value("provider", "pia", str)
+        self.surfshark_radio.setChecked(provider == "surfshark")
+        self.pia_radio.setChecked(provider != "surfshark")
+
         single = self.settings.value("single_file", False, bool)
         self.single_radio.setChecked(single)
         self.multi_radio.setChecked(not single)
 
     def save_settings(self) -> None:
         # Credentials are deliberately never persisted.
+        self.settings.setValue("provider", self.selected_provider())
         self.settings.setValue("udp_zip", self.udp_edit.text().strip())
         self.settings.setValue("tcp_zip", self.tcp_edit.text().strip())
         self.settings.setValue("out_dir", self.out_edit.text().strip())
         self.settings.setValue("generate_openvpn", self.openvpn_checkbox.isChecked())
-        self.settings.setValue("generate_wireguard", self.wireguard_checkbox.isChecked())
+        self.settings.setValue("generate_wireguard", self._pia_wireguard_preference)
         self.settings.setValue("exclude_streaming", self.exclude_streaming.isChecked())
         self.settings.setValue("single_file", self.single_radio.isChecked())
 
