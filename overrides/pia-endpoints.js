@@ -1,10 +1,12 @@
 // Clash Party JavaScript override
-// v12: canonical PIA endpoint/group names are protocol-neutral at the source.
-// OpenVPN/WireGuard remain independent transport providers selected by YAML toggles.
-// Scope: PIA provider declarations, hidden per-endpoint transport groups, and only
-// the PIA endpoint members of existing high-level groups. Routing rules remain YAML.
+// v13: VPN provider/group topology is injected from YAML feature flags.
+// PIA and Surfshark protocol families are independent. Routing rules remain YAML.
+// Clash Party's JS sandbox cannot access the local filesystem, so x-vpn-provider-files
+// is the explicit preflight/presence manifest; providers are never injected unless
+// both the protocol toggle and its corresponding presence entry are enabled.
 
-const PIA_PROVIDER_ROOT = String.raw`P:\Clash\providers`;
+const PROVIDER_ROOT = String.raw`P:\Clash\providers`;
+const ICON_ROOT = 'https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons';
 
 const PIA_ENDPOINTS = [
   {"id":"tw","path":"TW","name":"🇹🇼 PIA-TW(台灣)","hot":true},
@@ -163,12 +165,37 @@ const PIA_ENDPOINTS = [
   {"id":"dz","path":"DZ","name":"🇩🇿 PIA-DZ(阿爾及利亞)","hot":false}
 ];
 
+const HLS = new Set(['TW', 'PH', 'SG']);
 const CHINA = new Set(['MO', 'HK', 'CN']);
+const ASIA_EXTRA = new Set([
+  'JP', 'KR', 'MY', 'ID', 'TH', 'VN', 'IN', 'KH', 'LA', 'LK', 'MM', 'MN',
+  'NP', 'PK', 'BD', 'BN', 'BT', 'AZ', 'UZ'
+]);
 const MIDDLE_EAST = new Set(['AE', 'QA', 'SA', 'IL', 'TR', 'EG']);
+const EUROPE = new Set([
+  'AD', 'AL', 'AM', 'AT', 'BA', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DE', 'DK',
+  'EE', 'ES', 'FI', 'FR', 'GE', 'GB', 'GR', 'HR', 'HU', 'IE', 'IM', 'IS',
+  'IT', 'KZ', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL',
+  'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'UA', 'UK'
+]);
 const NORTH_AMERICA = new Set(['US', 'CA', 'GL']);
-const LATIN_AMERICA = new Set(['MX', 'BR', 'AR', 'CL', 'CO', 'BO', 'BS', 'CR', 'EC', 'GT', 'PA', 'PE', 'UY', 'VE']);
+const LATIN_AMERICA = new Set([
+  'MX', 'BR', 'AR', 'CL', 'CO', 'BO', 'BS', 'CR', 'EC', 'GT', 'PA', 'PE',
+  'PR', 'PY', 'UY', 'VE'
+]);
 const OCEANIA = new Set(['AU', 'NZ']);
-const AFRICA = new Set(['ZA', 'NG', 'MA', 'DZ']);
+const AFRICA = new Set(['ZA', 'NG', 'GH', 'MA', 'DZ']);
+const ASIA = new Set([...HLS, ...CHINA, ...ASIA_EXTRA]);
+
+const REGION_DEFS = [
+  ['ASIA', ASIA, 'fluent-emoji-flat/japanese-castle.svg'],
+  ['MIDDLE-EAST', MIDDLE_EAST, 'fluent-emoji-flat/mosque.svg'],
+  ['EUROPE', EUROPE, 'fluent-emoji-flat/classical-building.svg'],
+  ['NORTH-AMERICA', NORTH_AMERICA, 'fluent-emoji-flat/statue-of-liberty.svg'],
+  ['LATIN-AMERICA', LATIN_AMERICA, 'fluent-emoji-flat/cactus.svg'],
+  ['OCEANIA', OCEANIA, 'fluent-emoji-flat/bridge-at-night.svg'],
+  ['AFRICA', AFRICA, 'fluent-emoji-flat/hut.svg'],
+];
 
 const LEGACY_GROUP_RENAMES = {
   'OV-ALL': 'PIA-ALL',
@@ -180,6 +207,10 @@ const LEGACY_GROUP_RENAMES = {
   'OV-OCEANIA': 'PIA-OCEANIA',
   'OV-AFRICA': 'PIA-AFRICA',
 };
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
 
 function countryCode(endpoint) {
   return endpoint.path.split('\\')[0];
@@ -196,120 +227,152 @@ function endpointPath(endpoint) {
   return countryCounts[cc] > 1 ? endpoint.path : cc;
 }
 
-function endpointNames(predicate) {
-  return PIA_ENDPOINTS.filter(predicate).map((endpoint) => endpoint.name);
+function endpointNames(predicate, availableNames = null) {
+  return PIA_ENDPOINTS
+    .filter(predicate)
+    .map((endpoint) => endpoint.name)
+    .filter((name) => !availableNames || availableNames.has(name));
 }
 
 function isPiaEndpointName(name) {
-  // OV-PIA is accepted only to remove/migrate legacy generated groups.
   return typeof name === 'string' && (
     name.includes(' PIA-') || name.includes(' OV-PIA-')
   );
 }
 
+function isManagedVendorGroupName(name) {
+  return typeof name === 'string' && /^(?:PIA|SS)-(?:ALL|ASIA|MIDDLE-EAST|EUROPE|NORTH-AMERICA|LATIN-AMERICA|OCEANIA|AFRICA)$/i.test(name);
+}
+
+function isManagedProviderName(name) {
+  if (typeof name !== 'string') return false;
+  return /^(?:ov|wg)-pia-/i.test(name) ||
+    /^(?:ov|wg)-ss-/i.test(name) ||
+    /^(?:hls|china|asia-extra|global-extra)-wg-ss$/i.test(name);
+}
+
 function migrateLegacyPiaGroupNames(groups) {
   for (const group of groups) {
     if (!group || typeof group !== 'object') continue;
-
-    if (LEGACY_GROUP_RENAMES[group.name]) {
-      group.name = LEGACY_GROUP_RENAMES[group.name];
-    }
-
+    if (LEGACY_GROUP_RENAMES[group.name]) group.name = LEGACY_GROUP_RENAMES[group.name];
     if (Array.isArray(group.proxies)) {
       group.proxies = group.proxies.map((name) => LEGACY_GROUP_RENAMES[name] || name);
     }
   }
 }
 
-const ASIA_ENDPOINTS = endpointNames((endpoint) => endpoint.hot);
-const HLS_ENDPOINTS = endpointNames((endpoint) => ['TW', 'PH', 'SG'].includes(countryCode(endpoint)));
-const AI_ENDPOINTS = endpointNames((endpoint) => endpoint.hot && !CHINA.has(countryCode(endpoint)));
-const ALL_ENDPOINTS = PIA_ENDPOINTS.map((endpoint) => endpoint.name);
+function flagEmoji(alpha2) {
+  return [...alpha2.toUpperCase()]
+    .map((ch) => String.fromCodePoint(0x1F1E6 + ch.charCodeAt(0) - 65))
+    .join('');
+}
 
-const EUROPE_ENDPOINTS = endpointNames((endpoint) => {
-  const cc = countryCode(endpoint);
-  return !endpoint.hot && !MIDDLE_EAST.has(cc) && !NORTH_AMERICA.has(cc) &&
-    !LATIN_AMERICA.has(cc) && !OCEANIA.has(cc) && !AFRICA.has(cc);
-});
+function flagFilter(countries) {
+  return Array.from(countries).sort().map(flagEmoji).join('|');
+}
 
-const PIA_GROUP_MEMBERS = {
-  'AUTO-FAST': ASIA_ENDPOINTS,
-  'AUTO-SAFE': ASIA_ENDPOINTS,
-  'LB-HLS': HLS_ENDPOINTS,
-  'LB-STICKY': ASIA_ENDPOINTS,
-  'LB-ROBIN': ASIA_ENDPOINTS,
-  'LB-CONSISTENT': ASIA_ENDPOINTS,
-  'AI-PROXY': AI_ENDPOINTS,
-  'PIA-ALL': ALL_ENDPOINTS,
-  'PIA-ASIA': ASIA_ENDPOINTS,
-  'PIA-MIDDLE-EAST': endpointNames((endpoint) => MIDDLE_EAST.has(countryCode(endpoint))),
-  'PIA-EUROPE': EUROPE_ENDPOINTS,
-  'PIA-NORTH-AMERICA': endpointNames((endpoint) => NORTH_AMERICA.has(countryCode(endpoint))),
-  'PIA-LATIN-AMERICA': endpointNames((endpoint) => LATIN_AMERICA.has(countryCode(endpoint))),
-  'PIA-OCEANIA': endpointNames((endpoint) => OCEANIA.has(countryCode(endpoint))),
-  'PIA-AFRICA': endpointNames((endpoint) => AFRICA.has(countryCode(endpoint))),
-};
+function piaRegionMembers(countries, availableNames) {
+  return endpointNames((endpoint) => countries.has(countryCode(endpoint)), availableNames);
+}
 
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
+function appendUnique(target, values) {
+  const seen = new Set(target);
+  for (const value of values) {
+    if (!seen.has(value)) {
+      target.push(value);
+      seen.add(value);
+    }
+  }
+  return target;
+}
+
+function cleanManagedRefs(group) {
+  if (Array.isArray(group.use)) {
+    group.use = group.use.filter((name) => !isManagedProviderName(name));
+    if (group.use.length === 0) delete group.use;
+  }
+  if (Array.isArray(group.proxies)) {
+    group.proxies = group.proxies.filter((name) =>
+      !isPiaEndpointName(name) && !isManagedVendorGroupName(name)
+    );
+  }
+}
+
+function addUses(group, providerNames) {
+  const current = Array.isArray(group.use) ? group.use : [];
+  group.use = appendUnique(current, providerNames);
+}
+
+function addProxies(group, proxyNames) {
+  const current = Array.isArray(group.proxies) ? group.proxies : [];
+  group.proxies = appendUnique(current, proxyNames);
+}
+
+function makeProvider(path, healthCheck) {
+  return { type: 'file', path, 'health-check': clone(healthCheck) };
 }
 
 function main(config) {
   if (!config || typeof config !== 'object') return config;
+  if (config['x-vpn-provider-override'] !== true) return config;
+  delete config['x-vpn-provider-override'];
 
-  if (config['x-pia-endpoint-override'] !== true) return config;
-  delete config['x-pia-endpoint-override'];
-
-  const openvpnEnabled = config['x-pia-openvpn'] === true;
+  const piaOpenvpnEnabled = config['x-pia-openvpn'] === true;
+  const piaWireguardEnabled = config['x-pia-wireguard'] === true;
+  const ssOpenvpnEnabled = config['x-ss-openvpn'] === true;
+  const ssWireguardEnabled = config['x-ss-wireguard'] === true;
   delete config['x-pia-openvpn'];
-
-  const wireguardEnabled = config['x-pia-wireguard'] === true;
   delete config['x-pia-wireguard'];
+  delete config['x-ss-openvpn'];
+  delete config['x-ss-wireguard'];
 
-  const hot = config['x-pia-test']?.['health-check'];
-  const cold = config['x-pia-test-slow']?.['health-check'];
-  if (!hot || !cold) {
-    throw new Error('PIA endpoint override requires x-pia-test and x-pia-test-slow in the base YAML');
+  const fileManifest = config['x-vpn-provider-files'];
+  delete config['x-vpn-provider-files'];
+  if (!fileManifest || typeof fileManifest !== 'object') {
+    throw new Error('VPN provider override requires x-vpn-provider-files in the base YAML');
+  }
+
+  const piaOpenvpnReady = fileManifest['pia-openvpn'] === true;
+  const piaWireguardReady = fileManifest['pia-wireguard'] === true;
+  const ssOpenvpnReady = fileManifest['ss-openvpn'] === true;
+  const ssWireguardFiles = fileManifest['ss-wireguard'] && typeof fileManifest['ss-wireguard'] === 'object'
+    ? fileManifest['ss-wireguard'] : {};
+
+  const piaHot = config['x-pia-test']?.['health-check'];
+  const piaCold = config['x-pia-test-slow']?.['health-check'];
+  const ssHealth = config['x-ss-test']?.['health-check'];
+  if (!piaHot || !piaCold || !ssHealth) {
+    throw new Error('VPN provider override requires x-pia-test, x-pia-test-slow and x-ss-test');
   }
 
   const existingProviders = config['proxy-providers'] && typeof config['proxy-providers'] === 'object'
-    ? config['proxy-providers']
-    : {};
-
-  // Remove both generated protocol families so protocol toggles are deterministic.
-  const nonPiaProviders = Object.fromEntries(
-    Object.entries(existingProviders).filter(([name]) => !/^(?:ov|wg)-pia-/i.test(name))
+    ? config['proxy-providers'] : {};
+  const baseProviders = Object.fromEntries(
+    Object.entries(existingProviders).filter(([name]) => !isManagedProviderName(name))
   );
-  const piaProviders = {};
-  const endpointGroups = [];
+
+  const generatedProviders = {};
+  const piaEndpointGroups = [];
+  const availablePiaEndpointNames = new Set();
 
   for (const endpoint of PIA_ENDPOINTS) {
-    const healthCheck = endpoint.hot ? hot : cold;
-    const basePath = `${PIA_PROVIDER_ROOT}\\${endpointPath(endpoint)}`;
+    const healthCheck = endpoint.hot ? piaHot : piaCold;
+    const basePath = `${PROVIDER_ROOT}\\${endpointPath(endpoint)}`;
     const uses = [];
 
-    if (wireguardEnabled) {
-      const wireguardProviderName = `wg-pia-${endpoint.id}`;
-      piaProviders[wireguardProviderName] = {
-        type: 'file',
-        path: `${basePath}\\pia-wg.yaml`,
-        'health-check': clone(healthCheck),
-      };
-      uses.push(wireguardProviderName);
+    if (piaWireguardEnabled && piaWireguardReady) {
+      const providerName = `wg-pia-${endpoint.id}`;
+      generatedProviders[providerName] = makeProvider(`${basePath}\\pia-wg.yaml`, healthCheck);
+      uses.push(providerName);
     }
-
-    if (openvpnEnabled) {
-      const openvpnProviderName = `ov-pia-${endpoint.id}`;
-      piaProviders[openvpnProviderName] = {
-        type: 'file',
-        path: `${basePath}\\pia-ov.yaml`,
-        'health-check': clone(healthCheck),
-      };
-      uses.push(openvpnProviderName);
+    if (piaOpenvpnEnabled && piaOpenvpnReady) {
+      const providerName = `ov-pia-${endpoint.id}`;
+      generatedProviders[providerName] = makeProvider(`${basePath}\\pia-ov.yaml`, healthCheck);
+      uses.push(providerName);
     }
-
     if (uses.length > 0) {
-      endpointGroups.push({
+      availablePiaEndpointNames.add(endpoint.name);
+      piaEndpointGroups.push({
         name: endpoint.name,
         type: endpoint.hot ? 'fallback' : 'select',
         hidden: true,
@@ -318,29 +381,136 @@ function main(config) {
     }
   }
 
-  config['proxy-providers'] = { ...piaProviders, ...nonPiaProviders };
+  const ssProviderNames = [];
+  if (ssWireguardEnabled) {
+    const defs = [
+      ['hls-wg-ss', 'hls-wg-ss.yaml', 'hls'],
+      ['china-wg-ss', 'china-wg-ss.yaml', 'china'],
+      ['asia-extra-wg-ss', 'asia-extra-wg-ss.yaml', 'asia-extra'],
+      ['global-extra-wg-ss', 'global-extra-wg-ss.yaml', 'global-extra'],
+    ];
+    for (const [providerName, filename, manifestKey] of defs) {
+      if (ssWireguardFiles[manifestKey] !== true) continue;
+      generatedProviders[providerName] = makeProvider(`${PROVIDER_ROOT}\\${filename}`, ssHealth);
+      ssProviderNames.push(providerName);
+    }
+  }
+  if (ssOpenvpnEnabled && ssOpenvpnReady) {
+    generatedProviders['ov-ss-all'] = makeProvider(
+      `${PROVIDER_ROOT}\\surfshark-ov-all.yaml`, ssHealth
+    );
+    ssProviderNames.push('ov-ss-all');
+  }
+
+  config['proxy-providers'] = { ...generatedProviders, ...baseProviders };
 
   const existingGroups = Array.isArray(config['proxy-groups']) ? config['proxy-groups'] : [];
   migrateLegacyPiaGroupNames(existingGroups);
-
-  const nonEndpointGroups = existingGroups.filter((group) => {
-    const name = group?.name;
-    const isPiaEndpointGroup = group?.hidden === true && isPiaEndpointName(name);
-    return !isPiaEndpointGroup;
+  const baseGroups = existingGroups.filter((group) => {
+    const isGeneratedEndpoint = group?.hidden === true && isPiaEndpointName(group?.name);
+    return !isGeneratedEndpoint && !isManagedVendorGroupName(group?.name);
   });
+  for (const group of baseGroups) {
+    if (group && typeof group === 'object') cleanManagedRefs(group);
+  }
 
-  if (openvpnEnabled || wireguardEnabled) {
-    for (const group of nonEndpointGroups) {
-      const piaMembers = PIA_GROUP_MEMBERS[group?.name];
-      if (!piaMembers) continue;
+  const piaAsia = endpointNames((endpoint) => endpoint.hot, availablePiaEndpointNames);
+  const piaHls = endpointNames((endpoint) => HLS.has(countryCode(endpoint)), availablePiaEndpointNames);
+  const piaAi = endpointNames(
+    (endpoint) => endpoint.hot && !CHINA.has(countryCode(endpoint)),
+    availablePiaEndpointNames
+  );
 
-      const current = Array.isArray(group.proxies) ? group.proxies : [];
-      const nonPia = current.filter((name) => !isPiaEndpointName(name));
-      const isPiaOnlyGroup = nonPia.length === 1 && nonPia[0] === 'REJECT';
-      group.proxies = [...(isPiaOnlyGroup ? [] : nonPia), ...piaMembers];
+  const automationPolicy = {
+    'AUTO-FAST': { pia: piaAsia, ss: 'all' },
+    'AUTO-SAFE': { pia: piaAsia, ss: 'all' },
+    'LB-HLS': { pia: piaHls, ss: 'hls' },
+    'LB-STICKY': { pia: piaAsia, ss: 'asia' },
+    'LB-ROBIN': { pia: piaAsia, ss: 'asia' },
+    'LB-CONSISTENT': { pia: piaAsia, ss: 'asia' },
+    'AI-PROXY': { pia: piaAi, ss: 'not-china' },
+  };
+
+  for (const group of baseGroups) {
+    const policy = automationPolicy[group?.name];
+    if (!policy) continue;
+    delete group.filter;
+    delete group['exclude-filter'];
+    if (policy.pia.length > 0) addProxies(group, policy.pia);
+    if (ssProviderNames.length > 0) {
+      addUses(group, ssProviderNames);
+      if (policy.ss === 'hls') group.filter = flagFilter(HLS);
+      else if (policy.ss === 'asia') group.filter = flagFilter(ASIA);
+      else if (policy.ss === 'not-china') group['exclude-filter'] = flagFilter(CHINA);
+    }
+    const hasSource = (Array.isArray(group.proxies) && group.proxies.length > 0) ||
+      (Array.isArray(group.use) && group.use.length > 0);
+    if (!hasSource) group.proxies = ['DIRECT'];
+  }
+
+  const vendorGroups = [];
+  if (availablePiaEndpointNames.size > 0) {
+    vendorGroups.push({
+      name: 'PIA-ALL',
+      type: 'select',
+      icon: `${ICON_ROOT}/PrivateInternetAccess.svg`,
+      proxies: endpointNames(() => true, availablePiaEndpointNames),
+    });
+    for (const [regionName, countries, icon] of REGION_DEFS) {
+      const members = piaRegionMembers(countries, availablePiaEndpointNames);
+      if (members.length === 0) continue;
+      vendorGroups.push({
+        name: `PIA-${regionName}`,
+        type: 'select',
+        icon: `${ICON_ROOT}/${icon}`,
+        proxies: members,
+      });
     }
   }
 
-  config['proxy-groups'] = [...endpointGroups, ...nonEndpointGroups];
+  if (ssProviderNames.length > 0) {
+    vendorGroups.push({
+      name: 'SS-ALL',
+      type: 'select',
+      icon: `${ICON_ROOT}/Surfshark.svg`,
+      use: [...ssProviderNames],
+    });
+    const ssOpenvpnActive = ssProviderNames.includes('ov-ss-all');
+    const ssAsiaActive = ssOpenvpnActive || ssProviderNames.some((name) =>
+      ['hls-wg-ss', 'china-wg-ss', 'asia-extra-wg-ss'].includes(name)
+    );
+    const ssGlobalActive = ssOpenvpnActive || ssProviderNames.includes('global-extra-wg-ss');
+    for (const [regionName, countries, icon] of REGION_DEFS) {
+      const regionAvailable = regionName === 'ASIA' ? ssAsiaActive : ssGlobalActive;
+      if (!regionAvailable) continue;
+      vendorGroups.push({
+        name: `SS-${regionName}`,
+        type: 'select',
+        icon: `${ICON_ROOT}/${icon}`,
+        use: [...ssProviderNames],
+        filter: flagFilter(countries),
+      });
+    }
+  }
+
+  const activeVendorGroupNames = new Set(vendorGroups.map((group) => group.name));
+  const routeGroupPolicy = {
+    'PROXY': [
+      'SS-ALL', 'SS-ASIA', 'SS-MIDDLE-EAST', 'SS-EUROPE', 'SS-NORTH-AMERICA',
+      'SS-LATIN-AMERICA', 'SS-OCEANIA', 'SS-AFRICA',
+      'PIA-ALL', 'PIA-ASIA', 'PIA-MIDDLE-EAST', 'PIA-EUROPE', 'PIA-NORTH-AMERICA',
+      'PIA-LATIN-AMERICA', 'PIA-OCEANIA', 'PIA-AFRICA',
+    ],
+    'HLS-PROXY': ['SS-ALL', 'PIA-ASIA'],
+    'DRM-PROXY': ['SS-ALL', 'PIA-ASIA'],
+    'BANKGOV-PROXY': ['SS-ALL', 'PIA-ASIA'],
+  };
+  for (const group of baseGroups) {
+    const candidates = routeGroupPolicy[group?.name];
+    if (!candidates) continue;
+    addProxies(group, candidates.filter((name) => activeVendorGroupNames.has(name)));
+  }
+
+  config['proxy-groups'] = [...piaEndpointGroups, ...baseGroups, ...vendorGroups];
   return config;
 }
