@@ -268,6 +268,35 @@ function migrateLegacyPiaGroupNames(groups) {
   }
 }
 
+const EXTRA_COUNTRY_ZH = {
+  AZ: '亞塞拜然',
+  BZ: '貝里斯',
+  BT: '不丹',
+  BN: '汶萊',
+  GH: '迦納',
+  LA: '寮國',
+  MM: '緬甸',
+  PK: '巴基斯坦',
+  PY: '巴拉圭',
+  PR: '波多黎各',
+  TH: '泰國',
+  GB: '英國',
+  UZ: '烏茲別克',
+};
+
+const PIA_COUNTRY_ZH = PIA_ENDPOINTS.reduce((map, endpoint) => {
+  const cc = countryCode(endpoint);
+  if (map[cc]) return map;
+  const match = endpoint.name.match(/\(([^)]+)\)$/);
+  if (!match) return map;
+  map[cc] = match[1].split('-')[0];
+  return map;
+}, {});
+
+function countryZh(countryCode) {
+  return PIA_COUNTRY_ZH[countryCode] || EXTRA_COUNTRY_ZH[countryCode] || countryCode;
+}
+
 function flagEmoji(alpha2) {
   return [...alpha2.toUpperCase()]
     .map((ch) => String.fromCodePoint(0x1F1E6 + ch.charCodeAt(0) - 65))
@@ -417,7 +446,7 @@ function main(config) {
       );
       ssOpenvpnByCountry.set(countryCode, providerName);
 
-      const countryGroupName = `${flagEmoji(countryCode)} SS-${countryCode}`;
+      const countryGroupName = `${flagEmoji(countryCode)} SS-${countryCode}(${countryZh(countryCode)})`;
       ssCountryGroupByCode.set(countryCode, countryGroupName);
       ssCountryGroups.push({
         name: countryGroupName,
