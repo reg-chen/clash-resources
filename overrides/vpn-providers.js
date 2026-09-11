@@ -187,7 +187,20 @@ const OCEANIA = new Set(['AU', 'NZ']);
 const AFRICA = new Set(['ZA', 'NG', 'GH', 'MA', 'DZ']);
 const ASIA = new Set([...HLS, ...CHINA, ...ASIA_EXTRA]);
 
-const SURFSHARK_COUNTRIES = ["AL","DZ","AD","AR","AM","AU","AT","AZ","BS","BD","BE","BZ","BT","BO","BA","BR","BN","BG","KH","CA","CL","CO","CR","HR","CY","CZ","DK","EC","EG","EE","FI","FR","GE","DE","GH","GR","GL","HK","HU","IS","IN","ID","IE","IM","IL","IT","JP","KZ","LA","LV","LI","LT","LU","MO","MY","MT","MA","MX","MD","MC","MN","ME","MM","NP","NL","NZ","NG","MK","NO","PK","PA","PY","PE","PH","PL","PT","PR","RO","SA","RS","SG","SK","SI","ZA","KR","ES","LK","SE","CH","TW","TH","TR","UA","AE","GB","US","UY","UZ","VE","VN"];
+const SURFSHARK_COUNTRIES = [
+  'TW', 'PH', 'SG', 'MO', 'HK', 'JP', 'KR', 'MY', 'ID', 'VN', 'IN', 'KH',
+  'MN', 'NP', 'BD', 'LK', 'TH', 'LA', 'MM', 'PK', 'BN', 'BT', 'AZ', 'UZ',
+  'AE', 'SA', 'IL', 'TR', 'EG',
+  'NL', 'DE', 'GB', 'FR', 'ES', 'IT', 'AM', 'GE', 'KZ', 'AD', 'AL', 'AT',
+  'BA', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DK', 'EE', 'FI', 'GR', 'HR', 'HU',
+  'IE', 'IM', 'IS', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT',
+  'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'UA',
+  'US', 'CA', 'GL',
+  'MX', 'BR', 'AR', 'CL', 'CO', 'BO', 'BS', 'BZ', 'CR', 'EC', 'PA', 'PE',
+  'PR', 'PY', 'UY', 'VE',
+  'AU', 'NZ',
+  'ZA', 'NG', 'GH', 'MA', 'DZ'
+];
 
 const PIA_HOT_COUNTRY_ORDER = [
   'TW', 'PH', 'SG', 'MO', 'HK', 'CN', 'JP', 'KR', 'MY', 'ID', 'VN', 'IN',
