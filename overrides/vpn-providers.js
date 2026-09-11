@@ -204,17 +204,6 @@ const REGION_DEFS = [
   ['AFRICA', AFRICA, 'fluent-emoji-flat/hut.svg'],
 ];
 
-const LEGACY_GROUP_RENAMES = {
-  'OV-ALL': 'PIA-ALL',
-  'OV-ASIA': 'PIA-ASIA',
-  'OV-MIDDLE-EAST': 'PIA-MIDDLE-EAST',
-  'OV-EUROPE': 'PIA-EUROPE',
-  'OV-NORTH-AMERICA': 'PIA-NORTH-AMERICA',
-  'OV-LATIN-AMERICA': 'PIA-LATIN-AMERICA',
-  'OV-OCEANIA': 'PIA-OCEANIA',
-  'OV-AFRICA': 'PIA-AFRICA',
-};
-
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -256,16 +245,6 @@ function isManagedProviderName(name) {
   return /^(?:ov|wg)-pia-/i.test(name) ||
     /^(?:ov|wg)-ss-/i.test(name) ||
     /^(?:hls|china|asia-extra|global-extra)-wg-ss$/i.test(name);
-}
-
-function migrateLegacyPiaGroupNames(groups) {
-  for (const group of groups) {
-    if (!group || typeof group !== 'object') continue;
-    if (LEGACY_GROUP_RENAMES[group.name]) group.name = LEGACY_GROUP_RENAMES[group.name];
-    if (Array.isArray(group.proxies)) {
-      group.proxies = group.proxies.map((name) => LEGACY_GROUP_RENAMES[name] || name);
-    }
-  }
 }
 
 const EXTRA_COUNTRY_ZH = {
@@ -498,7 +477,6 @@ function main(config) {
   config['proxy-providers'] = { ...generatedProviders, ...baseProviders };
 
   const existingGroups = Array.isArray(config['proxy-groups']) ? config['proxy-groups'] : [];
-  migrateLegacyPiaGroupNames(existingGroups);
   const baseGroups = existingGroups.filter((group) => {
     const isGeneratedEndpoint = group?.hidden === true && isPiaEndpointName(group?.name);
     return !isGeneratedEndpoint && !isManagedVendorGroupName(group?.name);
