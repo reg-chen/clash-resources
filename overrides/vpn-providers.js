@@ -450,7 +450,7 @@ function main(config) {
       ssCountryGroupByCode.set(countryCode, countryGroupName);
       ssCountryGroups.push({
         name: countryGroupName,
-        type: 'fallback',
+        type: hotCountry ? 'fallback' : 'select',
         hidden: true,
         use: [providerName],
       });
