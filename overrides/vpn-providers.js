@@ -158,7 +158,7 @@ const LATIN_AMERICA = new Set(['MX','BR','AR','CL','CO','BO','BS','BZ','CR','EC'
 const OCEANIA = new Set(['AU','NZ']);
 const AFRICA = new Set(['ZA','NG','GH','MA','DZ']);
 const ASIA = new Set([...HLS, ...CHINA, ...ASIA_EXTRA]);
-const HOT_COUNTRIES = new Set(['TW','PH','SG','MO','HK','CN','JP','KR','MY','ID','VN','IN','KH','MN','NP','BD','LK']);
+const HOT_COUNTRIES = new Set(ASIA);
 
 const REGION_DEFS = [
   ['ASIA', ASIA, 'fluent-emoji-flat/japanese-castle.svg'],
