@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import zipfile
 from dataclasses import dataclass
@@ -15,9 +14,6 @@ SURFSHARK_FILE_RE = re.compile(
     r"^(?P<endpoint>[a-z]{2}(?:-[a-z0-9]+)+)\.prod\.surfshark\.com_(?P<proto>udp|tcp)\.ovpn$",
     re.I,
 )
-
-OVERRIDE_TOPOLOGY_START = "// BEGIN GENERATED SURFSHARK PATHS"
-OVERRIDE_TOPOLOGY_END = "// END GENERATED SURFSHARK PATHS"
 
 
 @dataclass
@@ -112,12 +108,7 @@ def collect_ovpn_inputs(bundle: Path) -> list[OvpnFile]:
             filename = Path(member).name
             if member.endswith("/") or not SURFSHARK_FILE_RE.match(filename):
                 continue
-            result.append(
-                OvpnFile(
-                    name=filename,
-                    text=archive.read(member).decode("utf-8", errors="replace"),
-                )
-            )
+            result.append(OvpnFile(name=filename, text=archive.read(member).decode("utf-8", errors="replace")))
 
     if not result:
         raise FileNotFoundError("ZIP 內找不到 Surfshark OpenVPN profiles。")
@@ -140,7 +131,7 @@ def parse_ovpn(item: OvpnFile) -> OvpnNode:
     port = int(remote[1]) if len(remote) >= 2 and remote[1].isdigit() else (1194 if filename_proto == "udp" else 1443)
 
     proto_parts = get_directive(item.text, "proto")
-    proto = (proto_parts[0].lower() if proto_parts else filename_proto)
+    proto = proto_parts[0].lower() if proto_parts else filename_proto
     if proto.startswith("udp"):
         proto = "udp"
     elif proto.startswith("tcp"):
@@ -183,10 +174,10 @@ def endpoint_slug(endpoint: str, country_code: str) -> str:
 
 
 def get_multi_endpoint_country_codes(nodes: list[OvpnNode]) -> set[str]:
-    country_to_endpoints: dict[str, set[str]] = {}
+    grouped: dict[str, set[str]] = {}
     for node in nodes:
-        country_to_endpoints.setdefault(node.country_code, set()).add(node.endpoint)
-    return {cc for cc, endpoints in country_to_endpoints.items() if len(endpoints) >= 2}
+        grouped.setdefault(node.country_code, set()).add(node.endpoint)
+    return {cc for cc, endpoints in grouped.items() if len(endpoints) >= 2}
 
 
 def surfshark_flag(country_code: str) -> str:
@@ -194,72 +185,29 @@ def surfshark_flag(country_code: str) -> str:
 
 
 def topology_paths(nodes: list[OvpnNode]) -> list[str]:
-    """Return the exact folder-backed provider paths represented by this bundle."""
     multi = get_multi_endpoint_country_codes(nodes)
     by_endpoint: dict[str, OvpnNode] = {}
     for node in nodes:
         by_endpoint.setdefault(node.endpoint, node)
 
-    paths: list[str] = []
-    for endpoint, node in sorted(
-        by_endpoint.items(),
-        key=lambda item: (item[1].country_code, item[0]),
-    ):
+    result: list[str] = []
+    for endpoint, node in sorted(by_endpoint.items(), key=lambda item: (item[1].country_code, item[0])):
         cc = node.country_code.upper()
-        if node.country_code in multi:
-            paths.append(f"{cc}\\{endpoint_slug(endpoint, node.country_code)}")
-        else:
-            paths.append(cc)
-    return paths
+        result.append(
+            f"{cc}\\{endpoint_slug(endpoint, node.country_code)}"
+            if node.country_code in multi else cc
+        )
+    return result
 
 
-def render_override_topology_block(nodes: list[OvpnNode]) -> str:
-    lines = [
-        OVERRIDE_TOPOLOGY_START,
-        "// AUTO-GENERATED from the official Surfshark OpenVPN bundle.",
-        "// Do not edit this block by hand; regenerate it with tools/surfshark-openvpn-generator.py.",
-        "const SURFSHARK_PATHS = [",
-    ]
-    for path in topology_paths(nodes):
-        lines.append(f"  {json.dumps(path, ensure_ascii=False)},")
-    lines.extend([
-        "];",
-        OVERRIDE_TOPOLOGY_END,
-    ])
-    return "\n".join(lines)
-
-
-def repo_override_path() -> Path | None:
-    candidate = Path(__file__).resolve().parents[1] / "overrides" / "vpn-providers.js"
-    return candidate if candidate.is_file() else None
-
-
-def sync_override_topology(nodes: list[OvpnNode], override_path: Path | None = None) -> bool:
-    """
-    Refresh only the generated Surfshark path block in the JS override.
-
-    This is intentionally source-tree scoped: the override runtime cannot inspect the
-    filesystem, so the checked-in block is a generated runtime artifact, not a second
-    manually maintained discovery table.
-    """
-    path = override_path or repo_override_path()
-    if path is None:
-        return False
-
-    text = path.read_text(encoding="utf-8")
-    start = text.find(OVERRIDE_TOPOLOGY_START)
-    end = text.find(OVERRIDE_TOPOLOGY_END)
-    if start < 0 or end < 0 or end < start:
-        raise RuntimeError(f"{path}: 找不到 Surfshark topology generated block")
-
-    end += len(OVERRIDE_TOPOLOGY_END)
-    updated = text[:start] + render_override_topology_block(nodes) + text[end:]
-    if updated != text:
-        path.write_text(updated, encoding="utf-8", newline="\n")
-        print(f"[WRITE] {path} (Surfshark topology synced)")
-    else:
-        print(f"[OK] {path} (Surfshark topology unchanged)")
-    return True
+def sync_override_topology(nodes: list[OvpnNode]) -> bool:
+    return core.sync_generated_js_array(
+        marker="SURFSHARK PATHS",
+        const_name="SURFSHARK_PATHS",
+        values=topology_paths(nodes),
+        source="the official Surfshark OpenVPN bundle",
+        generator="tools/surfshark-openvpn-generator.py",
+    )
 
 
 def apply_node_names(nodes: list[OvpnNode]) -> None:
@@ -299,19 +247,11 @@ def build_openvpn_base_anchor(nodes: list[OvpnNode], username: str, password: st
     ]
 
     scalar_attrs = [
-        ("dev", "dev"),
-        ("cipher", "cipher"),
-        ("auth", "auth"),
-        ("comp_lzo", "comp-lzo"),
-        ("key_direction", "key-direction"),
-        ("ping", "ping"),
-        ("ping_restart", "ping-restart"),
+        ("dev", "dev"), ("cipher", "cipher"), ("auth", "auth"),
+        ("comp_lzo", "comp-lzo"), ("key_direction", "key-direction"),
+        ("ping", "ping"), ("ping_restart", "ping-restart"),
     ]
-    block_attrs = [
-        ("ca", "ca"),
-        ("tls_crypt", "tls-crypt"),
-        ("tls_auth", "tls-auth"),
-    ]
+    block_attrs = [("ca", "ca"), ("tls_crypt", "tls-crypt"), ("tls_auth", "tls-auth")]
 
     for attr, yaml_key in scalar_attrs:
         if value_same_for_all(nodes, attr):
@@ -342,26 +282,17 @@ def build_payload_node(node: OvpnNode, common_fields: set[str]) -> list[str]:
     ]
 
     scalar_attrs = [
-        ("dev", "dev"),
-        ("cipher", "cipher"),
-        ("auth", "auth"),
-        ("comp_lzo", "comp-lzo"),
-        ("key_direction", "key-direction"),
-        ("ping", "ping"),
-        ("ping_restart", "ping-restart"),
+        ("dev", "dev"), ("cipher", "cipher"), ("auth", "auth"),
+        ("comp_lzo", "comp-lzo"), ("key_direction", "key-direction"),
+        ("ping", "ping"), ("ping_restart", "ping-restart"),
     ]
-    block_attrs = [
-        ("ca", "ca"),
-        ("tls_crypt", "tls-crypt"),
-        ("tls_auth", "tls-auth"),
-    ]
+    block_attrs = [("ca", "ca"), ("tls_crypt", "tls-crypt"), ("tls_auth", "tls-auth")]
 
     for attr, yaml_key in scalar_attrs:
         if attr not in common_fields:
             value = getattr(node, attr)
             if value is not None:
                 lines.append(yaml_kv(yaml_key, value, 4))
-
     for attr, yaml_key in block_attrs:
         if attr not in common_fields:
             value = getattr(node, attr)
@@ -380,16 +311,6 @@ def build_provider_yaml(nodes: list[OvpnNode], username: str, password: str, hea
     return "\n".join(lines) + "\n"
 
 
-def clear_endpoint_tree(out_dir: Path) -> None:
-    """Remove only generator-owned Surfshark endpoint YAMLs before rebuilding topology."""
-    providers_root = out_dir / "providers"
-    if not providers_root.is_dir():
-        return
-    for path in providers_root.rglob("surfshark-ov.yaml"):
-        path.unlink()
-        print(f"[REMOVE] {path}")
-
-
 def write_endpoint_tree(out_dir: Path, nodes: list[OvpnNode], username: str, password: str) -> None:
     providers_root = out_dir / "providers"
     multi = get_multi_endpoint_country_codes(nodes)
@@ -398,12 +319,7 @@ def write_endpoint_tree(out_dir: Path, nodes: list[OvpnNode], username: str, pas
     for endpoint in endpoints:
         provider_nodes = [node for node in nodes if node.endpoint == endpoint]
         representative = provider_nodes[0]
-        endpoint_dir = core.endpoint_tree_dir(
-            providers_root,
-            representative.country_code,
-            endpoint,
-            multi,
-        )
+        endpoint_dir = core.endpoint_tree_dir(providers_root, representative.country_code, endpoint, multi)
         endpoint_dir.mkdir(parents=True, exist_ok=True)
 
         path = endpoint_dir / "surfshark-ov.yaml"
@@ -451,8 +367,7 @@ def generate_openvpn(
     single_file: bool,
     sync_override: bool = True,
 ) -> None:
-    ovpn_inputs = collect_ovpn_inputs(bundle_zip)
-    nodes = dedupe_nodes([parse_ovpn(item) for item in ovpn_inputs])
+    nodes = dedupe_nodes([parse_ovpn(item) for item in collect_ovpn_inputs(bundle_zip)])
     apply_node_names(nodes)
     if not nodes:
         raise RuntimeError("沒有任何 Surfshark OpenVPN 節點可輸出。")
@@ -461,10 +376,10 @@ def generate_openvpn(
     if single_file:
         write_single_yaml(out_dir, nodes, username, password)
     else:
-        clear_endpoint_tree(out_dir)
+        core.clear_generated_payloads(out_dir / "providers", "surfshark-ov.yaml")
         write_endpoint_tree(out_dir, nodes, username, password)
         if sync_override and not sync_override_topology(nodes):
-            print("[INFO] repo override 不在目前 source tree；略過 topology sync。")
+            print("[INFO] repo override 不在目前 source tree；略過 Surfshark topology sync。")
 
     print(f"節點總數：{len(nodes)}")
     print(f"endpoint 數：{len({node.endpoint for node in nodes})}")
@@ -478,11 +393,7 @@ def main() -> None:
     parser.add_argument("--password", required=True)
     parser.add_argument("--out-dir", type=Path, default=Path("."))
     parser.add_argument("--single-file", action="store_true")
-    parser.add_argument(
-        "--no-sync-override",
-        action="store_true",
-        help="不更新 source tree 內 overrides/vpn-providers.js 的 generated Surfshark topology block",
-    )
+    parser.add_argument("--no-sync-override", action="store_true")
     args = parser.parse_args()
     generate_openvpn(
         bundle_zip=args.bundle_zip,
