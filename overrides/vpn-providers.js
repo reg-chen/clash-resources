@@ -1,7 +1,7 @@
 // Clash Party JavaScript override
-// v17: runtime policy consumes protocol-scoped generated topology.
-// Endpoint discovery belongs to the generators; this override only renders policy.
-// Generated path arrays exist because Clash Party's JS sandbox cannot inspect local files.
+// v18: runtime policy consumes protocol-scoped generated topology.
+// Generators canonicalize provider source names into shared location paths;
+// this override only renders policy from those generated paths.
 
 const PROVIDER_ROOT = String.raw`P:\Clash\providers`;
 const ICON_ROOT = 'https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons';
@@ -15,7 +15,7 @@ const PIA_OV_PATHS = [
   "KH", "MN", "NP", "BD", "LK", "AE",
   "QA", "SA", "IL", "TR", "EG", "NL\\netherlands",
   "DE\\berlin", "DE\\frankfurt", "UK\\london", "UK\\manchester", "UK\\southampton", "FR",
-  "ES\\madrid", "ES\\valencia", "IT\\milano", "AM", "GE", "KZ",
+  "ES\\madrid", "ES\\valencia", "IT\\milan", "AM", "GE", "KZ",
   "AD", "AL", "AT", "BA", "BE", "BG",
   "CH", "CY", "CZ", "DK\\copenhagen", "EE", "FI\\helsinki",
   "GR", "HR", "HU", "IE", "IM", "IS",
@@ -67,51 +67,46 @@ const COUNTRY_ZH = {
   TH: '泰國', UZ: '烏茲別克',
 };
 
-// Presentation aliases only. These never control topology.
-const PIA_LOCATION_ZH = {
+// Presentation aliases keyed by the shared canonical filesystem path.
+const LOCATION_ZH = {
+  'IN\\delhi': '德里', 'IN\\mumbai': '孟買',
   'NL\\netherlands': '荷蘭',
   'DE\\berlin': '柏林', 'DE\\frankfurt': '法蘭克福',
-  'UK\\london': '倫敦', 'UK\\manchester': '曼徹斯特', 'UK\\southampton': '南安普敦',
-  'ES\\madrid': '馬德里', 'ES\\valencia': '瓦倫西亞', 'IT\\milano': '米蘭',
+  'UK\\edinburgh': '愛丁堡', 'UK\\glasgow': '格拉斯哥', 'UK\\london': '倫敦',
+  'UK\\manchester': '曼徹斯特', 'UK\\southampton': '南安普敦',
+  'FR\\bordeaux': '波爾多', 'FR\\marseille': '馬賽', 'FR\\paris': '巴黎',
+  'ES\\barcelona': '巴塞隆納', 'ES\\madrid': '馬德里', 'ES\\valencia': '瓦倫西亞',
+  'IT\\milan': '米蘭', 'IT\\rome': '羅馬',
+  'BE\\antwerp': '安特衛普', 'BE\\brussels': '布魯塞爾',
+  'PL\\gdansk': '格但斯克', 'PL\\warsaw': '華沙',
+  'PT\\lisbon': '里斯本', 'PT\\porto': '波多',
   'DK\\copenhagen': '哥本哈根', 'FI\\helsinki': '赫爾辛基', 'SE\\stockholm': '斯德哥爾摩',
   'US\\alabama': '阿拉巴馬', 'US\\alaska': '阿拉斯加', 'US\\arkansas': '阿肯色',
-  'US\\atlanta': '亞特蘭大', 'US\\baltimore': '巴爾的摩', 'US\\california': '加州',
-  'US\\chicago': '芝加哥', 'US\\connecticut': '康乃狄克', 'US\\denver': '丹佛',
-  'US\\east': '美東', 'US\\florida': '佛羅里達', 'US\\honolulu': '檀香山',
-  'US\\houston': '休士頓', 'US\\idaho': '愛達荷', 'US\\indiana': '印第安納',
-  'US\\iowa': '愛荷華', 'US\\kansas': '堪薩斯', 'US\\kentucky': '肯塔基',
-  'US\\las-vegas': '拉斯維加斯', 'US\\louisiana': '路易斯安那', 'US\\maine': '緬因',
-  'US\\massachusetts': '麻薩諸塞', 'US\\michigan': '密西根', 'US\\minnesota': '明尼蘇達',
-  'US\\mississippi': '密西西比', 'US\\missouri': '密蘇里', 'US\\montana': '蒙大拿',
-  'US\\nebraska': '內布拉斯加', 'US\\new-hampshire': '新罕布夏', 'US\\new-mexico': '新墨西哥',
-  'US\\new-york': '紐約', 'US\\north-carolina': '北卡羅來納', 'US\\north-dakota': '北達科他',
-  'US\\ohio': '俄亥俄', 'US\\oklahoma': '奧克拉荷馬', 'US\\oregon': '奧勒岡',
-  'US\\pennsylvania': '賓夕法尼亞', 'US\\rhode-island': '羅德島', 'US\\salt-lake-city': '鹽湖城',
-  'US\\seattle': '西雅圖', 'US\\silicon-valley': '矽谷', 'US\\south-carolina': '南卡羅來納',
+  'US\\ashburn': '阿什本', 'US\\atlanta': '亞特蘭大', 'US\\baltimore': '巴爾的摩',
+  'US\\california': '加州', 'US\\nashville': '納什維爾', 'US\\boston': '波士頓',
+  'US\\buffalo': '水牛城', 'US\\chicago': '芝加哥', 'US\\charlotte': '夏洛特',
+  'US\\connecticut': '康乃狄克', 'US\\dallas': '達拉斯', 'US\\denver': '丹佛',
+  'US\\detroit': '底特律', 'US\\east': '美東', 'US\\florida': '佛羅里達',
+  'US\\honolulu': '檀香山', 'US\\houston': '休士頓', 'US\\idaho': '愛達荷',
+  'US\\indiana': '印第安納', 'US\\iowa': '愛荷華', 'US\\kansas': '堪薩斯',
+  'US\\kansas-city': '堪薩斯城', 'US\\kentucky': '肯塔基', 'US\\las-vegas': '拉斯維加斯',
+  'US\\los-angeles': '洛杉磯', 'US\\louisiana': '路易斯安那', 'US\\maine': '緬因',
+  'US\\massachusetts': '麻薩諸塞', 'US\\miami': '邁阿密', 'US\\michigan': '密西根',
+  'US\\minnesota': '明尼蘇達', 'US\\mississippi': '密西西比', 'US\\missouri': '密蘇里',
+  'US\\montana': '蒙大拿', 'US\\nebraska': '內布拉斯加', 'US\\new-hampshire': '新罕布夏',
+  'US\\new-mexico': '新墨西哥', 'US\\new-york': '紐約', 'US\\north-carolina': '北卡羅來納',
+  'US\\north-dakota': '北達科他', 'US\\ohio': '俄亥俄', 'US\\oklahoma': '奧克拉荷馬',
+  'US\\omaha': '奧馬哈', 'US\\oregon': '奧勒岡', 'US\\pennsylvania': '賓夕法尼亞',
+  'US\\phoenix': '鳳凰城', 'US\\rhode-island': '羅德島', 'US\\salt-lake-city': '鹽湖城',
+  'US\\san-francisco': '舊金山', 'US\\san-jose': '聖荷西', 'US\\seattle': '西雅圖',
+  'US\\silicon-valley': '矽谷', 'US\\south-carolina': '南卡羅來納',
   'US\\south-dakota': '南達科他', 'US\\tennessee': '田納西', 'US\\texas': '德州',
   'US\\vermont': '佛蒙特', 'US\\virginia': '維吉尼亞', 'US\\washington-dc': '華盛頓DC',
   'US\\west': '美西', 'US\\west-virginia': '西維吉尼亞', 'US\\wilmington': '威明頓',
-  'US\\wisconsin': '威斯康辛', 'US\\wyoming': '懷俄明',
+  'US\\wisconsin': '威斯康辛', 'US\\wyoming': '懷俄明', 'US\\bend': '本德', 'US\\latham': '拉瑟姆',
   'CA\\montreal': '蒙特婁', 'CA\\ontario': '安大略', 'CA\\toronto': '多倫多', 'CA\\vancouver': '溫哥華',
   'AU\\adelaide': '阿德雷德', 'AU\\brisbane': '布里斯本', 'AU\\melbourne': '墨爾本',
   'AU\\perth': '伯斯', 'AU\\sydney': '雪梨',
-};
-
-const SURFSHARK_LOCATION_ZH = {
-  'IN\\del': '德里', 'IN\\mum': '孟買', 'DE\\ber': '柏林', 'DE\\fra': '法蘭克福',
-  'UK\\edi': '愛丁堡', 'UK\\gla': '格拉斯哥', 'UK\\lon': '倫敦', 'UK\\man': '曼徹斯特',
-  'FR\\bod': '波爾多', 'FR\\mrs': '馬賽', 'FR\\par': '巴黎',
-  'ES\\bcn': '巴塞隆納', 'ES\\mad': '馬德里', 'ES\\vlc': '瓦倫西亞',
-  'IT\\mil': '米蘭', 'IT\\rom': '羅馬', 'BE\\anr': '安特衛普', 'BE\\bru': '布魯塞爾',
-  'PL\\gdn': '格但斯克', 'PL\\waw': '華沙', 'PT\\lis': '里斯本', 'PT\\opo': '波多',
-  'US\\ash': '阿什本', 'US\\atl': '亞特蘭大', 'US\\bna': '納什維爾', 'US\\bos': '波士頓',
-  'US\\buf': '水牛城', 'US\\chi': '芝加哥', 'US\\clt': '夏洛特', 'US\\dal': '達拉斯',
-  'US\\den': '丹佛', 'US\\dtw': '底特律', 'US\\hou': '休士頓', 'US\\kan': '堪薩斯城',
-  'US\\las': '拉斯維加斯', 'US\\lax': '洛杉磯', 'US\\mia': '邁阿密', 'US\\nyc': '紐約',
-  'US\\oma': '奧馬哈', 'US\\phx': '鳳凰城', 'US\\sea': '西雅圖', 'US\\sfo': '舊金山',
-  'US\\sjc': '聖荷西', 'US\\slc': '鹽湖城', 'US\\bdn': '本德', 'US\\ltm': '拉瑟姆',
-  'CA\\mon': '蒙特婁', 'CA\\tor': '多倫多', 'CA\\van': '溫哥華',
-  'AU\\adl': '阿德雷德', 'AU\\bne': '布里斯本', 'AU\\mel': '墨爾本', 'AU\\per': '伯斯', 'AU\\syd': '雪梨',
 };
 
 // Shared presentation policy only; this never controls provider topology.
@@ -127,28 +122,28 @@ const COUNTRY_DISPLAY_ORDER = [
 // Do not edit this block by hand; regenerate it with tools/surfshark-openvpn-generator.py.
 const SURFSHARK_PATHS = [
   "TW", "PH", "SG", "MO", "HK", "JP",
-  "KR", "MY", "ID", "VN", "IN\\del", "IN\\mum",
+  "KR", "MY", "ID", "VN", "IN\\delhi", "IN\\mumbai",
   "KH", "MN", "NP", "BD", "LK", "TH",
   "LA", "MM", "PK", "BN", "BT", "AZ",
   "UZ", "AE", "SA", "IL", "TR", "EG",
-  "NL", "DE\\ber", "DE\\fra", "UK\\edi", "UK\\gla", "UK\\lon",
-  "UK\\man", "FR\\bod", "FR\\mrs", "FR\\par", "ES\\bcn", "ES\\mad",
-  "ES\\vlc", "IT\\mil", "IT\\rom", "AM", "GE", "KZ",
-  "AD", "AL", "AT", "BA", "BE\\anr", "BE\\bru",
+  "NL", "DE\\berlin", "DE\\frankfurt", "UK\\edinburgh", "UK\\glasgow", "UK\\london",
+  "UK\\manchester", "FR\\bordeaux", "FR\\marseille", "FR\\paris", "ES\\barcelona", "ES\\madrid",
+  "ES\\valencia", "IT\\milan", "IT\\rome", "AM", "GE", "KZ",
+  "AD", "AL", "AT", "BA", "BE\\antwerp", "BE\\brussels",
   "BG", "CH", "CY", "CZ", "DK", "EE",
   "FI", "GR", "HR", "HU", "IE", "IM",
   "IS", "LI", "LT", "LU", "LV", "MC",
-  "MD", "ME", "MK", "MT", "NO", "PL\\gdn",
-  "PL\\waw", "PT\\lis", "PT\\opo", "RO", "RS", "SE",
-  "SI", "SK", "UA", "US\\ash", "US\\atl", "US\\bna",
-  "US\\bos", "US\\buf", "US\\chi", "US\\clt", "US\\dal", "US\\den",
-  "US\\dtw", "US\\hou", "US\\kan", "US\\las", "US\\lax", "US\\mia",
-  "US\\nyc", "US\\oma", "US\\phx", "US\\sea", "US\\sfo", "US\\sjc",
-  "US\\slc", "US\\bdn", "US\\ltm", "CA\\mon", "CA\\tor", "CA\\van",
+  "MD", "ME", "MK", "MT", "NO", "PL\\gdansk",
+  "PL\\warsaw", "PT\\lisbon", "PT\\porto", "RO", "RS", "SE",
+  "SI", "SK", "UA", "US\\ashburn", "US\\atlanta", "US\\nashville",
+  "US\\boston", "US\\buffalo", "US\\chicago", "US\\charlotte", "US\\dallas", "US\\denver",
+  "US\\detroit", "US\\houston", "US\\kansas-city", "US\\las-vegas", "US\\los-angeles", "US\\miami",
+  "US\\new-york", "US\\omaha", "US\\phoenix", "US\\seattle", "US\\san-francisco", "US\\san-jose",
+  "US\\salt-lake-city", "US\\bend", "US\\latham", "CA\\montreal", "CA\\toronto", "CA\\vancouver",
   "GL", "MX", "BR", "AR", "CL", "CO",
   "BO", "BS", "BZ", "CR", "EC", "PA",
-  "PE", "PR", "PY", "UY", "VE", "AU\\adl",
-  "AU\\bne", "AU\\mel", "AU\\per", "AU\\syd", "NZ", "ZA",
+  "PE", "PR", "PY", "UY", "VE", "AU\\adelaide",
+  "AU\\brisbane", "AU\\melbourne", "AU\\perth", "AU\\sydney", "NZ", "ZA",
   "NG", "GH", "MA", "DZ",
 ];
 // END GENERATED SURFSHARK PATHS
@@ -208,8 +203,7 @@ function locationSuffix(path) {
 
 function makeLocation(path, vendor) {
   const cc = path.split('\\')[0];
-  const aliases = vendor === 'SS' ? SURFSHARK_LOCATION_ZH : PIA_LOCATION_ZH;
-  const suffix = aliases[path] || locationSuffix(path);
+  const suffix = LOCATION_ZH[path] || locationSuffix(path);
   const label = suffix ? `${countryLabel(cc)}-${suffix}` : countryLabel(cc);
   return {
     id: locationId(path),
