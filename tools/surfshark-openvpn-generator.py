@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import zipfile
 from dataclasses import dataclass
@@ -14,6 +15,9 @@ SURFSHARK_FILE_RE = re.compile(
     r"^(?P<endpoint>[a-z]{2}(?:-[a-z0-9]+)+)\.prod\.surfshark\.com_(?P<proto>udp|tcp)\.ovpn$",
     re.I,
 )
+
+OVERRIDE_TOPOLOGY_START = "// BEGIN GENERATED SURFSHARK PATHS"
+OVERRIDE_TOPOLOGY_END = "// END GENERATED SURFSHARK PATHS"
 
 
 @dataclass
@@ -187,6 +191,75 @@ def get_multi_endpoint_country_codes(nodes: list[OvpnNode]) -> set[str]:
 
 def surfshark_flag(country_code: str) -> str:
     return core.alpha2_flag("gb" if country_code.lower() == "uk" else country_code)
+
+
+def topology_paths(nodes: list[OvpnNode]) -> list[str]:
+    """Return the exact folder-backed provider paths represented by this bundle."""
+    multi = get_multi_endpoint_country_codes(nodes)
+    by_endpoint: dict[str, OvpnNode] = {}
+    for node in nodes:
+        by_endpoint.setdefault(node.endpoint, node)
+
+    paths: list[str] = []
+    for endpoint, node in sorted(
+        by_endpoint.items(),
+        key=lambda item: (item[1].country_code, item[0]),
+    ):
+        cc = node.country_code.upper()
+        if node.country_code in multi:
+            paths.append(f"{cc}\\{endpoint_slug(endpoint, node.country_code)}")
+        else:
+            paths.append(cc)
+    return paths
+
+
+def render_override_topology_block(nodes: list[OvpnNode]) -> str:
+    lines = [
+        OVERRIDE_TOPOLOGY_START,
+        "// AUTO-GENERATED from the official Surfshark OpenVPN bundle.",
+        "// Do not edit this block by hand; regenerate it with tools/surfshark-openvpn-generator.py.",
+        "const SURFSHARK_PATHS = [",
+    ]
+    for path in topology_paths(nodes):
+        lines.append(f"  {json.dumps(path, ensure_ascii=False)},")
+    lines.extend([
+        "];",
+        OVERRIDE_TOPOLOGY_END,
+    ])
+    return "\n".join(lines)
+
+
+def repo_override_path() -> Path | None:
+    candidate = Path(__file__).resolve().parents[1] / "overrides" / "vpn-providers.js"
+    return candidate if candidate.is_file() else None
+
+
+def sync_override_topology(nodes: list[OvpnNode], override_path: Path | None = None) -> bool:
+    """
+    Refresh only the generated Surfshark path block in the JS override.
+
+    This is intentionally source-tree scoped: the override runtime cannot inspect the
+    filesystem, so the checked-in block is a generated runtime artifact, not a second
+    manually maintained discovery table.
+    """
+    path = override_path or repo_override_path()
+    if path is None:
+        return False
+
+    text = path.read_text(encoding="utf-8")
+    start = text.find(OVERRIDE_TOPOLOGY_START)
+    end = text.find(OVERRIDE_TOPOLOGY_END)
+    if start < 0 or end < 0 or end < start:
+        raise RuntimeError(f"{path}: 找不到 Surfshark topology generated block")
+
+    end += len(OVERRIDE_TOPOLOGY_END)
+    updated = text[:start] + render_override_topology_block(nodes) + text[end:]
+    if updated != text:
+        path.write_text(updated, encoding="utf-8", newline="\n")
+        print(f"[WRITE] {path} (Surfshark topology synced)")
+    else:
+        print(f"[OK] {path} (Surfshark topology unchanged)")
+    return True
 
 
 def apply_node_names(nodes: list[OvpnNode]) -> None:
@@ -369,7 +442,15 @@ def write_single_yaml(out_dir: Path, nodes: list[OvpnNode], username: str, passw
     print(f"[WRITE] {path} ({len(nodes)} nodes)")
 
 
-def generate_openvpn(*, bundle_zip: Path, username: str, password: str, out_dir: Path, single_file: bool) -> None:
+def generate_openvpn(
+    *,
+    bundle_zip: Path,
+    username: str,
+    password: str,
+    out_dir: Path,
+    single_file: bool,
+    sync_override: bool = True,
+) -> None:
     ovpn_inputs = collect_ovpn_inputs(bundle_zip)
     nodes = dedupe_nodes([parse_ovpn(item) for item in ovpn_inputs])
     apply_node_names(nodes)
@@ -382,6 +463,8 @@ def generate_openvpn(*, bundle_zip: Path, username: str, password: str, out_dir:
     else:
         clear_endpoint_tree(out_dir)
         write_endpoint_tree(out_dir, nodes, username, password)
+        if sync_override and not sync_override_topology(nodes):
+            print("[INFO] repo override 不在目前 source tree；略過 topology sync。")
 
     print(f"節點總數：{len(nodes)}")
     print(f"endpoint 數：{len({node.endpoint for node in nodes})}")
@@ -395,6 +478,11 @@ def main() -> None:
     parser.add_argument("--password", required=True)
     parser.add_argument("--out-dir", type=Path, default=Path("."))
     parser.add_argument("--single-file", action="store_true")
+    parser.add_argument(
+        "--no-sync-override",
+        action="store_true",
+        help="不更新 source tree 內 overrides/vpn-providers.js 的 generated Surfshark topology block",
+    )
     args = parser.parse_args()
     generate_openvpn(
         bundle_zip=args.bundle_zip,
@@ -402,6 +490,7 @@ def main() -> None:
         password=args.password,
         out_dir=args.out_dir,
         single_file=args.single_file,
+        sync_override=not args.no_sync_override,
     )
 
 
