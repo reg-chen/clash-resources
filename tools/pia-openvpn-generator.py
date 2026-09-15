@@ -5,6 +5,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pia_generator_core as core
+
 
 def _impl_path() -> Path:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
@@ -29,11 +31,33 @@ def _load_impl():
 
 _impl = _load_impl()
 
-# Public OpenVPN module: protocol-specific implementation stays in the OpenVPN
-# implementation file; the generic shared core is not used as an OpenVPN dumping ground.
 for _name in dir(_impl):
     if not _name.startswith("__"):
         globals()[_name] = getattr(_impl, _name)
+
+
+def topology_paths(nodes) -> list[str]:
+    """Exact folder paths generated for the current PIA OpenVPN bundle."""
+    multi = _impl.get_multi_endpoint_country_codes(nodes)
+    result: list[str] = []
+    for stem in _impl.endpoint_stems_in_nodes(nodes):
+        node = _impl.endpoint_representative(nodes, stem)
+        alpha2 = _impl.country_alpha2(node.country_code)
+        if node.country_code in multi:
+            result.append(f"{alpha2}\\{_impl.endpoint_slug(stem, node.country_code)}")
+        else:
+            result.append(alpha2)
+    return result
+
+
+def sync_override_topology(nodes) -> bool:
+    return core.sync_generated_js_array(
+        marker="PIA OPENVPN PATHS",
+        const_name="PIA_OV_PATHS",
+        values=topology_paths(nodes),
+        source="the current PIA OpenVPN bundles",
+        generator="tools/pia-openvpn-generator.py",
+    )
 
 
 def write_endpoint_tree(
@@ -125,6 +149,7 @@ def generate_openvpn(
     out_dir: Path,
     single_file: bool,
     exclude_streaming: bool,
+    sync_override: bool = True,
 ) -> None:
     """GUI-friendly OpenVPN entry point without routing through CLI argv."""
     _impl.COMPRESS_MAP_VALUE = "yes"
@@ -160,6 +185,8 @@ def generate_openvpn(
             hot_ping_restart=60,
         )
     else:
+        providers_root = out_dir / "providers"
+        core.clear_generated_payloads(providers_root, "pia-ov.yaml")
         write_endpoint_tree(
             out_dir=out_dir,
             nodes=nodes,
@@ -168,6 +195,8 @@ def generate_openvpn(
             hot_ping=20,
             hot_ping_restart=60,
         )
+        if sync_override and not sync_override_topology(nodes):
+            print("[INFO] repo override 不在目前 source tree；略過 PIA OpenVPN topology sync。")
 
     print_summary(nodes)
 
