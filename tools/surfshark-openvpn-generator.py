@@ -307,6 +307,16 @@ def build_provider_yaml(nodes: list[OvpnNode], username: str, password: str, hea
     return "\n".join(lines) + "\n"
 
 
+def clear_endpoint_tree(out_dir: Path) -> None:
+    """Remove only generator-owned Surfshark endpoint YAMLs before rebuilding topology."""
+    providers_root = out_dir / "providers"
+    if not providers_root.is_dir():
+        return
+    for path in providers_root.rglob("surfshark-ov.yaml"):
+        path.unlink()
+        print(f"[REMOVE] {path}")
+
+
 def write_endpoint_tree(out_dir: Path, nodes: list[OvpnNode], username: str, password: str) -> None:
     providers_root = out_dir / "providers"
     multi = get_multi_endpoint_country_codes(nodes)
@@ -370,6 +380,7 @@ def generate_openvpn(*, bundle_zip: Path, username: str, password: str, out_dir:
     if single_file:
         write_single_yaml(out_dir, nodes, username, password)
     else:
+        clear_endpoint_tree(out_dir)
         write_endpoint_tree(out_dir, nodes, username, password)
 
     print(f"節點總數：{len(nodes)}")
