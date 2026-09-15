@@ -1,31 +1,39 @@
 // Clash Party JavaScript override
-// v15: PIA / Surfshark folder-backed providers share one endpoint renderer.
-// Vendor differences live in declarative metadata; routing rules remain YAML.
-// Clash Party's JS sandbox cannot access the local filesystem directly.
-// Feature flags are therefore the source of truth. Stable generator-defined paths
-// make missing provider files fail visibly in Mihomo.
+// v16: VPN runtime policy consumes generated provider topology.
+// Surfshark endpoint discovery is owned by tools/surfshark-openvpn-generator.py.
+// Clash Party's JS sandbox cannot inspect the local provider tree, so the Surfshark
+// path list below is a generated runtime artifact, not a hand-maintained source table.
 
 const PROVIDER_ROOT = String.raw`P:\Clash\providers`;
 const ICON_ROOT = 'https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons';
 
 const PIA_PATHS = [
-  "TW", "PH", "SG", "MO", "HK", "CN", "JP", "KR", "MY", "ID", "VN", "IN", "KH", "MN", "NP", "BD", "LK", "AE",
-  "QA", "SA", "IL", "TR", "EG", "NL\\netherlands", "DE\\berlin", "DE\\frankfurt", "UK\\london",
-  "UK\\manchester", "UK\\southampton", "FR", "ES\\madrid", "ES\\valencia", "IT\\milano", "AM", "GE", "KZ", "AD",
-  "AL", "AT", "BA", "BE", "BG", "CH", "CY", "CZ", "DK\\copenhagen", "EE", "FI\\helsinki", "GR", "HR", "HU",
-  "IE", "IM", "IS", "LI", "LT", "LU", "LV", "MC", "MD", "ME", "MK", "MT", "NO", "PL", "PT", "RO", "RS",
-  "SE\\stockholm", "SI", "SK", "UA", "US\\alabama", "US\\alaska", "US\\arkansas", "US\\atlanta",
-  "US\\baltimore", "US\\california", "US\\chicago", "US\\connecticut", "US\\denver", "US\\east", "US\\florida",
-  "US\\honolulu", "US\\houston", "US\\idaho", "US\\indiana", "US\\iowa", "US\\kansas", "US\\kentucky",
+  "TW", "PH", "SG", "MO", "HK", "CN",
+  "JP", "KR", "MY", "ID", "VN", "IN",
+  "KH", "MN", "NP", "BD", "LK", "AE",
+  "QA", "SA", "IL", "TR", "EG", "NL\\netherlands",
+  "DE\\berlin", "DE\\frankfurt", "UK\\london", "UK\\manchester", "UK\\southampton", "FR",
+  "ES\\madrid", "ES\\valencia", "IT\\milano", "AM", "GE", "KZ",
+  "AD", "AL", "AT", "BA", "BE", "BG",
+  "CH", "CY", "CZ", "DK\\copenhagen", "EE", "FI\\helsinki",
+  "GR", "HR", "HU", "IE", "IM", "IS",
+  "LI", "LT", "LU", "LV", "MC", "MD",
+  "ME", "MK", "MT", "NO", "PL", "PT",
+  "RO", "RS", "SE\\stockholm", "SI", "SK", "UA",
+  "US\\alabama", "US\\alaska", "US\\arkansas", "US\\atlanta", "US\\baltimore", "US\\california",
+  "US\\chicago", "US\\connecticut", "US\\denver", "US\\east", "US\\florida", "US\\honolulu",
+  "US\\houston", "US\\idaho", "US\\indiana", "US\\iowa", "US\\kansas", "US\\kentucky",
   "US\\las-vegas", "US\\louisiana", "US\\maine", "US\\massachusetts", "US\\michigan", "US\\minnesota",
   "US\\mississippi", "US\\missouri", "US\\montana", "US\\nebraska", "US\\new-hampshire", "US\\new-mexico",
   "US\\new-york", "US\\north-carolina", "US\\north-dakota", "US\\ohio", "US\\oklahoma", "US\\oregon",
-  "US\\pennsylvania", "US\\rhode-island", "US\\salt-lake-city", "US\\seattle", "US\\silicon-valley",
-  "US\\south-carolina", "US\\south-dakota", "US\\tennessee", "US\\texas", "US\\vermont", "US\\virginia",
-  "US\\washington-dc", "US\\west", "US\\west-virginia", "US\\wilmington", "US\\wisconsin", "US\\wyoming",
-  "CA\\montreal", "CA\\ontario", "CA\\toronto", "CA\\vancouver", "GL", "MX", "BR", "AR", "CL", "CO", "BO", "BS",
-  "CR", "EC", "GT", "PA", "PE", "UY", "VE", "AU\\adelaide", "AU\\brisbane", "AU\\melbourne", "AU\\perth",
-  "AU\\sydney", "NZ", "ZA", "NG", "MA", "DZ",
+  "US\\pennsylvania", "US\\rhode-island", "US\\salt-lake-city", "US\\seattle", "US\\silicon-valley", "US\\south-carolina",
+  "US\\south-dakota", "US\\tennessee", "US\\texas", "US\\vermont", "US\\virginia", "US\\washington-dc",
+  "US\\west", "US\\west-virginia", "US\\wilmington", "US\\wisconsin", "US\\wyoming", "CA\\montreal",
+  "CA\\ontario", "CA\\toronto", "CA\\vancouver", "GL", "MX", "BR",
+  "AR", "CL", "CO", "BO", "BS", "CR",
+  "EC", "GT", "PA", "PE", "UY", "VE",
+  "AU\\adelaide", "AU\\brisbane", "AU\\melbourne", "AU\\perth", "AU\\sydney", "NZ",
+  "ZA", "NG", "MA", "DZ",
 ];
 
 const COUNTRY_ZH = {
@@ -134,7 +142,7 @@ const COUNTRY_ZH = {
   "UZ": "烏茲別克",
 };
 
-const LOCATION_ZH = {
+const PIA_LOCATION_ZH = {
   "DE\\berlin": "柏林",
   "DE\\frankfurt": "法蘭克福",
   "UK\\london": "倫敦",
@@ -208,8 +216,10 @@ const LOCATION_ZH = {
   "AU\\melbourne": "墨爾本",
   "AU\\perth": "伯斯",
   "AU\\sydney": "雪梨",
+};
 
-  // Surfshark endpoint slugs from the official OpenVPN bundle.
+// Presentation-only aliases. Missing entries fall back to the endpoint slug; this table never controls topology.
+const SURFSHARK_LOCATION_ZH = {
   "IN\\del": "德里",
   "IN\\mum": "孟買",
   "DE\\ber": "柏林",
@@ -266,34 +276,53 @@ const LOCATION_ZH = {
   "AU\\syd": "雪梨",
 };
 
-const SURFSHARK_COUNTRIES = [
-  "TW", "PH", "SG", "MO", "HK", "JP", "KR", "MY", "ID", "VN", "IN", "KH", "MN", "NP", "BD", "LK", "TH", "LA",
-  "MM", "PK", "BN", "BT", "AZ", "UZ", "AE", "SA", "IL", "TR", "EG", "NL", "DE", "UK", "FR", "ES", "IT", "AM",
-  "GE", "KZ", "AD", "AL", "AT", "BA", "BE", "BG", "CH", "CY", "CZ", "DK", "EE", "FI", "GR", "HR", "HU", "IE",
-  "IM", "IS", "LI", "LT", "LU", "LV", "MC", "MD", "ME", "MK", "MT", "NO", "PL", "PT", "RO", "RS", "SE", "SI",
-  "SK", "UA", "US", "CA", "GL", "MX", "BR", "AR", "CL", "CO", "BO", "BS", "BZ", "CR", "EC", "PA", "PE", "PR",
-  "PY", "UY", "VE", "AU", "NZ", "ZA", "NG", "GH", "MA", "DZ",
+// UI/policy ordering only. Countries absent from the current bundle are harmless; topology comes from SURFSHARK_PATHS.
+const SURFSHARK_DISPLAY_COUNTRY_ORDER = [
+  "TW", "PH", "SG", "MO", "HK", "JP", "KR", "MY",
+  "ID", "VN", "IN", "KH", "MN", "NP", "BD", "LK",
+  "TH", "LA", "MM", "PK", "BN", "BT", "AZ", "UZ",
+  "AE", "SA", "IL", "TR", "EG", "NL", "DE", "UK",
+  "FR", "ES", "IT", "AM", "GE", "KZ", "AD", "AL",
+  "AT", "BA", "BE", "BG", "CH", "CY", "CZ", "DK",
+  "EE", "FI", "GR", "HR", "HU", "IE", "IM", "IS",
+  "LI", "LT", "LU", "LV", "MC", "MD", "ME", "MK",
+  "MT", "NO", "PL", "PT", "RO", "RS", "SE", "SI",
+  "SK", "UA", "US", "CA", "GL", "MX", "BR", "AR",
+  "CL", "CO", "BO", "BS", "BZ", "CR", "EC", "PA",
+  "PE", "PR", "PY", "UY", "VE", "AU", "NZ", "ZA",
+  "NG", "GH", "MA", "DZ",
 ];
 
-const SURFSHARK_MULTI_ENDPOINTS = {
-  IN: ['del', 'mum'],
-  DE: ['ber', 'fra'],
-  UK: ['edi', 'gla', 'lon', 'man'],
-  FR: ['bod', 'mrs', 'par'],
-  ES: ['bcn', 'mad', 'vlc'],
-  IT: ['mil', 'rom'],
-  BE: ['anr', 'bru'],
-  PL: ['gdn', 'waw'],
-  PT: ['lis', 'opo'],
-  US: ['ash', 'atl', 'bna', 'bos', 'buf', 'chi', 'clt', 'dal', 'den', 'dtw', 'hou', 'kan', 'las', 'lax', 'mia', 'nyc', 'oma', 'phx', 'sea', 'sfo', 'sjc', 'slc', 'bdn', 'ltm'],
-  CA: ['mon', 'tor', 'van'],
-  AU: ['adl', 'bne', 'mel', 'per', 'syd'],
-};
-
-const SURFSHARK_PATHS = SURFSHARK_COUNTRIES.flatMap((cc) => {
-  const endpoints = SURFSHARK_MULTI_ENDPOINTS[cc];
-  return endpoints ? endpoints.map((endpoint) => `${cc}\\${endpoint}`) : [cc];
-});
+// BEGIN GENERATED SURFSHARK PATHS
+// AUTO-GENERATED from the official Surfshark OpenVPN bundle.
+// Do not edit this block by hand; regenerate it with tools/surfshark-openvpn-generator.py.
+const SURFSHARK_PATHS = [
+  "TW", "PH", "SG", "MO", "HK", "JP",
+  "KR", "MY", "ID", "VN", "IN\\del", "IN\\mum",
+  "KH", "MN", "NP", "BD", "LK", "TH",
+  "LA", "MM", "PK", "BN", "BT", "AZ",
+  "UZ", "AE", "SA", "IL", "TR", "EG",
+  "NL", "DE\\ber", "DE\\fra", "UK\\edi", "UK\\gla", "UK\\lon",
+  "UK\\man", "FR\\bod", "FR\\mrs", "FR\\par", "ES\\bcn", "ES\\mad",
+  "ES\\vlc", "IT\\mil", "IT\\rom", "AM", "GE", "KZ",
+  "AD", "AL", "AT", "BA", "BE\\anr", "BE\\bru",
+  "BG", "CH", "CY", "CZ", "DK", "EE",
+  "FI", "GR", "HR", "HU", "IE", "IM",
+  "IS", "LI", "LT", "LU", "LV", "MC",
+  "MD", "ME", "MK", "MT", "NO", "PL\\gdn",
+  "PL\\waw", "PT\\lis", "PT\\opo", "RO", "RS", "SE",
+  "SI", "SK", "UA", "US\\ash", "US\\atl", "US\\bna",
+  "US\\bos", "US\\buf", "US\\chi", "US\\clt", "US\\dal", "US\\den",
+  "US\\dtw", "US\\hou", "US\\kan", "US\\las", "US\\lax", "US\\mia",
+  "US\\nyc", "US\\oma", "US\\phx", "US\\sea", "US\\sfo", "US\\sjc",
+  "US\\slc", "US\\bdn", "US\\ltm", "CA\\mon", "CA\\tor", "CA\\van",
+  "GL", "MX", "BR", "AR", "CL", "CO",
+  "BO", "BS", "BZ", "CR", "EC", "PA",
+  "PE", "PR", "PY", "UY", "VE", "AU\\adl",
+  "AU\\bne", "AU\\mel", "AU\\per", "AU\\syd", "NZ", "ZA",
+  "NG", "GH", "MA", "DZ",
+];
+// END GENERATED SURFSHARK PATHS
 
 const HLS = new Set(['TW', 'PH', 'SG']);
 const CHINA = new Set(['MO', 'HK', 'CN']);
@@ -359,9 +388,16 @@ function countryLabel(cc) {
   return COUNTRY_ZH[cc] || cc;
 }
 
+function locationSuffix(path) {
+  const index = path.indexOf('\\');
+  return index >= 0 ? path.slice(index + 1) : null;
+}
+
 function makeLocation(path, vendor) {
   const cc = path.split('\\')[0];
-  const suffix = LOCATION_ZH[path];
+  const suffix = vendor === 'SS'
+    ? (SURFSHARK_LOCATION_ZH[path] || locationSuffix(path))
+    : PIA_LOCATION_ZH[path];
   const label = suffix ? `${countryLabel(cc)}-${suffix}` : countryLabel(cc);
   return {
     id: locationId(path),
@@ -372,8 +408,22 @@ function makeLocation(path, vendor) {
   };
 }
 
+function sortPathsByCountryOrder(source, countryOrder) {
+  const rank = new Map(countryOrder.map((cc, index) => [cc, index]));
+  return [...source].sort((a, b) => {
+    const acc = a.split('\\')[0];
+    const bcc = b.split('\\')[0];
+    const ar = rank.get(acc) ?? Number.MAX_SAFE_INTEGER;
+    const br = rank.get(bcc) ?? Number.MAX_SAFE_INTEGER;
+    return ar - br || acc.localeCompare(bcc) || a.localeCompare(b);
+  });
+}
+
 const PIA_ENDPOINTS = PIA_PATHS.map((path) => makeLocation(path, 'PIA'));
-const SURFSHARK_LOCATIONS = SURFSHARK_PATHS.map((path) => makeLocation(path, 'SS'));
+const SURFSHARK_LOCATIONS = sortPathsByCountryOrder(
+  SURFSHARK_PATHS,
+  SURFSHARK_DISPLAY_COUNTRY_ORDER
+).map((path) => makeLocation(path, 'SS'));
 
 function countCountries(locations) {
   return locations.reduce((counts, location) => {
