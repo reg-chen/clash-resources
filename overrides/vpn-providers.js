@@ -131,7 +131,6 @@ const COUNTRY_ZH = {
   "PY": "巴拉圭",
   "PR": "波多黎各",
   "TH": "泰國",
-  "GB": "英國",
   "UZ": "烏茲別克",
 };
 
@@ -213,7 +212,7 @@ const PIA_LOCATION_ZH = {
 
 const SURFSHARK_COUNTRIES = [
   "TW", "PH", "SG", "MO", "HK", "JP", "KR", "MY", "ID", "VN", "IN", "KH", "MN", "NP", "BD", "LK", "TH", "LA",
-  "MM", "PK", "BN", "BT", "AZ", "UZ", "AE", "SA", "IL", "TR", "EG", "NL", "DE", "GB", "FR", "ES", "IT", "AM",
+  "MM", "PK", "BN", "BT", "AZ", "UZ", "AE", "SA", "IL", "TR", "EG", "NL", "DE", "UK", "FR", "ES", "IT", "AM",
   "GE", "KZ", "AD", "AL", "AT", "BA", "BE", "BG", "CH", "CY", "CZ", "DK", "EE", "FI", "GR", "HR", "HU", "IE",
   "IM", "IS", "LI", "LT", "LU", "LV", "MC", "MD", "ME", "MK", "MT", "NO", "PL", "PT", "RO", "RS", "SE", "SI",
   "SK", "UA", "US", "CA", "GL", "MX", "BR", "AR", "CL", "CO", "BO", "BS", "BZ", "CR", "EC", "PA", "PE", "PR",
@@ -229,7 +228,7 @@ const ASIA_EXTRA = new Set([
 const MIDDLE_EAST = new Set(['AE', 'QA', 'SA', 'IL', 'TR', 'EG']);
 const EUROPE = new Set([
   'AD', 'AL', 'AM', 'AT', 'BA', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DE', 'DK',
-  'EE', 'ES', 'FI', 'FR', 'GE', 'GB', 'GR', 'HR', 'HU', 'IE', 'IM', 'IS',
+  'EE', 'ES', 'FI', 'FR', 'GE', 'GR', 'HR', 'HU', 'IE', 'IM', 'IS',
   'IT', 'KZ', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL',
   'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'UA', 'UK'
 ]);
