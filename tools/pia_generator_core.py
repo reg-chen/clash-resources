@@ -12,85 +12,25 @@ from pathlib import Path
 # stable, readable location slugs so different vendors share the same directory
 # for the same actual location.
 LOCATION_SLUG_ALIASES: dict[str, dict[str, str]] = {
-    "IN": {
-        "del": "delhi",
-        "mum": "mumbai",
-    },
-    "DE": {
-        "ber": "berlin",
-        "fra": "frankfurt",
-    },
-    "UK": {
-        "edi": "edinburgh",
-        "gla": "glasgow",
-        "lon": "london",
-        "man": "manchester",
-    },
-    "FR": {
-        "bod": "bordeaux",
-        "mrs": "marseille",
-        "par": "paris",
-    },
-    "ES": {
-        "bcn": "barcelona",
-        "mad": "madrid",
-        "vlc": "valencia",
-    },
-    "IT": {
-        "mil": "milan",
-        "milano": "milan",
-        "rom": "rome",
-    },
-    "BE": {
-        "anr": "antwerp",
-        "bru": "brussels",
-    },
-    "PL": {
-        "gdn": "gdansk",
-        "waw": "warsaw",
-    },
-    "PT": {
-        "lis": "lisbon",
-        "opo": "porto",
-    },
+    "IN": {"del": "delhi", "mum": "mumbai"},
+    "DE": {"ber": "berlin", "fra": "frankfurt"},
+    "UK": {"edi": "edinburgh", "gla": "glasgow", "lon": "london", "man": "manchester"},
+    "FR": {"bod": "bordeaux", "mrs": "marseille", "par": "paris"},
+    "ES": {"bcn": "barcelona", "mad": "madrid", "vlc": "valencia"},
+    "IT": {"mil": "milan", "milano": "milan", "rom": "rome"},
+    "BE": {"anr": "antwerp", "bru": "brussels"},
+    "PL": {"gdn": "gdansk", "waw": "warsaw"},
+    "PT": {"lis": "lisbon", "opo": "porto"},
     "US": {
-        "ash": "ashburn",
-        "atl": "atlanta",
-        "bna": "nashville",
-        "bos": "boston",
-        "buf": "buffalo",
-        "chi": "chicago",
-        "clt": "charlotte",
-        "dal": "dallas",
-        "den": "denver",
-        "dtw": "detroit",
-        "hou": "houston",
-        "kan": "kansas-city",
-        "las": "las-vegas",
-        "lax": "los-angeles",
-        "mia": "miami",
-        "nyc": "new-york",
-        "oma": "omaha",
-        "phx": "phoenix",
-        "sea": "seattle",
-        "sfo": "san-francisco",
-        "sjc": "san-jose",
-        "slc": "salt-lake-city",
-        "bdn": "bend",
-        "ltm": "latham",
+        "ash": "ashburn", "atl": "atlanta", "bna": "nashville", "bos": "boston",
+        "buf": "buffalo", "chi": "chicago", "clt": "charlotte", "dal": "dallas",
+        "den": "denver", "dtw": "detroit", "hou": "houston", "kan": "kansas-city",
+        "las": "las-vegas", "lax": "los-angeles", "mia": "miami", "nyc": "new-york",
+        "oma": "omaha", "phx": "phoenix", "sea": "seattle", "sfo": "san-francisco",
+        "sjc": "san-jose", "slc": "salt-lake-city", "bdn": "bend", "ltm": "latham",
     },
-    "CA": {
-        "mon": "montreal",
-        "tor": "toronto",
-        "van": "vancouver",
-    },
-    "AU": {
-        "adl": "adelaide",
-        "bne": "brisbane",
-        "mel": "melbourne",
-        "per": "perth",
-        "syd": "sydney",
-    },
+    "CA": {"mon": "montreal", "tor": "toronto", "van": "vancouver"},
+    "AU": {"adl": "adelaide", "bne": "brisbane", "mel": "melbourne", "per": "perth", "syd": "sydney"},
 }
 
 
@@ -149,16 +89,31 @@ def endpoint_tree_dir(
     return path
 
 
+def _prune_empty_parent(path: Path, stop: Path) -> None:
+    current = path
+    while current != stop:
+        try:
+            current.rmdir()
+        except OSError:
+            break
+        current = current.parent
+
+
 def clear_generated_payloads(providers_root: Path, filename: str) -> list[Path]:
-    """Remove only generator-owned payloads with the exact managed filename."""
+    """Remove exact managed payloads and directories made empty by those removals."""
     if not providers_root.is_dir():
         return []
 
     removed: list[Path] = []
+    parents: list[Path] = []
     for path in providers_root.rglob(filename):
+        parents.append(path.parent)
         path.unlink()
         removed.append(path)
         print(f"[REMOVE] {path}")
+
+    for parent in sorted(set(parents), key=lambda p: len(p.parts), reverse=True):
+        _prune_empty_parent(parent, providers_root)
     return removed
 
 
@@ -179,13 +134,7 @@ def sync_generated_js_array(
     generator: str,
     override_path: Path | None = None,
 ) -> bool:
-    """
-    Replace one explicitly marked generated JS array in the checked-out override.
-
-    The generator-discovered list remains the sole topology source. The JS array is a
-    runtime artifact required only because Clash Party's override sandbox cannot inspect
-    the local provider filesystem.
-    """
+    """Replace one explicitly marked generated JS array in the checked-out override."""
     path = override_path or source_override_path()
     if path is None:
         return False
@@ -205,10 +154,7 @@ def sync_generated_js_array(
         f"const {const_name} = [",
     ]
     lines.extend(f"  {json.dumps(value, ensure_ascii=False)}," for value in values)
-    lines.extend([
-        "];",
-        end_marker,
-    ])
+    lines.extend(["];", end_marker])
     block = "\n".join(lines)
 
     end += len(end_marker)
@@ -222,12 +168,7 @@ def sync_generated_js_array(
 
 
 def read_openvpn_endpoint_index(providers_root: Path) -> dict[str, tuple[Path, str | None]]:
-    """
-    Index existing pia-ov.yaml files by their Source endpoint stem.
-
-    The optional display name is read from the first proxy node and lets WireGuard
-    mirror the established OpenVPN naming without importing OpenVPN implementation code.
-    """
+    """Index existing pia-ov.yaml files by source stem and first proxy display name."""
     result: dict[str, tuple[Path, str | None]] = {}
     if not providers_root.is_dir():
         return result
