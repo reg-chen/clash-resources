@@ -7,7 +7,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-import pia_generator_core as core
+import vpn_generator_core as core
 
 OPENVPN_HANDSHAKE_TIMEOUT = 30
 SURFSHARK_FILE_RE = re.compile(
