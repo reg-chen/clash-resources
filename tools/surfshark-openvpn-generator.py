@@ -185,10 +185,14 @@ def get_multi_endpoint_country_codes(nodes: list[OvpnNode]) -> set[str]:
     return {cc for cc, endpoints in country_to_endpoints.items() if len(endpoints) >= 2}
 
 
+def surfshark_flag(country_code: str) -> str:
+    return core.alpha2_flag("gb" if country_code.lower() == "uk" else country_code)
+
+
 def apply_node_names(nodes: list[OvpnNode]) -> None:
     multi = get_multi_endpoint_country_codes(nodes)
     for node in nodes:
-        base = f"{core.alpha2_flag(node.country_code)} OV-SS-{node.country_code.upper()}"
+        base = f"{surfshark_flag(node.country_code)} OV-SS-{node.country_code.upper()}"
         if node.country_code in multi:
             base += f"({endpoint_slug(node.endpoint, node.country_code)})"
         node.name = f"{base}-{node.proto.upper()}"
@@ -311,9 +315,12 @@ def write_endpoint_tree(out_dir: Path, nodes: list[OvpnNode], username: str, pas
     for endpoint in endpoints:
         provider_nodes = [node for node in nodes if node.endpoint == endpoint]
         representative = provider_nodes[0]
-        endpoint_dir = providers_root / representative.country_code.upper()
-        if representative.country_code in multi:
-            endpoint_dir /= endpoint_slug(endpoint, representative.country_code)
+        endpoint_dir = core.endpoint_tree_dir(
+            providers_root,
+            representative.country_code,
+            endpoint,
+            multi,
+        )
         endpoint_dir.mkdir(parents=True, exist_ok=True)
 
         path = endpoint_dir / "surfshark-ov.yaml"
@@ -331,31 +338,6 @@ def write_endpoint_tree(out_dir: Path, nodes: list[OvpnNode], username: str, pas
             newline="\n",
         )
         print(f"[WRITE] {path} ({len(provider_nodes)} nodes: UDP + TCP)")
-
-
-def write_country_tree(out_dir: Path, nodes: list[OvpnNode], username: str, password: str) -> None:
-    """Stable desktop entry points: one aggregate provider per country folder."""
-    providers_root = out_dir / "providers"
-    country_codes = sorted({node.country_code for node in nodes})
-    for country_code in country_codes:
-        country_nodes = [node for node in nodes if node.country_code == country_code]
-        country_dir = providers_root / country_code.upper()
-        country_dir.mkdir(parents=True, exist_ok=True)
-        path = country_dir / "surfshark-ov.yaml"
-        path.write_text(
-            build_provider_yaml(
-                country_nodes,
-                username,
-                password,
-                [
-                    "# GENERATED FILE — Surfshark country aggregate for desktop Mihomo.",
-                    f"# Country: {country_code.upper()} | vendor: Surfshark | transports: UDP + TCP",
-                ],
-            ),
-            encoding="utf-8",
-            newline="\n",
-        )
-        print(f"[WRITE] {path} ({len(country_nodes)} nodes)")
 
 
 def write_single_yaml(out_dir: Path, nodes: list[OvpnNode], username: str, password: str) -> None:
@@ -388,10 +370,7 @@ def generate_openvpn(*, bundle_zip: Path, username: str, password: str, out_dir:
     if single_file:
         write_single_yaml(out_dir, nodes, username, password)
     else:
-        # Desktop consumes the stable country-root providers; endpoint files remain
-        # available below multi-endpoint country folders for finer manual use.
         write_endpoint_tree(out_dir, nodes, username, password)
-        write_country_tree(out_dir, nodes, username, password)
 
     print(f"節點總數：{len(nodes)}")
     print(f"endpoint 數：{len({node.endpoint for node in nodes})}")
@@ -399,7 +378,7 @@ def generate_openvpn(*, bundle_zip: Path, username: str, password: str, out_dir:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Surfshark OpenVPN ZIP -> Mihomo provider generator")
+    parser = argparse.ArgumentParser(description="Surfshark OpenVPN ZIP -> Mihomo endpoint provider generator")
     parser.add_argument("bundle_zip", type=Path)
     parser.add_argument("--username", required=True)
     parser.add_argument("--password", required=True)
