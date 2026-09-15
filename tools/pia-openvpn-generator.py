@@ -37,14 +37,14 @@ for _name in dir(_impl):
 
 
 def topology_paths(nodes) -> list[str]:
-    """Exact folder paths generated for the current PIA OpenVPN bundle."""
+    """Exact canonical folder paths generated for the current PIA OpenVPN bundle."""
     multi = _impl.get_multi_endpoint_country_codes(nodes)
     result: list[str] = []
     for stem in _impl.endpoint_stems_in_nodes(nodes):
         node = _impl.endpoint_representative(nodes, stem)
         alpha2 = _impl.country_alpha2(node.country_code)
         if node.country_code in multi:
-            result.append(f"{alpha2}\\{_impl.endpoint_slug(stem, node.country_code)}")
+            result.append(f"{alpha2}\\{core.endpoint_slug(stem, node.country_code)}")
         else:
             result.append(alpha2)
     return result
@@ -75,13 +75,14 @@ def write_endpoint_tree(
 
     for stem in _impl.endpoint_stems_in_nodes(nodes):
         endpoint_node = _impl.endpoint_representative(nodes, stem)
-        alpha2 = _impl.country_alpha2(endpoint_node.country_code)
-        endpoint_dir = providers_dir / alpha2
-
-        if endpoint_node.country_code in multi_endpoint_countries:
-            endpoint_dir = endpoint_dir / _impl.endpoint_slug(stem, endpoint_node.country_code)
-
+        endpoint_dir = core.endpoint_tree_dir(
+            providers_dir,
+            endpoint_node.country_code,
+            stem,
+            multi_endpoint_countries,
+        )
         endpoint_dir.mkdir(parents=True, exist_ok=True)
+
         provider_nodes = _impl.nodes_for_endpoint(nodes, stem)
         path = endpoint_dir / "pia-ov.yaml"
         path.write_text(
