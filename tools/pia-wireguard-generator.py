@@ -6,6 +6,7 @@ import base64
 import getpass
 import http.client
 import json
+import re
 import socket
 import ssl
 import urllib.parse
@@ -223,6 +224,43 @@ def multi_country_codes(infos: list[RegionInfo]) -> set[str]:
     return {cc for cc, stems in grouped.items() if len(stems) >= 2}
 
 
+def read_openvpn_endpoint_index(providers_root: Path) -> dict[str, tuple[Path, str | None]]:
+    """Index existing PIA OpenVPN payloads by source stem and first proxy display name."""
+    result: dict[str, tuple[Path, str | None]] = {}
+    if not providers_root.is_dir():
+        return result
+
+    for path in providers_root.rglob("pia-ov.yaml"):
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+
+        stem: str | None = None
+        node_name: str | None = None
+        for line in lines[:80]:
+            if line.startswith("# Source endpoint stem:"):
+                stem = core.normalized_stem(line.split(":", 1)[1])
+            stripped = line.strip()
+            if node_name is None and stripped.startswith("- name:"):
+                value = stripped.split(":", 1)[1].strip()
+                if len(value) >= 2 and value[0] == value[-1] == '"':
+                    value = value[1:-1].replace('\\"', '"').replace('\\\\', '\\')
+                node_name = value
+            if stem and node_name:
+                break
+
+        if stem:
+            result[stem] = (path.parent, node_name)
+
+    return result
+
+
+def wg_name_from_openvpn(openvpn_name: str) -> str:
+    name = re.sub(r"-(?:UDP|TCP)$", "", openvpn_name)
+    return name.replace(" OV-PIA-", " WG-PIA-", 1)
+
+
 def fallback_node_name(info: RegionInfo, multi_countries: set[str]) -> str:
     alpha2 = info.country_code.upper()
     display = str(info.region.get("name", "")).strip() or alpha2
@@ -255,7 +293,7 @@ def provision_region(
     )
 
     ov_name = ov_index.get(info.stem, (Path(), None))[1]
-    name = core.wg_name_from_openvpn(ov_name) if ov_name else fallback_node_name(info, multi_countries)
+    name = wg_name_from_openvpn(ov_name) if ov_name else fallback_node_name(info, multi_countries)
 
     return WgNode(
         stem=info.stem,
@@ -343,7 +381,7 @@ def generate_wireguard(
     sync_override: bool = True,
 ) -> list[Path]:
     providers_root = out_dir / "providers"
-    ov_index = core.read_openvpn_endpoint_index(providers_root)
+    ov_index = read_openvpn_endpoint_index(providers_root)
 
     print("[INFO] Fetching PIA server list...")
     serverlist = fetch_json_first_line(SERVERLIST_URL, timeout)
