@@ -1,5 +1,5 @@
 // Clash Party JavaScript override
-// v18: runtime policy consumes protocol-scoped generated topology.
+// v19: runtime policy consumes protocol-scoped generated topology.
 // Generators canonicalize provider source names into shared location paths;
 // this override only renders policy from those generated paths.
 
@@ -117,10 +117,10 @@ const COUNTRY_DISPLAY_ORDER = [
   'US','CA','GL','MX','BR','AR','CL','CO','BO','BS','BZ','CR','EC','PA','PE','PR','PY','UY','VE','AU','NZ','ZA','NG','GH','MA','DZ',
 ];
 
-// BEGIN GENERATED SURFSHARK PATHS
+// BEGIN GENERATED SURFSHARK OPENVPN PATHS
 // AUTO-GENERATED from the official Surfshark OpenVPN bundle.
 // Do not edit this block by hand; regenerate it with tools/surfshark-openvpn-generator.py.
-const SURFSHARK_PATHS = [
+const SURFSHARK_OV_PATHS = [
   "TW", "PH", "SG", "MO", "HK", "JP",
   "KR", "MY", "ID", "VN", "IN\\delhi", "IN\\mumbai",
   "KH", "MN", "NP", "BD", "LK", "TH",
@@ -146,7 +146,7 @@ const SURFSHARK_PATHS = [
   "AU\\brisbane", "AU\\melbourne", "AU\\perth", "AU\\sydney", "NZ", "ZA",
   "NG", "GH", "MA", "DZ",
 ];
-// END GENERATED SURFSHARK PATHS
+// END GENERATED SURFSHARK OPENVPN PATHS
 
 const HLS = new Set(['TW', 'PH', 'SG']);
 const CHINA = new Set(['MO', 'HK', 'CN']);
@@ -239,13 +239,12 @@ function orderedUnion(...lists) {
   return result;
 }
 
-const PIA_PATHS = sortPathsByCountryOrder(
-  orderedUnion(PIA_OV_PATHS, PIA_WG_PATHS),
-  COUNTRY_DISPLAY_ORDER
-);
-const PIA_ENDPOINTS = PIA_PATHS.map((path) => makeLocation(path, 'PIA'));
-const SURFSHARK_LOCATIONS = sortPathsByCountryOrder(SURFSHARK_PATHS, COUNTRY_DISPLAY_ORDER)
-  .map((path) => makeLocation(path, 'SS'));
+function buildLocations(vendor, ...pathLists) {
+  return sortPathsByCountryOrder(
+    orderedUnion(...pathLists),
+    COUNTRY_DISPLAY_ORDER
+  ).map((path) => makeLocation(path, vendor));
+}
 
 function appendUnique(target, values) {
   const seen = new Set(target);
@@ -278,7 +277,7 @@ const VENDOR_DEFS = [
   {
     key: 'PIA',
     icon: 'PrivateInternetAccess.svg',
-    locations: PIA_ENDPOINTS,
+    locations: buildLocations('PIA', PIA_OV_PATHS, PIA_WG_PATHS),
     health: { hot: 'x-pia-test', cold: 'x-pia-test-slow' },
     protocols: [
       { toggle: 'x-pia-wireguard', providerPrefix: 'wg-pia', filename: 'pia-wg.yaml', paths: new Set(PIA_WG_PATHS) },
@@ -288,10 +287,10 @@ const VENDOR_DEFS = [
   {
     key: 'SS',
     icon: 'Surfshark.svg',
-    locations: SURFSHARK_LOCATIONS,
+    locations: buildLocations('SS', SURFSHARK_OV_PATHS),
     health: { hot: 'x-ss-test', cold: 'x-ss-test-slow' },
     protocols: [
-      { toggle: 'x-ss-openvpn', providerPrefix: 'ov-ss', filename: 'surfshark-ov.yaml', paths: new Set(SURFSHARK_PATHS) },
+      { toggle: 'x-ss-openvpn', providerPrefix: 'ov-ss', filename: 'surfshark-ov.yaml', paths: new Set(SURFSHARK_OV_PATHS) },
     ],
     aggregateProviders: [
       { toggle: 'x-ss-wireguard', bucket: 'hls', name: 'hls-wg-ss', filename: 'hls-wg-ss.yaml' },
