@@ -8,6 +8,92 @@ import sys
 from pathlib import Path
 
 
+# Provider source names are not a filesystem schema. Normalize known aliases to
+# stable, readable location slugs so different vendors share the same directory
+# for the same actual location.
+LOCATION_SLUG_ALIASES: dict[str, dict[str, str]] = {
+    "IN": {
+        "del": "delhi",
+        "mum": "mumbai",
+    },
+    "DE": {
+        "ber": "berlin",
+        "fra": "frankfurt",
+    },
+    "UK": {
+        "edi": "edinburgh",
+        "gla": "glasgow",
+        "lon": "london",
+        "man": "manchester",
+    },
+    "FR": {
+        "bod": "bordeaux",
+        "mrs": "marseille",
+        "par": "paris",
+    },
+    "ES": {
+        "bcn": "barcelona",
+        "mad": "madrid",
+        "vlc": "valencia",
+    },
+    "IT": {
+        "mil": "milan",
+        "milano": "milan",
+        "rom": "rome",
+    },
+    "BE": {
+        "anr": "antwerp",
+        "bru": "brussels",
+    },
+    "PL": {
+        "gdn": "gdansk",
+        "waw": "warsaw",
+    },
+    "PT": {
+        "lis": "lisbon",
+        "opo": "porto",
+    },
+    "US": {
+        "ash": "ashburn",
+        "atl": "atlanta",
+        "bna": "nashville",
+        "bos": "boston",
+        "buf": "buffalo",
+        "chi": "chicago",
+        "clt": "charlotte",
+        "dal": "dallas",
+        "den": "denver",
+        "dtw": "detroit",
+        "hou": "houston",
+        "kan": "kansas-city",
+        "las": "las-vegas",
+        "lax": "los-angeles",
+        "mia": "miami",
+        "nyc": "new-york",
+        "oma": "omaha",
+        "phx": "phoenix",
+        "sea": "seattle",
+        "sfo": "san-francisco",
+        "sjc": "san-jose",
+        "slc": "salt-lake-city",
+        "bdn": "bend",
+        "ltm": "latham",
+    },
+    "CA": {
+        "mon": "montreal",
+        "tor": "toronto",
+        "van": "vancouver",
+    },
+    "AU": {
+        "adl": "adelaide",
+        "bne": "brisbane",
+        "mel": "melbourne",
+        "per": "perth",
+        "syd": "sydney",
+    },
+}
+
+
 def bundled_path(filename: str) -> Path:
     """Resolve a sibling source file both from the repo and from PyInstaller _MEIPASS."""
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
@@ -47,7 +133,8 @@ def endpoint_slug(stem: str, country_code: str) -> str:
     prefix = f"{country_code.lower()}_"
     if raw.startswith(prefix):
         raw = raw[len(prefix):]
-    return re.sub(r"[^a-z0-9]+", "-", raw).strip("-") or "default"
+    slug = re.sub(r"[^a-z0-9]+", "-", raw).strip("-") or "default"
+    return LOCATION_SLUG_ALIASES.get(country_code.upper(), {}).get(slug, slug)
 
 
 def endpoint_tree_dir(
