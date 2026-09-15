@@ -5,7 +5,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-import pia_generator_core as core
+import vpn_generator_core as core
 
 
 def _impl_path() -> Path:

@@ -7,7 +7,6 @@ on:
       - main
     paths:
       - tools/vpn_generator_core.py
-      - tools/pia_generator_core.py
       - tools/pia-openvpn-generator.py
       - tools/pia-openvpn-generator-impl.py
       - tools/pia-wireguard-generator.py
@@ -43,7 +42,6 @@ jobs:
         run: |
           python -m py_compile `
             tools/vpn_generator_core.py `
-            tools/pia_generator_core.py `
             tools/pia-openvpn-generator.py `
             tools/pia-openvpn-generator-impl.py `
             tools/pia-wireguard-generator.py `

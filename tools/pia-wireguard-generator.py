@@ -17,7 +17,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
-import pia_generator_core as core
+import vpn_generator_core as core
 
 SERVERLIST_URL = "https://serverlist.piaservers.net/vpninfo/servers/v6"
 TOKEN_URL = "https://www.privateinternetaccess.com/api/client/v2/token"

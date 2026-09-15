@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import pia_generator_core as core
+import vpn_generator_core as core
 
 APP_NAME = "PIA Mihomo Generator"  # keep existing QSettings namespace for migration compatibility
 ORG_NAME = "reg-chen"
