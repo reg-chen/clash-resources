@@ -1,5 +1,5 @@
 // Clash Party JavaScript override
-// v14: PIA / Surfshark folder-backed providers share one location renderer.
+// v15: PIA / Surfshark folder-backed providers share one endpoint renderer.
 // Vendor differences live in declarative metadata; routing rules remain YAML.
 // Clash Party's JS sandbox cannot access the local filesystem directly.
 // Feature flags are therefore the source of truth. Stable generator-defined paths
@@ -134,7 +134,7 @@ const COUNTRY_ZH = {
   "UZ": "烏茲別克",
 };
 
-const PIA_LOCATION_ZH = {
+const LOCATION_ZH = {
   "DE\\berlin": "柏林",
   "DE\\frankfurt": "法蘭克福",
   "UK\\london": "倫敦",
@@ -208,6 +208,62 @@ const PIA_LOCATION_ZH = {
   "AU\\melbourne": "墨爾本",
   "AU\\perth": "伯斯",
   "AU\\sydney": "雪梨",
+
+  // Surfshark endpoint slugs from the official OpenVPN bundle.
+  "IN\\del": "德里",
+  "IN\\mum": "孟買",
+  "DE\\ber": "柏林",
+  "DE\\fra": "法蘭克福",
+  "UK\\edi": "愛丁堡",
+  "UK\\gla": "格拉斯哥",
+  "UK\\lon": "倫敦",
+  "UK\\man": "曼徹斯特",
+  "FR\\bod": "波爾多",
+  "FR\\mrs": "馬賽",
+  "FR\\par": "巴黎",
+  "ES\\bcn": "巴塞隆納",
+  "ES\\mad": "馬德里",
+  "ES\\vlc": "瓦倫西亞",
+  "IT\\mil": "米蘭",
+  "IT\\rom": "羅馬",
+  "BE\\anr": "安特衛普",
+  "BE\\bru": "布魯塞爾",
+  "PL\\gdn": "格但斯克",
+  "PL\\waw": "華沙",
+  "PT\\lis": "里斯本",
+  "PT\\opo": "波多",
+  "US\\ash": "阿什本",
+  "US\\atl": "亞特蘭大",
+  "US\\bna": "納什維爾",
+  "US\\bos": "波士頓",
+  "US\\buf": "水牛城",
+  "US\\chi": "芝加哥",
+  "US\\clt": "夏洛特",
+  "US\\dal": "達拉斯",
+  "US\\den": "丹佛",
+  "US\\dtw": "底特律",
+  "US\\hou": "休士頓",
+  "US\\kan": "堪薩斯城",
+  "US\\las": "拉斯維加斯",
+  "US\\lax": "洛杉磯",
+  "US\\mia": "邁阿密",
+  "US\\nyc": "紐約",
+  "US\\oma": "奧馬哈",
+  "US\\phx": "鳳凰城",
+  "US\\sea": "西雅圖",
+  "US\\sfo": "舊金山",
+  "US\\sjc": "聖荷西",
+  "US\\slc": "鹽湖城",
+  "US\\bdn": "本德",
+  "US\\ltm": "拉瑟姆",
+  "CA\\mon": "蒙特婁",
+  "CA\\tor": "多倫多",
+  "CA\\van": "溫哥華",
+  "AU\\adl": "阿德雷德",
+  "AU\\bne": "布里斯本",
+  "AU\\mel": "墨爾本",
+  "AU\\per": "伯斯",
+  "AU\\syd": "雪梨",
 };
 
 const SURFSHARK_COUNTRIES = [
@@ -218,6 +274,26 @@ const SURFSHARK_COUNTRIES = [
   "SK", "UA", "US", "CA", "GL", "MX", "BR", "AR", "CL", "CO", "BO", "BS", "BZ", "CR", "EC", "PA", "PE", "PR",
   "PY", "UY", "VE", "AU", "NZ", "ZA", "NG", "GH", "MA", "DZ",
 ];
+
+const SURFSHARK_MULTI_ENDPOINTS = {
+  IN: ['del', 'mum'],
+  DE: ['ber', 'fra'],
+  UK: ['edi', 'gla', 'lon', 'man'],
+  FR: ['bod', 'mrs', 'par'],
+  ES: ['bcn', 'mad', 'vlc'],
+  IT: ['mil', 'rom'],
+  BE: ['anr', 'bru'],
+  PL: ['gdn', 'waw'],
+  PT: ['lis', 'opo'],
+  US: ['ash', 'atl', 'bna', 'bos', 'buf', 'chi', 'clt', 'dal', 'den', 'dtw', 'hou', 'kan', 'las', 'lax', 'mia', 'nyc', 'oma', 'phx', 'sea', 'sfo', 'sjc', 'slc', 'bdn', 'ltm'],
+  CA: ['mon', 'tor', 'van'],
+  AU: ['adl', 'bne', 'mel', 'per', 'syd'],
+};
+
+const SURFSHARK_PATHS = SURFSHARK_COUNTRIES.flatMap((cc) => {
+  const endpoints = SURFSHARK_MULTI_ENDPOINTS[cc];
+  return endpoints ? endpoints.map((endpoint) => `${cc}\\${endpoint}`) : [cc];
+});
 
 const HLS = new Set(['TW', 'PH', 'SG']);
 const CHINA = new Set(['MO', 'HK', 'CN']);
@@ -285,7 +361,7 @@ function countryLabel(cc) {
 
 function makeLocation(path, vendor) {
   const cc = path.split('\\')[0];
-  const suffix = PIA_LOCATION_ZH[path];
+  const suffix = LOCATION_ZH[path];
   const label = suffix ? `${countryLabel(cc)}-${suffix}` : countryLabel(cc);
   return {
     id: locationId(path),
@@ -297,7 +373,7 @@ function makeLocation(path, vendor) {
 }
 
 const PIA_ENDPOINTS = PIA_PATHS.map((path) => makeLocation(path, 'PIA'));
-const SURFSHARK_LOCATIONS = SURFSHARK_COUNTRIES.map((cc) => makeLocation(cc, 'SS'));
+const SURFSHARK_LOCATIONS = SURFSHARK_PATHS.map((path) => makeLocation(path, 'SS'));
 
 function countCountries(locations) {
   return locations.reduce((counts, location) => {
@@ -338,7 +414,7 @@ function makeProvider(path, healthCheck) {
 }
 
 function flagFilter(countries) {
-  return Array.from(countries).sort().map(flagEmoji).join('|');
+  return Array.from(countries).sort().map(locationFlagEmoji).join('|');
 }
 
 const VENDOR_DEFS = [
