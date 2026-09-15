@@ -202,8 +202,8 @@ def topology_paths(nodes: list[OvpnNode]) -> list[str]:
 
 def sync_override_topology(nodes: list[OvpnNode]) -> bool:
     return core.sync_generated_js_array(
-        marker="SURFSHARK PATHS",
-        const_name="SURFSHARK_PATHS",
+        marker="SURFSHARK OPENVPN PATHS",
+        const_name="SURFSHARK_OV_PATHS",
         values=topology_paths(nodes),
         source="the official Surfshark OpenVPN bundle",
         generator="tools/surfshark-openvpn-generator.py",
