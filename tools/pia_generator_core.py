@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 from pathlib import Path
@@ -59,6 +60,78 @@ def endpoint_tree_dir(
     if country_code in multi_countries:
         path = path / endpoint_slug(stem, country_code)
     return path
+
+
+def clear_generated_payloads(providers_root: Path, filename: str) -> list[Path]:
+    """Remove only generator-owned payloads with the exact managed filename."""
+    if not providers_root.is_dir():
+        return []
+
+    removed: list[Path] = []
+    for path in providers_root.rglob(filename):
+        path.unlink()
+        removed.append(path)
+        print(f"[REMOVE] {path}")
+    return removed
+
+
+def source_override_path(filename: str = "vpn-providers.js") -> Path | None:
+    """Return the checked-out override path; frozen builds intentionally have none."""
+    if getattr(sys, "frozen", False):
+        return None
+    candidate = Path(__file__).resolve().parents[1] / "overrides" / filename
+    return candidate if candidate.is_file() else None
+
+
+def sync_generated_js_array(
+    *,
+    marker: str,
+    const_name: str,
+    values: list[str],
+    source: str,
+    generator: str,
+    override_path: Path | None = None,
+) -> bool:
+    """
+    Replace one explicitly marked generated JS array in the checked-out override.
+
+    The generator-discovered list remains the sole topology source. The JS array is a
+    runtime artifact required only because Clash Party's override sandbox cannot inspect
+    the local provider filesystem.
+    """
+    path = override_path or source_override_path()
+    if path is None:
+        return False
+
+    start_marker = f"// BEGIN GENERATED {marker}"
+    end_marker = f"// END GENERATED {marker}"
+    text = path.read_text(encoding="utf-8")
+    start = text.find(start_marker)
+    end = text.find(end_marker)
+    if start < 0 or end < 0 or end < start:
+        raise RuntimeError(f"{path}: 找不到 generated block：{marker}")
+
+    lines = [
+        start_marker,
+        f"// AUTO-GENERATED from {source}.",
+        f"// Do not edit this block by hand; regenerate it with {generator}.",
+        f"const {const_name} = [",
+    ]
+    lines.extend(f"  {json.dumps(value, ensure_ascii=False)}," for value in values)
+    lines.extend([
+        "];",
+        end_marker,
+    ])
+    block = "\n".join(lines)
+
+    end += len(end_marker)
+    updated = text[:start] + block + text[end:]
+    if updated != text:
+        path.write_text(updated, encoding="utf-8", newline="\n")
+        print(f"[WRITE] {path} ({const_name} synced)")
+    else:
+        print(f"[OK] {path} ({const_name} unchanged)")
+    return True
 
 
 def read_openvpn_endpoint_index(providers_root: Path) -> dict[str, tuple[Path, str | None]]:
