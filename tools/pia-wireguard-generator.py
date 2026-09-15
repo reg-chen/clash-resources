@@ -315,6 +315,23 @@ def build_single_yaml(nodes: list[WgNode]) -> str:
     return "\n".join(lines)
 
 
+def relative_provider_paths(paths: list[Path], providers_root: Path) -> list[str]:
+    return [
+        str(path.parent.relative_to(providers_root)).replace("/", "\\")
+        for path in paths
+    ]
+
+
+def sync_override_topology(paths: list[Path], providers_root: Path) -> bool:
+    return core.sync_generated_js_array(
+        marker="PIA WIREGUARD PATHS",
+        const_name="PIA_WG_PATHS",
+        values=relative_provider_paths(paths, providers_root),
+        source="the successfully provisioned PIA WireGuard regions",
+        generator="tools/pia-wireguard-generator.py",
+    )
+
+
 def generate_wireguard(
     *,
     username: str,
@@ -323,6 +340,7 @@ def generate_wireguard(
     single_file: bool,
     exclude_streaming: bool,
     timeout: float = 15.0,
+    sync_override: bool = True,
 ) -> list[Path]:
     providers_root = out_dir / "providers"
     ov_index = core.read_openvpn_endpoint_index(providers_root)
@@ -382,6 +400,7 @@ def generate_wireguard(
         written.append(path)
         print(f"[WRITE] {path} ({len(nodes)} nodes, aggregate)")
     else:
+        core.clear_generated_payloads(providers_root, "pia-wg.yaml")
         for node in nodes:
             indexed = ov_index.get(node.stem)
             endpoint_dir = indexed[0] if indexed else core.endpoint_tree_dir(
@@ -395,6 +414,9 @@ def generate_wireguard(
             path.write_text(build_endpoint_yaml(node), encoding="utf-8", newline="\n")
             written.append(path)
             print(f"[WRITE] {path}")
+
+        if sync_override and not sync_override_topology(written, providers_root):
+            print("[INFO] repo override 不在目前 source tree；略過 PIA WireGuard topology sync。")
 
     print(f"[OK] WireGuard: {len(nodes)}/{len(infos)} regions, {len(written)} file(s).")
     if failures:
@@ -412,6 +434,7 @@ def main() -> int:
     parser.add_argument("--single-only", action="store_true")
     parser.add_argument("--include-streaming", action="store_true")
     parser.add_argument("--timeout", type=float, default=15.0)
+    parser.add_argument("--no-sync-override", action="store_true")
     args = parser.parse_args()
 
     username = args.username or input("PIA username: ").strip()
@@ -426,6 +449,7 @@ def main() -> int:
         single_file=args.single_only,
         exclude_streaming=not args.include_streaming,
         timeout=args.timeout,
+        sync_override=not args.no_sync_override,
     )
     return 0
 
