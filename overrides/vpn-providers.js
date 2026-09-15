@@ -114,7 +114,8 @@ const SURFSHARK_LOCATION_ZH = {
   'AU\\adl': '阿德雷德', 'AU\\bne': '布里斯本', 'AU\\mel': '墨爾本', 'AU\\per': '伯斯', 'AU\\syd': '雪梨',
 };
 
-const SURFSHARK_DISPLAY_COUNTRY_ORDER = [
+// Shared presentation policy only; this never controls provider topology.
+const COUNTRY_DISPLAY_ORDER = [
   'TW','PH','SG','MO','HK','JP','KR','MY','ID','VN','IN','KH','MN','NP','BD','LK','TH','LA','MM','PK','BN','BT','AZ','UZ',
   'AE','SA','IL','TR','EG','NL','DE','UK','FR','ES','IT','AM','GE','KZ','AD','AL','AT','BA','BE','BG','CH','CY','CZ','DK',
   'EE','FI','GR','HR','HU','IE','IM','IS','LI','LT','LU','LV','MC','MD','ME','MK','MT','NO','PL','PT','RO','RS','SE','SI','SK','UA',
@@ -244,9 +245,12 @@ function orderedUnion(...lists) {
   return result;
 }
 
-const PIA_PATHS = orderedUnion(PIA_OV_PATHS, PIA_WG_PATHS);
+const PIA_PATHS = sortPathsByCountryOrder(
+  orderedUnion(PIA_OV_PATHS, PIA_WG_PATHS),
+  COUNTRY_DISPLAY_ORDER
+);
 const PIA_ENDPOINTS = PIA_PATHS.map((path) => makeLocation(path, 'PIA'));
-const SURFSHARK_LOCATIONS = sortPathsByCountryOrder(SURFSHARK_PATHS, SURFSHARK_DISPLAY_COUNTRY_ORDER)
+const SURFSHARK_LOCATIONS = sortPathsByCountryOrder(SURFSHARK_PATHS, COUNTRY_DISPLAY_ORDER)
   .map((path) => makeLocation(path, 'SS'));
 
 function appendUnique(target, values) {
