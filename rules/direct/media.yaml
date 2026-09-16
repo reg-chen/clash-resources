@@ -32,6 +32,7 @@ payload:
   # - DOMAIN-SUFFIX,reddit.com
   
   - DOMAIN,raw.githubusercontent.com
+  - DOMAIN,github.githubassets.com/
   - DOMAIN-SUFFIX,github.com
   - DOMAIN-SUFFIX,pcloud.com
   - DOMAIN-SUFFIX,gnjoy.com.tw
