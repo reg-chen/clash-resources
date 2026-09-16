@@ -89,6 +89,21 @@ proxy-groups:
       - REJECT
 
   # =====================================================================
+  # 主選單（手動全控制：自動 / 負載 / 單線路 / DIRECT）
+  # =====================================================================
+  - name: PROXY
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/globe-with-meridians.svg
+    proxies:
+      - AUTO-FAST
+      - AUTO-SAFE
+      - LB-HLS
+      - LB-CONSISTENT
+      - LB-ROBIN
+      - LB-STICKY
+      - DIRECT
+
+  # =====================================================================
   # 最低延遲自動選（依測速選最穩定節點）
   # =====================================================================
   - name: AUTO-FAST
@@ -161,21 +176,6 @@ proxy-groups:
     proxies:
       - DIRECT
       - PROXY
-
-  # =====================================================================
-  # 主選單（手動全控制：自動 / 負載 / 單線路 / DIRECT）
-  # =====================================================================
-  - name: PROXY
-    type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/globe-with-meridians.svg
-    proxies:
-      - AUTO-FAST
-      - AUTO-SAFE
-      - LB-HLS
-      - LB-CONSISTENT
-      - LB-ROBIN
-      - LB-STICKY
-      - DIRECT
 
   # =====================================================================
   # AI 專用（預設直連，必要時可手動切換國家）
