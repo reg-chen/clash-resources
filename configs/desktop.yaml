@@ -104,6 +104,60 @@ proxy-groups:
       - DIRECT
 
   # =====================================================================
+  # DIRECT / PROXY 總切換（平常 DIRECT；出國時可整組切到 PROXY）
+  # =====================================================================
+  - name: DIRECT-PROXY
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/satellite.svg
+    proxies:
+      - DIRECT
+      - PROXY
+
+  # =====================================================================
+  # AI 專用（預設直連，必要時可手動切換國家）
+  # =====================================================================
+  - name: AI-PROXY
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/robot.svg
+    proxies:
+      - DIRECT
+
+  # =====================================================================
+  # HLSLB優先（預設 HLSLB，但可自由選國家）
+  # =====================================================================
+  - name: HLS-PROXY
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/film-frames.svg
+    proxies:
+      - LB-HLS
+      - LB-CONSISTENT
+      - LB-ROBIN
+      - LB-STICKY
+      - AUTO-FAST
+      - AUTO-SAFE
+      - DIRECT
+
+  # =====================================================================
+  # 直連優先（預設 DIRECT，但可自由選國家）
+  # =====================================================================
+  - name: DRM-PROXY
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/globe-showing-asia-australia.svg
+    proxies:
+      - DIRECT
+      - LB-CONSISTENT
+
+  # =====================================================================
+  # 銀行 / 政府專用（預設直連，必要時可手動切換國家）
+  # =====================================================================
+  - name: BANKGOV-PROXY
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/bank.svg
+    proxies:
+      - DIRECT
+      - LB-CONSISTENT
+
+  # =====================================================================
   # 最低延遲自動選（依測速選最穩定節點）
   # =====================================================================
   - name: AUTO-FAST
@@ -166,60 +220,6 @@ proxy-groups:
     strategy: consistent-hashing
     proxies:
       - REJECT
-
-  # =====================================================================
-  # DIRECT / PROXY 總切換（平常 DIRECT；出國時可整組切到 PROXY）
-  # =====================================================================
-  - name: DIRECT-PROXY
-    type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/satellite.svg
-    proxies:
-      - DIRECT
-      - PROXY
-
-  # =====================================================================
-  # AI 專用（預設直連，必要時可手動切換國家）
-  # =====================================================================
-  - name: AI-PROXY
-    type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/robot.svg
-    proxies:
-      - DIRECT
-
-  # =====================================================================
-  # HLSLB優先（預設 HLSLB，但可自由選國家）
-  # =====================================================================
-  - name: HLS-PROXY
-    type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/film-frames.svg
-    proxies:
-      - LB-HLS
-      - LB-CONSISTENT
-      - LB-ROBIN
-      - LB-STICKY
-      - AUTO-FAST
-      - AUTO-SAFE
-      - DIRECT
-
-  # =====================================================================
-  # 直連優先（預設 DIRECT，但可自由選國家）
-  # =====================================================================
-  - name: DRM-PROXY
-    type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/globe-showing-asia-australia.svg
-    proxies:
-      - DIRECT
-      - LB-CONSISTENT
-
-  # =====================================================================
-  # 銀行 / 政府專用（預設直連，必要時可手動切換國家）
-  # =====================================================================
-  - name: BANKGOV-PROXY
-    type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/bank.svg
-    proxies:
-      - DIRECT
-      - LB-CONSISTENT
 
 # ================== 分流 ==================
 
