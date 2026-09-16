@@ -170,17 +170,6 @@ const REGION_DEFS = [
   ['AFRICA', AFRICA, 'fluent-emoji-flat/hut.svg'],
 ];
 
-const VISIBLE_GROUP_ORDER = [
-  'GLOBAL',
-  'PROXY',
-  'AUTO-FAST',
-  'AUTO-SAFE',
-  'LB-HLS',
-  'LB-STICKY',
-  'LB-ROBIN',
-  'LB-CONSISTENT',
-];
-
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -553,17 +542,11 @@ function main(config) {
   const vendorGroups = [...buildPiaVendorGroups(pia), ...buildSurfsharkVendorGroups(ss)];
   applyRouteGroupPolicy(baseGroups, vendorGroups);
 
-  const baseGroupByName = new Map(baseGroups.map((group) => [group?.name, group]));
-  const primaryGroups = VISIBLE_GROUP_ORDER.map((name) => baseGroupByName.get(name)).filter(Boolean);
-  const primaryNames = new Set(VISIBLE_GROUP_ORDER);
-  const otherBaseGroups = baseGroups.filter((group) => !primaryNames.has(group?.name));
-
   config['proxy-groups'] = [
     ...pia.endpointGroups,
     ...ss.endpointGroups,
-    ...primaryGroups,
+    ...baseGroups,
     ...vendorGroups,
-    ...otherBaseGroups,
   ];
   return config;
 }
