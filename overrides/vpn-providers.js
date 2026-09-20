@@ -385,8 +385,16 @@ function isManagedVendorGroupName(name) {
   return typeof name === 'string' && /^(?:PIA|SS)-(?:ALL|ASIA|MIDDLE-EAST|EUROPE|NORTH-AMERICA|LATIN-AMERICA|OCEANIA|AFRICA)$/i.test(name);
 }
 
+function areaGroupName(cc) {
+  return `${locationFlagEmoji(cc)} AREA-${cc}`;
+}
+
 function isManagedAreaGroupName(name) {
-  return typeof name === 'string' && /^AREA-[A-Z]{2}$/.test(name);
+  if (typeof name !== 'string') return false;
+  const match = name.match(/AREA-([A-Z]{2})$/);
+  if (!match) return false;
+  const cc = match[1];
+  return name === `AREA-${cc}` || name === areaGroupName(cc);
 }
 
 function isManagedProviderName(name) {
@@ -482,7 +490,7 @@ function buildAreaGroups(pia, ss, checksByVendor) {
   const timeout = timeouts.length > 0 ? Math.max(...timeouts) : 15000;
 
   return commonCountries.map((cc) => ({
-    name: `AREA-${cc}`,
+    name: areaGroupName(cc),
     type: 'fallback',
     hidden: true,
     url: probeUrl,
@@ -506,16 +514,12 @@ function applyAreaPolicy(baseGroups, areaGroups) {
 function applyAutomationPolicy(baseGroups, pia, ss) {
   const piaAsia = locationNames(pia, (location) => location.hot);
   const piaHls = regionLocationNames(pia, HLS);
-  const piaAi = locationNames(pia, (location) => location.hot && !CHINA.has(countryCode(location)));
   const ssAsia = regionLocationNames(ss, ASIA, (location) => location.hot);
   const ssHls = regionLocationNames(ss, HLS, (location) => location.hot);
-  const ssAi = regionLocationNames(ss, ASIA, (location) => location.hot && !CHINA.has(countryCode(location)));
 
   const ssWgAsia = [...bucket(ss, 'hls'), ...bucket(ss, 'china'), ...bucket(ss, 'asiaExtra')];
-  const ssWgAi = [...bucket(ss, 'hls'), ...bucket(ss, 'asiaExtra')];
   const asiaProxies = [...piaAsia, ...ssAsia];
   const hlsProxies = [...piaHls, ...ssHls];
-  const aiProxies = [...piaAi, ...ssAi];
 
   const policyByGroup = {
     'AUTO-FAST': { proxies: asiaProxies, use: ssWgAsia },
@@ -524,7 +528,6 @@ function applyAutomationPolicy(baseGroups, pia, ss) {
     'LB-STICKY': { proxies: asiaProxies, use: ssWgAsia },
     'LB-ROBIN': { proxies: asiaProxies, use: ssWgAsia },
     'LB-CONSISTENT': { proxies: asiaProxies, use: ssWgAsia },
-    'AI-PROXY': { proxies: aiProxies, use: ssWgAi },
   };
 
   for (const group of baseGroups) {

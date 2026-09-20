@@ -122,6 +122,7 @@ proxy-groups:
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/robot.svg
     proxies:
       - DIRECT
+      - AREA-COMBINE
 
   # =====================================================================
   # HLSLB優先（預設 HLSLB，但可自由選國家）
@@ -134,6 +135,7 @@ proxy-groups:
       - LB-CONSISTENT
       - LB-ROBIN
       - LB-STICKY
+      - AREA-COMBINE
       - AUTO-FAST
       - AUTO-SAFE
       - DIRECT
@@ -147,6 +149,7 @@ proxy-groups:
     proxies:
       - DIRECT
       - LB-CONSISTENT
+      - AREA-COMBINE
 
   # =====================================================================
   # 銀行 / 政府專用（預設直連，必要時可手動切換國家）
@@ -157,6 +160,7 @@ proxy-groups:
     proxies:
       - DIRECT
       - LB-CONSISTENT
+      - AREA-COMBINE
 
   # =====================================================================
   # 亞洲同國跨供應商選擇（僅列出 PIA / Surfshark 都存在的國家）
