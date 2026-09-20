@@ -46,8 +46,8 @@ x-ss-test-slow: &SS-TEST-SLOW
 x-vpn-provider-override: true
 x-pia-openvpn: true
 x-pia-wireguard: false
-x-ss-openvpn: false
-x-ss-wireguard: true
+x-ss-openvpn: true
+x-ss-wireguard: false
 
 x-pia-test: &PIA-TEST
   health-check:
@@ -101,6 +101,7 @@ proxy-groups:
       - LB-CONSISTENT
       - LB-ROBIN
       - LB-STICKY
+      - AREA-COMBINE
       - DIRECT
 
   # =====================================================================
@@ -156,6 +157,15 @@ proxy-groups:
     proxies:
       - DIRECT
       - LB-CONSISTENT
+
+  # =====================================================================
+  # 亞洲同國跨供應商選擇（僅列出 PIA / Surfshark 都存在的國家）
+  # =====================================================================
+  - name: AREA-COMBINE
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/japanese-castle.svg
+    proxies:
+      - REJECT
 
   # =====================================================================
   # 最低延遲自動選（依測速選最穩定節點）

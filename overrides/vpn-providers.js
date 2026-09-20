@@ -373,12 +373,20 @@ function regionLocationNames(rendered, countries, predicate = () => true) {
   return locationNames(rendered, (location) => countries.has(countryCode(location)) && predicate(location));
 }
 
+function countryLocationNames(rendered, cc) {
+  return locationNames(rendered, (location) => location.hot && countryCode(location) === cc);
+}
+
 function bucket(rendered, name) {
   return rendered.aggregateBuckets[name] || [];
 }
 
 function isManagedVendorGroupName(name) {
   return typeof name === 'string' && /^(?:PIA|SS)-(?:ALL|ASIA|MIDDLE-EAST|EUROPE|NORTH-AMERICA|LATIN-AMERICA|OCEANIA|AFRICA)$/i.test(name);
+}
+
+function isManagedAreaGroupName(name) {
+  return typeof name === 'string' && /^AREA-[A-Z]{2}$/.test(name);
 }
 
 function isManagedProviderName(name) {
@@ -399,7 +407,9 @@ function cleanManagedRefs(group) {
     if (group.use.length === 0) delete group.use;
   }
   if (Array.isArray(group.proxies)) {
-    group.proxies = group.proxies.filter((name) => !isManagedEndpointName(name) && !isManagedVendorGroupName(name));
+    group.proxies = group.proxies.filter((name) =>
+      !isManagedEndpointName(name) && !isManagedVendorGroupName(name) && !isManagedAreaGroupName(name)
+    );
   }
 }
 
@@ -444,6 +454,53 @@ function buildSurfsharkVendorGroups(rendered) {
     if (group.proxies || group.use) groups.push(group);
   }
   return groups;
+}
+
+function buildAreaGroups(pia, ss, checksByVendor) {
+  const piaCountries = new Set(
+    pia.activeLocations
+      .filter((location) => location.hot && ASIA.has(countryCode(location)))
+      .map(countryCode)
+  );
+  const ssCountries = new Set(
+    ss.activeLocations
+      .filter((location) => location.hot && ASIA.has(countryCode(location)))
+      .map(countryCode)
+  );
+  const commonCountries = COUNTRY_DISPLAY_ORDER.filter((cc) =>
+    ASIA.has(cc) && piaCountries.has(cc) && ssCountries.has(cc)
+  );
+
+  const hotChecks = [checksByVendor.PIA.hot, checksByVendor.SS.hot];
+  const probeUrl = hotChecks.map((check) => check?.url).find(Boolean);
+  if (!probeUrl && commonCountries.length > 0) {
+    throw new Error('AREA-COMBINE requires a health-check URL');
+  }
+  const intervals = hotChecks.map((check) => Number(check?.interval)).filter((value) => value > 0);
+  const timeouts = hotChecks.map((check) => Number(check?.timeout)).filter((value) => value > 0);
+  const interval = intervals.length > 0 ? Math.max(...intervals) : 120;
+  const timeout = timeouts.length > 0 ? Math.max(...timeouts) : 15000;
+
+  return commonCountries.map((cc) => ({
+    name: `AREA-${cc}`,
+    type: 'fallback',
+    hidden: true,
+    url: probeUrl,
+    interval,
+    timeout,
+    lazy: true,
+    proxies: [
+      ...countryLocationNames(ss, cc),
+      ...countryLocationNames(pia, cc),
+    ],
+  }));
+}
+
+function applyAreaPolicy(baseGroups, areaGroups) {
+  const areaCombine = baseGroups.find((group) => group?.name === 'AREA-COMBINE');
+  if (!areaCombine) return;
+  const proxies = areaGroups.map((group) => group.name);
+  areaCombine.proxies = proxies.length > 0 ? proxies : ['REJECT'];
 }
 
 function applyAutomationPolicy(baseGroups, pia, ss) {
@@ -516,8 +573,11 @@ function main(config) {
   delete config['x-vpn-provider-override'];
 
   const flags = readFeatureFlags(config);
+  const checksByVendor = Object.fromEntries(
+    VENDOR_DEFS.map((vendor) => [vendor.key, readHealthChecks(config, vendor)])
+  );
   const renderedByVendor = Object.fromEntries(
-    VENDOR_DEFS.map((vendor) => [vendor.key, renderVendor(vendor, flags, readHealthChecks(config, vendor))])
+    VENDOR_DEFS.map((vendor) => [vendor.key, renderVendor(vendor, flags, checksByVendor[vendor.key])])
   );
   const pia = renderedByVendor.PIA;
   const ss = renderedByVendor.SS;
@@ -532,19 +592,24 @@ function main(config) {
 
   const existingGroups = Array.isArray(config['proxy-groups']) ? config['proxy-groups'] : [];
   const baseGroups = existingGroups.filter((group) =>
-    !(group?.hidden === true && isManagedEndpointName(group?.name)) && !isManagedVendorGroupName(group?.name)
+    !(group?.hidden === true && isManagedEndpointName(group?.name)) &&
+    !isManagedVendorGroupName(group?.name) &&
+    !isManagedAreaGroupName(group?.name)
   );
   for (const group of baseGroups) {
     if (group && typeof group === 'object') cleanManagedRefs(group);
   }
 
   applyAutomationPolicy(baseGroups, pia, ss);
+  const areaGroups = buildAreaGroups(pia, ss, checksByVendor);
+  applyAreaPolicy(baseGroups, areaGroups);
   const vendorGroups = [...buildPiaVendorGroups(pia), ...buildSurfsharkVendorGroups(ss)];
   applyRouteGroupPolicy(baseGroups, vendorGroups);
 
   config['proxy-groups'] = [
     ...pia.endpointGroups,
     ...ss.endpointGroups,
+    ...areaGroups,
     ...baseGroups,
     ...vendorGroups,
   ];
