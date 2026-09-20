@@ -111,7 +111,7 @@ const LOCATION_ZH = {
 
 // Shared presentation policy only; this never controls provider topology.
 const COUNTRY_DISPLAY_ORDER = [
-  'TW','PH','SG','MO','HK','JP','KR','MY','ID','VN','IN','KH','MN','NP','BD','LK','TH','LA','MM','PK','BN','BT','AZ','UZ',
+  'TW','PH','SG','MO','HK','CN','JP','KR','MY','ID','VN','IN','KH','MN','NP','BD','LK','TH','LA','MM','PK','BN','BT','AZ','UZ',
   'AE','SA','IL','TR','EG','NL','DE','UK','FR','ES','IT','AM','GE','KZ','AD','AL','AT','BA','BE','BG','CH','CY','CZ','DK',
   'EE','FI','GR','HR','HU','IE','IM','IS','LI','LT','LU','LV','MC','MD','ME','MK','MT','NO','PL','PT','RO','RS','SE','SI','SK','UA',
   'US','CA','GL','MX','BR','AR','CL','CO','BO','BS','BZ','CR','EC','PA','PE','PR','PY','UY','VE','AU','NZ','ZA','NG','GH','MA','DZ',
