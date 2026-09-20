@@ -103,6 +103,7 @@ proxy-groups:
       - LB-STICKY
       - AREA-COMBINE
       - DIRECT
+      - REJECT
 
   # =====================================================================
   # DIRECT / PROXY 總切換（平常 DIRECT；出國時可整組切到 PROXY）
@@ -122,6 +123,7 @@ proxy-groups:
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/robot.svg
     proxies:
       - DIRECT
+      - REJECT
       - AREA-COMBINE
 
   # =====================================================================
@@ -139,6 +141,7 @@ proxy-groups:
       - AUTO-FAST
       - AUTO-SAFE
       - DIRECT
+      - REJECT
 
   # =====================================================================
   # 直連優先（預設 DIRECT，但可自由選國家）
@@ -148,6 +151,7 @@ proxy-groups:
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/globe-showing-asia-australia.svg
     proxies:
       - DIRECT
+      - REJECT
       - LB-CONSISTENT
       - AREA-COMBINE
 
@@ -159,6 +163,7 @@ proxy-groups:
     icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/bank.svg
     proxies:
       - DIRECT
+      - REJECT
       - LB-CONSISTENT
       - AREA-COMBINE
 
@@ -167,7 +172,7 @@ proxy-groups:
   # =====================================================================
   - name: AREA-COMBINE
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/japanese-castle.svg
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/camping.svg
     proxies:
       - REJECT
 

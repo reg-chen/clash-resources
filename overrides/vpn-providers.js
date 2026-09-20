@@ -386,15 +386,17 @@ function isManagedVendorGroupName(name) {
 }
 
 function areaGroupName(cc) {
-  return `${locationFlagEmoji(cc)} AREA-${cc}`;
+  return `${locationFlagEmoji(cc)} AREA-${cc}(${countryLabel(cc)})`;
 }
 
 function isManagedAreaGroupName(name) {
   if (typeof name !== 'string') return false;
-  const match = name.match(/AREA-([A-Z]{2})$/);
+  const match = name.match(/AREA-([A-Z]{2})(?:\([^)]*\))?$/);
   if (!match) return false;
   const cc = match[1];
-  return name === `AREA-${cc}` || name === areaGroupName(cc);
+  return name === `AREA-${cc}` ||
+    name === `${locationFlagEmoji(cc)} AREA-${cc}` ||
+    name === areaGroupName(cc);
 }
 
 function isManagedProviderName(name) {
