@@ -42,6 +42,8 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
+import vpn_generator_core as core
+
 # PIA Strong 的裸 compress 指令在此 Mihomo/PIA 組合需映射成 comp-lzo: yes。
 COMPRESS_MAP_VALUE = "yes"
 
@@ -49,120 +51,6 @@ COMPRESS_MAP_VALUE = "yes"
 # bounds handshakes that have already been started by actual traffic/health checks.
 OPENVPN_HANDSHAKE_TIMEOUT = 30
 
-
-
-COUNTRY_MAP: dict[str, tuple[str, str, str]] = {
-    # HLS
-    "tw": ("🇹🇼", "TW", "台灣"),
-    "mo": ("🇲🇴", "MO", "澳門"),
-    "hk": ("🇭🇰", "HK", "香港"),
-    "ph": ("🇵🇭", "PH", "菲律賓"),
-    "sg": ("🇸🇬", "SG", "新加坡"),
-
-    # Asia Extra primary
-    "jp": ("🇯🇵", "JP", "日本"),
-    "kr": ("🇰🇷", "KR", "韓國"),
-    "my": ("🇲🇾", "MY", "馬來西亞"),
-    "id": ("🇮🇩", "ID", "印尼"),
-    "th": ("🇹🇭", "TH", "泰國"),
-
-    # Other Asia
-    "ae": ("🇦🇪", "AE", "阿聯酋"),
-    "am": ("🇦🇲", "AM", "亞美尼亞"),
-    "az": ("🇦🇿", "AZ", "亞塞拜然"),
-    "bd": ("🇧🇩", "BD", "孟加拉"),
-    "bn": ("🇧🇳", "BN", "汶萊"),
-    "bt": ("🇧🇹", "BT", "不丹"),
-    "cn": ("🇨🇳", "CN", "中國"),
-    "cy": ("🇨🇾", "CY", "賽普勒斯"),
-    "ge": ("🇬🇪", "GE", "喬治亞"),
-    "il": ("🇮🇱", "IL", "以色列"),
-    "in": ("🇮🇳", "IN", "印度"),
-    "kh": ("🇰🇭", "KH", "柬埔寨"),
-    "kz": ("🇰🇿", "KZ", "哈薩克"),
-    "la": ("🇱🇦", "LA", "寮國"),
-    "lk": ("🇱🇰", "LK", "斯里蘭卡"),
-    "mm": ("🇲🇲", "MM", "緬甸"),
-    "mn": ("🇲🇳", "MN", "蒙古"),
-    "np": ("🇳🇵", "NP", "尼泊爾"),
-    "pk": ("🇵🇰", "PK", "巴基斯坦"),
-    "qa": ("🇶🇦", "QA", "卡達"),
-    "sa": ("🇸🇦", "SA", "沙烏地阿拉伯"),
-    "tr": ("🇹🇷", "TR", "土耳其"),
-    "uz": ("🇺🇿", "UZ", "烏茲別克"),
-    "vn": ("🇻🇳", "VN", "越南"),
-
-    # Global
-    "ad": ("🇦🇩", "AD", "安道爾"),
-    "al": ("🇦🇱", "AL", "阿爾巴尼亞"),
-    "ar": ("🇦🇷", "AR", "阿根廷"),
-    "at": ("🇦🇹", "AT", "奧地利"),
-    "au": ("🇦🇺", "AU", "澳洲"),
-    "ba": ("🇧🇦", "BA", "波士尼亞"),
-    "be": ("🇧🇪", "BE", "比利時"),
-    "bg": ("🇧🇬", "BG", "保加利亞"),
-    "bo": ("🇧🇴", "BO", "玻利維亞"),
-    "br": ("🇧🇷", "BR", "巴西"),
-    "bs": ("🇧🇸", "BS", "巴哈馬"),
-    "ca": ("🇨🇦", "CA", "加拿大"),
-    "ch": ("🇨🇭", "CH", "瑞士"),
-    "cl": ("🇨🇱", "CL", "智利"),
-    "co": ("🇨🇴", "CO", "哥倫比亞"),
-    "cr": ("🇨🇷", "CR", "哥斯大黎加"),
-    "cz": ("🇨🇿", "CZ", "捷克"),
-    "de": ("🇩🇪", "DE", "德國"),
-    "dk": ("🇩🇰", "DK", "丹麥"),
-    "dz": ("🇩🇿", "DZ", "阿爾及利亞"),
-    "ec": ("🇪🇨", "EC", "厄瓜多"),
-    "ee": ("🇪🇪", "EE", "愛沙尼亞"),
-    "eg": ("🇪🇬", "EG", "埃及"),
-    "es": ("🇪🇸", "ES", "西班牙"),
-    "fi": ("🇫🇮", "FI", "芬蘭"),
-    "fr": ("🇫🇷", "FR", "法國"),
-    "gh": ("🇬🇭", "GH", "迦納"),
-    "gl": ("🇬🇱", "GL", "格陵蘭"),
-    "gr": ("🇬🇷", "GR", "希臘"),
-    "gt": ("🇬🇹", "GT", "瓜地馬拉"),
-    "hr": ("🇭🇷", "HR", "克羅埃西亞"),
-    "hu": ("🇭🇺", "HU", "匈牙利"),
-    "ie": ("🇮🇪", "IE", "愛爾蘭"),
-    "im": ("🇮🇲", "IM", "曼島"),
-    "is": ("🇮🇸", "IS", "冰島"),
-    "it": ("🇮🇹", "IT", "義大利"),
-    "li": ("🇱🇮", "LI", "列支敦斯登"),
-    "lt": ("🇱🇹", "LT", "立陶宛"),
-    "lu": ("🇱🇺", "LU", "盧森堡"),
-    "lv": ("🇱🇻", "LV", "拉脫維亞"),
-    "ma": ("🇲🇦", "MA", "摩洛哥"),
-    "mc": ("🇲🇨", "MC", "摩納哥"),
-    "md": ("🇲🇩", "MD", "摩爾多瓦"),
-    "me": ("🇲🇪", "ME", "蒙特內哥羅"),
-    "mk": ("🇲🇰", "MK", "北馬其頓"),
-    "mt": ("🇲🇹", "MT", "馬爾他"),
-    "mx": ("🇲🇽", "MX", "墨西哥"),
-    "ng": ("🇳🇬", "NG", "奈及利亞"),
-    "nl": ("🇳🇱", "NL", "荷蘭"),
-    "no": ("🇳🇴", "NO", "挪威"),
-    "nz": ("🇳🇿", "NZ", "紐西蘭"),
-    "pa": ("🇵🇦", "PA", "巴拿馬"),
-    "pe": ("🇵🇪", "PE", "秘魯"),
-    "pl": ("🇵🇱", "PL", "波蘭"),
-    "pr": ("🇵🇷", "PR", "波多黎各"),
-    "pt": ("🇵🇹", "PT", "葡萄牙"),
-    "py": ("🇵🇾", "PY", "巴拉圭"),
-    "ro": ("🇷🇴", "RO", "羅馬尼亞"),
-    "rs": ("🇷🇸", "RS", "塞爾維亞"),
-    "se": ("🇸🇪", "SE", "瑞典"),
-    "si": ("🇸🇮", "SI", "斯洛維尼亞"),
-    "sk": ("🇸🇰", "SK", "斯洛伐克"),
-    "ua": ("🇺🇦", "UA", "烏克蘭"),
-    "uk": ("🇬🇧", "UK", "英國"),
-    "gb": ("🇬🇧", "GB", "英國"),
-    "us": ("🇺🇸", "US", "美國"),
-    "uy": ("🇺🇾", "UY", "烏拉圭"),
-    "ve": ("🇻🇪", "VE", "委內瑞拉"),
-    "za": ("🇿🇦", "ZA", "南非"),
-}
 
 
 # PIA .ovpn file stem -> country code.
@@ -248,95 +136,6 @@ COUNTRY_BY_STEM: dict[str, str] = {
     "uruguay": "uy",
     "venezuela": "ve",
     "vietnam": "vn",
-}
-
-
-LOCATION_OVERRIDES: dict[str, tuple[str, str | None]] = {
-    # Australia
-    "au_adelaide": ("au", "阿德雷德"),
-    "au_brisbane": ("au", "布里斯本"),
-    "au_melbourne": ("au", "墨爾本"),
-    "au_perth": ("au", "伯斯"),
-    "au_sydney": ("au", "雪梨"),
-
-    # Canada
-    "ca_montreal": ("ca", "蒙特婁"),
-    "ca_ontario": ("ca", "安大略"),
-    "ca_toronto": ("ca", "多倫多"),
-    "ca_vancouver": ("ca", "溫哥華"),
-
-    # Germany
-    "de_berlin": ("de", "柏林"),
-    "de_frankfurt": ("de", "法蘭克福"),
-
-    # Denmark / Spain / Finland / Italy / Japan / Netherlands / Sweden
-    "dk_copenhagen": ("dk", "哥本哈根"),
-    "es_madrid": ("es", "馬德里"),
-    "es_valencia": ("es", "瓦倫西亞"),
-    "fi_helsinki": ("fi", "赫爾辛基"),
-    "it_milano": ("it", "米蘭"),
-    "jp_tokyo": ("jp", "東京"),
-    "se_stockholm": ("se", "斯德哥爾摩"),
-
-    # UK
-    "uk_london": ("uk", "倫敦"),
-    "uk_manchester": ("uk", "曼徹斯特"),
-    "uk_southampton": ("uk", "南安普敦"),
-
-    # US
-    "us_alabama": ("us", "阿拉巴馬"),
-    "us_alaska": ("us", "阿拉斯加"),
-    "us_arkansas": ("us", "阿肯色"),
-    "us_atlanta": ("us", "亞特蘭大"),
-    "us_baltimore": ("us", "巴爾的摩"),
-    "us_california": ("us", "加州"),
-    "us_chicago": ("us", "芝加哥"),
-    "us_connecticut": ("us", "康乃狄克"),
-    "us_denver": ("us", "丹佛"),
-    "us_east": ("us", "美東"),
-    "us_florida": ("us", "佛羅里達"),
-    "us_honolulu": ("us", "檀香山"),
-    "us_houston": ("us", "休士頓"),
-    "us_idaho": ("us", "愛達荷"),
-    "us_indiana": ("us", "印第安納"),
-    "us_iowa": ("us", "愛荷華"),
-    "us_kansas": ("us", "堪薩斯"),
-    "us_kentucky": ("us", "肯塔基"),
-    "us_las_vegas": ("us", "拉斯維加斯"),
-    "us_louisiana": ("us", "路易斯安那"),
-    "us_maine": ("us", "緬因"),
-    "us_massachusetts": ("us", "麻薩諸塞"),
-    "us_michigan": ("us", "密西根"),
-    "us_minnesota": ("us", "明尼蘇達"),
-    "us_mississippi": ("us", "密西西比"),
-    "us_missouri": ("us", "密蘇里"),
-    "us_montana": ("us", "蒙大拿"),
-    "us_nebraska": ("us", "內布拉斯加"),
-    "us_new_hampshire": ("us", "新罕布夏"),
-    "us_new_mexico": ("us", "新墨西哥"),
-    "us_new_york": ("us", "紐約"),
-    "us_north_carolina": ("us", "北卡羅來納"),
-    "us_north_dakota": ("us", "北達科他"),
-    "us_ohio": ("us", "俄亥俄"),
-    "us_oklahoma": ("us", "奧克拉荷馬"),
-    "us_oregon": ("us", "奧勒岡"),
-    "us_pennsylvania": ("us", "賓夕法尼亞"),
-    "us_rhode_island": ("us", "羅德島"),
-    "us_salt_lake_city": ("us", "鹽湖城"),
-    "us_seattle": ("us", "西雅圖"),
-    "us_silicon_valley": ("us", "矽谷"),
-    "us_south_carolina": ("us", "南卡羅來納"),
-    "us_south_dakota": ("us", "南達科他"),
-    "us_tennessee": ("us", "田納西"),
-    "us_texas": ("us", "德州"),
-    "us_vermont": ("us", "佛蒙特"),
-    "us_virginia": ("us", "維吉尼亞"),
-    "us_washington_dc": ("us", "華盛頓DC"),
-    "us_west": ("us", "美西"),
-    "us_west_virginia": ("us", "西維吉尼亞"),
-    "us_wilmington": ("us", "威明頓"),
-    "us_wisconsin": ("us", "威斯康辛"),
-    "us_wyoming": ("us", "懷俄明"),
 }
 
 
@@ -685,18 +484,17 @@ def is_streaming_optimized_source(source_name: str) -> bool:
 
 
 def location_from_stem(stem: str) -> tuple[str, str | None]:
-    if stem in LOCATION_OVERRIDES:
-        return LOCATION_OVERRIDES[stem]
-
     if stem in COUNTRY_BY_STEM:
         return COUNTRY_BY_STEM[stem], None
 
-    # Fallback for future PIA files with two-letter prefixes.
+    # Multi-location PIA profiles use a two-letter country prefix. Canonicalize
+    # the source stem first, then resolve its user-facing label from shared core.
     m = re.match(r"^(?P<cc>[a-z]{2})_(?P<label>.+)$", stem)
     if m:
         cc = m.group("cc")
-        label = m.group("label").replace("_", " ").title()
-        return cc, label
+        slug = core.endpoint_slug(stem, cc)
+        path = f"{cc.upper()}\\\\{slug}"
+        return cc, core.LOCATION_ZH.get(path, slug)
 
     raise ValueError(f"未知 PIA 檔名位置格式：{stem}")
 
@@ -733,22 +531,16 @@ def get_provider_bucket(country_code: str) -> str:
 
 
 def pia_base_name(country_code: str, location_label: str | None, multi_location_countries: set[str], city_mode: str) -> str:
-    emoji, alpha2, zh_country_name = COUNTRY_MAP.get(
-        country_code,
-        ("🏳️", country_code.upper(), country_code.upper()),
-    )
-
-    display_name = zh_country_name
-
+    alpha2 = country_code.upper()
     should_show_location = (
         city_mode == "always"
         or (city_mode == "multi" and country_code in multi_location_countries)
     )
-
     if should_show_location and location_label:
-        display_name = f"{zh_country_name}-{location_label}"
-
-    return f"{emoji} OV-PIA-{alpha2}({display_name})"
+        country = core.country_label(alpha2)
+        flag_cc = "GB" if alpha2 == "UK" else alpha2
+        return f"{core.alpha2_flag(flag_cc)} OV-PIA-{alpha2}({country}-{location_label})"
+    return core.vendor_location_name("OV-PIA", alpha2)
 
 
 def parse_ovpn(ovpn_file: OvpnFile) -> OvpnNode:
@@ -977,10 +769,7 @@ def country_codes_in_nodes(nodes: list[OvpnNode]) -> list[str]:
 
 
 def country_alpha2(country_code: str) -> str:
-    return COUNTRY_MAP.get(
-        country_code,
-        ("🏳️", country_code.upper(), country_code.upper()),
-    )[1]
+    return country_code.upper()
 
 
 def provider_name(

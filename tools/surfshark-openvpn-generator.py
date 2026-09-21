@@ -180,10 +180,6 @@ def get_multi_endpoint_country_codes(nodes: list[OvpnNode]) -> set[str]:
     return {cc for cc, endpoints in grouped.items() if len(endpoints) >= 2}
 
 
-def surfshark_flag(country_code: str) -> str:
-    return core.alpha2_flag("gb" if country_code.lower() == "uk" else country_code)
-
-
 def topology_paths(nodes: list[OvpnNode]) -> list[str]:
     multi = get_multi_endpoint_country_codes(nodes)
     by_endpoint: dict[str, OvpnNode] = {}
@@ -201,22 +197,24 @@ def topology_paths(nodes: list[OvpnNode]) -> list[str]:
 
 
 def sync_override_topology(nodes: list[OvpnNode]) -> bool:
-    return core.sync_generated_js_array(
+    synced = core.sync_generated_js_array(
         marker="SURFSHARK OPENVPN PATHS",
         const_name="SURFSHARK_OV_PATHS",
         values=topology_paths(nodes),
         source="the official Surfshark OpenVPN bundle",
         generator="tools/surfshark-openvpn-generator.py",
     )
+    if synced:
+        core.sync_override_location_catalog(generator="tools/surfshark-openvpn-generator.py")
+    return synced
 
 
 def apply_node_names(nodes: list[OvpnNode]) -> None:
     multi = get_multi_endpoint_country_codes(nodes)
     for node in nodes:
-        base = f"{surfshark_flag(node.country_code)} OV-SS-{node.country_code.upper()}"
-        if node.country_code in multi:
-            base += f"({endpoint_slug(node.endpoint, node.country_code)})"
-        node.name = f"{base}-{node.proto.upper()}"
+        cc = node.country_code.upper()
+        path = f"{cc}\\\\{endpoint_slug(node.endpoint, node.country_code)}" if node.country_code in multi else cc
+        node.name = f"{core.vendor_location_name('OV-SS', path)}-{node.proto.upper()}"
 
 
 def dedupe_nodes(nodes: list[OvpnNode]) -> list[OvpnNode]:

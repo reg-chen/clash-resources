@@ -51,13 +51,16 @@ def topology_paths(nodes) -> list[str]:
 
 
 def sync_override_topology(nodes) -> bool:
-    return core.sync_generated_js_array(
+    synced = core.sync_generated_js_array(
         marker="PIA OPENVPN PATHS",
         const_name="PIA_OV_PATHS",
         values=topology_paths(nodes),
         source="the current PIA OpenVPN bundles",
         generator="tools/pia-openvpn-generator.py",
     )
+    if synced:
+        core.sync_override_location_catalog(generator="tools/pia-openvpn-generator.py")
+    return synced
 
 
 def write_endpoint_tree(
