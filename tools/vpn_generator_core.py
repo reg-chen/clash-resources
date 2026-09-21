@@ -291,16 +291,16 @@ def country_label(country_code: str) -> str:
 
 
 def location_label(path: str) -> str:
-    normalized = path.replace("/", "\\\\")
-    cc = normalized.split("\\\\", 1)[0].upper()
+    normalized = path.replace("/", "\\")
+    cc = normalized.split("\\", 1)[0].upper()
     country = country_label(cc)
     city = LOCATION_ZH.get(normalized)
     return f"{country}-{city}" if city else country
 
 
 def vendor_location_name(vendor: str, path: str) -> str:
-    normalized = path.replace("/", "\\\\")
-    cc = normalized.split("\\\\", 1)[0].upper()
+    normalized = path.replace("/", "\\")
+    cc = normalized.split("\\", 1)[0].upper()
     flag_cc = "GB" if cc == "UK" else cc
     return f"{alpha2_flag(flag_cc)} {vendor}-{cc}({location_label(normalized)})"
 

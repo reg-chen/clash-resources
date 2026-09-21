@@ -493,7 +493,7 @@ def location_from_stem(stem: str) -> tuple[str, str | None]:
     if m:
         cc = m.group("cc")
         slug = core.endpoint_slug(stem, cc)
-        path = f"{cc.upper()}\\\\{slug}"
+        path = f"{cc.upper()}\\{slug}"
         return cc, core.LOCATION_ZH.get(path, slug)
 
     raise ValueError(f"未知 PIA 檔名位置格式：{stem}")

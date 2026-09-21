@@ -213,7 +213,7 @@ def apply_node_names(nodes: list[OvpnNode]) -> None:
     multi = get_multi_endpoint_country_codes(nodes)
     for node in nodes:
         cc = node.country_code.upper()
-        path = f"{cc}\\\\{endpoint_slug(node.endpoint, node.country_code)}" if node.country_code in multi else cc
+        path = f"{cc}\\{endpoint_slug(node.endpoint, node.country_code)}" if node.country_code in multi else cc
         node.name = f"{core.vendor_location_name('OV-SS', path)}-{node.proto.upper()}"
 
 
