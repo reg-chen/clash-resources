@@ -390,7 +390,11 @@ def generate_wireguard(
                 token=token,
                 ca_pem=ca_pem,
                 timeout=timeout,
-                location_path=endpoint_dirs[info.stem].relative_to(providers_root).as_posix(),
+                location_path=(
+                    str(endpoint_dirs[info.stem].relative_to(providers_root)).replace("/", "\\")
+                    if info.stem in ov_index
+                    else core.endpoint_location_path(info.country_code, info.stem, multi_countries)
+                ),
             ))
         except Exception as exc:
             failures.append((info, str(exc)))

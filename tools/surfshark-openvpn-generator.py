@@ -9,7 +9,6 @@ from pathlib import Path
 
 import vpn_generator_core as core
 
-OPENVPN_HANDSHAKE_TIMEOUT = 30
 SURFSHARK_FILE_RE = re.compile(
     r"^(?P<endpoint>[a-z]{2}(?:-[a-z0-9]+)+)\.prod\.surfshark\.com_(?P<proto>udp|tcp)\.ovpn$",
     re.I,
@@ -214,7 +213,7 @@ def build_openvpn_base_anchor(nodes: list[OvpnNode], username: str, password: st
                 lines.append(yaml_kv(yaml_key, value, 2))
                 common_fields.add(attr)
 
-    lines.append(yaml_kv("handshake-timeout", OPENVPN_HANDSHAKE_TIMEOUT, 2))
+    lines.append(yaml_kv("handshake-timeout", core.DEFAULT_OPENVPN_HANDSHAKE_TIMEOUT, 2))
 
     for attr, yaml_key in block_attrs:
         if core.value_same_for_all(nodes, attr):

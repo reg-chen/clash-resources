@@ -8,6 +8,8 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+DEFAULT_OPENVPN_HANDSHAKE_TIMEOUT = 30
+
 
 # Provider source names are not a filesystem schema. Normalize known aliases to
 # stable, readable location slugs so different vendors share the same directory
@@ -321,16 +323,26 @@ def endpoint_slug(stem: str, country_code: str) -> str:
     return LOCATION_SLUG_ALIASES.get(country_code.upper(), {}).get(slug, slug)
 
 
+def endpoint_location_path(
+    country_code: str,
+    stem: str,
+    multi_countries: set[str],
+) -> str:
+    cc = country_code.upper()
+    if country_code in multi_countries:
+        return f"{cc}\\{endpoint_slug(stem, country_code)}"
+    return cc
+
+
 def endpoint_tree_dir(
     providers_root: Path,
     country_code: str,
     stem: str,
     multi_countries: set[str],
 ) -> Path:
-    path = providers_root / country_code.upper()
-    if country_code in multi_countries:
-        path = path / endpoint_slug(stem, country_code)
-    return path
+    return providers_root.joinpath(
+        *endpoint_location_path(country_code, stem, multi_countries).split("\\")
+    )
 
 
 def _prune_empty_parent(path: Path, stop: Path) -> None:
@@ -369,6 +381,47 @@ def source_override_path(filename: str = "vpn-providers.js") -> Path | None:
     return candidate if candidate.is_file() else None
 
 
+def replace_generated_block(text: str, marker: str, block: str) -> str:
+    start_marker = f"// BEGIN GENERATED {marker}"
+    end_marker = f"// END GENERATED {marker}"
+    start = text.find(start_marker)
+    end = text.find(end_marker, start + len(start_marker)) if start >= 0 else -1
+    if start < 0 or end < 0:
+        raise RuntimeError(f"找不到 generated block：{marker}")
+    end += len(end_marker)
+    return text[:start] + block + text[end:]
+
+
+def render_generated_js_array(
+    *,
+    marker: str,
+    const_name: str,
+    values: list[str],
+    source: str,
+    generator: str,
+) -> str:
+    lines = [
+        f"// BEGIN GENERATED {marker}",
+        f"// AUTO-GENERATED from {source}.",
+        f"// Do not edit this block by hand; regenerate it with {generator}.",
+        f"const {const_name} = [",
+    ]
+    lines.extend(f"  {json.dumps(value, ensure_ascii=False)}," for value in values)
+    lines.extend(["];", f"// END GENERATED {marker}"])
+    return "\n".join(lines)
+
+
+def render_location_catalog(generator: str) -> str:
+    rendered = json.dumps(location_catalog(), ensure_ascii=False, indent=2, sort_keys=True)
+    return "\n".join([
+        "// BEGIN GENERATED VPN LOCATION LABELS",
+        "// AUTO-GENERATED from the shared VPN generator location catalog.",
+        f"// Do not edit this block by hand; regenerate it with {generator}.",
+        f"const VPN_LOCATION_LABELS = {rendered};",
+        "// END GENERATED VPN LOCATION LABELS",
+    ])
+
+
 def sync_generated_topology(
     *,
     marker: str,
@@ -378,20 +431,39 @@ def sync_generated_topology(
     generator: str,
     override_path: Path | None = None,
 ) -> bool:
-    """Sync topology and shared location labels to the same override file."""
+    """Sync topology and shared location labels with one read and at most one write."""
     path = override_path or source_override_path()
     if path is None:
         return False
-    if not sync_generated_js_array(
-        marker=marker,
-        const_name=const_name,
-        values=values,
-        source=source,
-        generator=generator,
-        override_path=path,
-    ):
-        return False
-    return sync_override_location_catalog(generator=generator, override_path=path)
+
+    text = path.read_text(encoding="utf-8")
+    try:
+        topology_updated = replace_generated_block(
+            text,
+            marker,
+            render_generated_js_array(
+                marker=marker,
+                const_name=const_name,
+                values=values,
+                source=source,
+                generator=generator,
+            ),
+        )
+        updated = replace_generated_block(
+            topology_updated,
+            "VPN LOCATION LABELS",
+            render_location_catalog(generator),
+        )
+    except RuntimeError as exc:
+        raise RuntimeError(f"{path}: {exc}") from exc
+
+    topology_changed = topology_updated != text
+    catalog_changed = updated != topology_updated
+    if updated != text:
+        path.write_text(updated, encoding="utf-8", newline="\n")
+    print(f"[{'WRITE' if topology_changed else 'OK'}] {path} ({const_name} {'synced' if topology_changed else 'unchanged'})")
+    print(f"[{'WRITE' if catalog_changed else 'OK'}] {path} (VPN_LOCATION_LABELS {'synced' if catalog_changed else 'unchanged'})")
+    return True
 
 
 def sync_generated_js_array(
@@ -407,27 +479,21 @@ def sync_generated_js_array(
     path = override_path or source_override_path()
     if path is None:
         return False
-
-    start_marker = f"// BEGIN GENERATED {marker}"
-    end_marker = f"// END GENERATED {marker}"
     text = path.read_text(encoding="utf-8")
-    start = text.find(start_marker)
-    end = text.find(end_marker)
-    if start < 0 or end < 0 or end < start:
-        raise RuntimeError(f"{path}: 找不到 generated block：{marker}")
-
-    lines = [
-        start_marker,
-        f"// AUTO-GENERATED from {source}.",
-        f"// Do not edit this block by hand; regenerate it with {generator}.",
-        f"const {const_name} = [",
-    ]
-    lines.extend(f"  {json.dumps(value, ensure_ascii=False)}," for value in values)
-    lines.extend(["];", end_marker])
-    block = "\n".join(lines)
-
-    end += len(end_marker)
-    updated = text[:start] + block + text[end:]
+    try:
+        updated = replace_generated_block(
+            text,
+            marker,
+            render_generated_js_array(
+                marker=marker,
+                const_name=const_name,
+                values=values,
+                source=source,
+                generator=generator,
+            ),
+        )
+    except RuntimeError as exc:
+        raise RuntimeError(f"{path}: {exc}") from exc
     if updated != text:
         path.write_text(updated, encoding="utf-8", newline="\n")
         print(f"[WRITE] {path} ({const_name} synced)")
@@ -444,30 +510,21 @@ def sync_override_location_catalog(
     path = override_path or source_override_path()
     if path is None:
         return False
-    start_marker = "// BEGIN GENERATED VPN LOCATION LABELS"
-    end_marker = "// END GENERATED VPN LOCATION LABELS"
     text = path.read_text(encoding="utf-8")
-    start = text.find(start_marker)
-    end = text.find(end_marker)
-    if start < 0 or end < 0 or end < start:
-        raise RuntimeError(f"{path}: 找不到 generated block：VPN LOCATION LABELS")
-    rendered = json.dumps(location_catalog(), ensure_ascii=False, indent=2, sort_keys=True)
-    block = "\n".join([
-        start_marker,
-        "// AUTO-GENERATED from the shared VPN generator location catalog.",
-        f"// Do not edit this block by hand; regenerate it with {generator}.",
-        f"const VPN_LOCATION_LABELS = {rendered};",
-        end_marker,
-    ])
-    end += len(end_marker)
-    updated = text[:start] + block + text[end:]
+    try:
+        updated = replace_generated_block(
+            text,
+            "VPN LOCATION LABELS",
+            render_location_catalog(generator),
+        )
+    except RuntimeError as exc:
+        raise RuntimeError(f"{path}: {exc}") from exc
     if updated != text:
         path.write_text(updated, encoding="utf-8", newline="\n")
         print(f"[WRITE] {path} (VPN_LOCATION_LABELS synced)")
     else:
         print(f"[OK] {path} (VPN_LOCATION_LABELS unchanged)")
     return True
-
 
 def yaml_quote(value: str) -> str:
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')

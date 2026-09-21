@@ -47,7 +47,6 @@ COMPRESS_MAP_VALUE = "yes"
 
 # Mihomo OpenVPN handshake deadline. This does not initiate connections; it only
 # bounds handshakes that have already been started by actual traffic/health checks.
-OPENVPN_HANDSHAKE_TIMEOUT = 30
 
 
 
@@ -134,141 +133,6 @@ COUNTRY_BY_STEM: dict[str, str] = {
     "uruguay": "uy",
     "venezuela": "ve",
     "vietnam": "vn",
-}
-
-
-HLS_COUNTRIES = {"tw", "ph", "sg"}
-
-# Policy bucket: Macau / Hong Kong / China stay together.
-CHINA_COUNTRIES = {"mo", "hk", "cn"}
-
-ASIA_EXTRA_PRIMARY_COUNTRIES = {"jp", "kr", "my", "id", "th"}
-
-# Asia, excluding HLS and Middle East. The Middle East nodes are intentionally
-# separated because latency / routing / content-region behavior differs enough
-# from East/Southeast/South Asia to deserve its own provider bucket.
-OTHER_ASIA_COUNTRIES = {
-    "az", "bd", "bn", "bt", "in",
-    "kh", "la", "lk", "mm", "mn", "np", "pk",
-    "uz", "vn",
-}
-
-MIDDLE_EAST_COUNTRIES = {
-    "ae",  # United Arab Emirates
-    "eg",  # Egypt: PIA often behaves closer to MENA routing than Sub-Saharan Africa
-    "il",
-    "qa",
-    "sa",
-    "tr",
-}
-
-EUROPE_COUNTRIES = {
-    "ad", "al", "at", "ba", "be", "bg", "ch", "cy", "cz", "de",
-    "dk", "ee", "es", "fi", "fr", "gb", "gr", "hr", "hu", "ie",
-    "im", "is", "it", "li", "lt", "lu", "lv", "mc", "md", "me",
-    "mk", "mt", "nl", "no", "pl", "pt", "ro", "rs", "se", "si",
-    "sk", "ua", "uk",
-    # Policy placement: Armenia / Georgia / Kazakhstan are in Europe.
-    "am", "ge", "kz",
-}
-
-NORTH_AMERICA_COUNTRIES = {"ca", "gl", "us"}
-
-LATIN_AMERICA_COUNTRIES = {
-    "ar", "bo", "br", "bs", "cl", "co", "cr", "ec", "gt", "mx",
-    "pa", "pe", "pr", "py", "uy", "ve",
-}
-
-OCEANIA_COUNTRIES = {"au", "nz"}
-
-AFRICA_COUNTRIES = {"dz", "gh", "ma", "ng", "za"}
-
-PROVIDER_BUCKET_ORDER = [
-    "hls",
-    "china",
-    "asia-extra",
-    "middle-east",
-    "europe",
-    "north-america",
-    "latin-america",
-    "oceania",
-    "africa",
-    "global-extra",
-]
-
-COUNTRY_ORDER = {
-    # HLS
-    "tw": 0,
-    "ph": 1,
-    "sg": 2,
-
-    # China policy bucket
-    "mo": 5,
-    "hk": 6,
-    "cn": 7,
-
-    # Asia Extra primary
-    "jp": 10,
-    "kr": 11,
-    "my": 12,
-    "id": 13,
-    "th": 14,
-
-    # Other Asia
-    "vn": 20,
-    "in": 21,
-    "kh": 22,
-    "la": 23,
-    "mm": 24,
-    "mn": 25,
-    "np": 26,
-    "pk": 27,
-    "bd": 28,
-    "lk": 29,
-    "az": 30,
-    "uz": 31,
-
-    # Middle East
-    "ae": 50,
-    "qa": 51,
-    "sa": 52,
-    "il": 53,
-    "tr": 54,
-    "eg": 55,
-
-    # Europe common preference
-    "nl": 100,
-    "de": 101,
-    "uk": 102,
-    "gb": 102,
-    "fr": 103,
-    "es": 104,
-    "it": 105,
-    "am": 106,
-    "ge": 107,
-    "kz": 108,
-
-    # North America
-    "us": 200,
-    "ca": 201,
-
-    # Latin America / Caribbean
-    "mx": 250,
-    "br": 251,
-    "ar": 252,
-    "cl": 253,
-    "co": 254,
-
-    # Oceania
-    "au": 300,
-    "nz": 301,
-
-    # Africa
-    "za": 350,
-    "ng": 351,
-    "gh": 352,
-    "ma": 353,
-    "dz": 354,
 }
 
 
@@ -512,19 +376,10 @@ def endpoint_stem(node: OvpnNode) -> str:
 
 def endpoint_stems_in_nodes(nodes: list[OvpnNode]) -> list[str]:
     stems = {endpoint_stem(node) for node in nodes}
-
     representative: dict[str, OvpnNode] = {}
     for node in nodes:
         representative.setdefault(endpoint_stem(node), node)
-
-    return sorted(
-        stems,
-        key=lambda stem: (
-            sort_key(representative[stem]),
-            stem,
-        ),
-    )
-
+    return sorted(stems, key=lambda stem: (representative[stem].country_code, stem))
 
 def get_multi_endpoint_country_codes(nodes: list[OvpnNode]) -> set[str]:
     country_to_endpoints: dict[str, set[str]] = {}
@@ -550,9 +405,9 @@ def endpoint_display_name(
     node: OvpnNode,
     multi_endpoint_countries: set[str],
 ) -> str:
-    path = core.endpoint_tree_dir(
-        Path(), node.country_code, endpoint_stem(node), multi_endpoint_countries,
-    ).as_posix()
+    path = core.endpoint_location_path(
+        node.country_code, endpoint_stem(node), multi_endpoint_countries,
+    )
     return core.vendor_location_name("OV-PIA", path)
 
 
@@ -563,32 +418,21 @@ def apply_node_names(nodes: list[OvpnNode], city_mode: str) -> None:
         show_location = multi
         if city_mode == "always" and endpoint_stem(node) not in COUNTRY_BY_STEM:
             show_location = multi | {node.country_code}
-        path = core.endpoint_tree_dir(
-            Path(), node.country_code, endpoint_stem(node), show_location,
-        ).as_posix()
+        path = core.endpoint_location_path(
+            node.country_code, endpoint_stem(node), show_location,
+        )
         node.name = f"{core.vendor_location_name('OV-PIA', path)}-{node.proto.upper()}"
 
 
-def sort_key(node: OvpnNode) -> tuple[int, int, str, str, int, str, int]:
-    bucket_order = {bucket: index for index, bucket in enumerate(PROVIDER_BUCKET_ORDER)}
-
-    proto_order = {
-        "udp": 0,
-        "tcp": 1,
-    }
-
-    bucket = get_provider_bucket(node.country_code)
-
+def sort_key(node: OvpnNode) -> tuple[str, str, int, str, int]:
+    proto_order = {"udp": 0, "tcp": 1}
     return (
-        bucket_order.get(bucket, 9),
-        COUNTRY_ORDER.get(node.country_code, 999),
         node.country_code,
         endpoint_stem(node),
         proto_order.get(node.proto, 9),
         node.name,
         node.port,
     )
-
 
 def dedupe_nodes(nodes: list[OvpnNode]) -> list[OvpnNode]:
     seen: set[tuple[str, int, str]] = set()
@@ -609,16 +453,7 @@ def dedupe_nodes(nodes: list[OvpnNode]) -> list[OvpnNode]:
 
 
 def country_codes_in_nodes(nodes: list[OvpnNode]) -> list[str]:
-    codes = {node.country_code for node in nodes}
-    bucket_order = {bucket: index for index, bucket in enumerate(PROVIDER_BUCKET_ORDER)}
-    return sorted(
-        codes,
-        key=lambda cc: (
-            bucket_order.get(get_provider_bucket(cc), 999),
-            COUNTRY_ORDER.get(cc, 999),
-            cc,
-        ),
-    )
+    return sorted({node.country_code for node in nodes})
 
 
 def country_alpha2(country_code: str) -> str:
@@ -674,7 +509,7 @@ def build_openvpn_base_anchor(
 
     # Hard requirement retained from the validated v2 generator.
     # This caps only handshakes that have already started; it does not initiate them.
-    lines.append(core.yaml_kv("handshake-timeout", OPENVPN_HANDSHAKE_TIMEOUT, indent=2))
+    lines.append(core.yaml_kv("handshake-timeout", core.DEFAULT_OPENVPN_HANDSHAKE_TIMEOUT, indent=2))
 
     for attr, yaml_key in block_attrs:
         if core.value_same_for_all(all_nodes, attr):
@@ -868,7 +703,7 @@ def print_summary(nodes) -> None:
 
     if multi_endpoint_countries:
         print(f"多 endpoint 國家數：{len(multi_endpoint_countries)}")
-        for cc in sorted(multi_endpoint_countries, key=lambda x: (COUNTRY_ORDER.get(x, 999), x)):
+        for cc in sorted(multi_endpoint_countries):
             stems = sorted({
                 endpoint_stem(node)
                 for node in nodes
@@ -880,16 +715,12 @@ def print_summary(nodes) -> None:
 def topology_paths(nodes) -> list[str]:
     """Exact canonical folder paths generated for the current PIA OpenVPN bundle."""
     multi = get_multi_endpoint_country_codes(nodes)
-    result: list[str] = []
-    for stem in endpoint_stems_in_nodes(nodes):
-        node = endpoint_representative(nodes, stem)
-        alpha2 = country_alpha2(node.country_code)
-        if node.country_code in multi:
-            result.append(f"{alpha2}\\{core.endpoint_slug(stem, node.country_code)}")
-        else:
-            result.append(alpha2)
-    return result
-
+    return [
+        core.endpoint_location_path(
+            endpoint_representative(nodes, stem).country_code, stem, multi,
+        )
+        for stem in endpoint_stems_in_nodes(nodes)
+    ]
 
 def sync_override_topology(nodes) -> bool:
     return core.sync_generated_topology(
