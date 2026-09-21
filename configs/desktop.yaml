@@ -172,7 +172,7 @@ proxy-groups:
   # =====================================================================
   - name: AREA-COMBINE
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/camping.svg
+    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/airplane.svg
     proxies:
       - REJECT
 
