@@ -5,6 +5,7 @@ import importlib.util
 import json
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 
@@ -294,7 +295,8 @@ def location_label(path: str) -> str:
     normalized = path.replace("/", "\\")
     cc = normalized.split("\\", 1)[0].upper()
     country = country_label(cc)
-    city = LOCATION_ZH.get(normalized)
+    slug = normalized.split("\\", 1)[1] if "\\" in normalized else None
+    city = LOCATION_ZH.get(normalized, slug)
     return f"{country}-{city}" if city else country
 
 
@@ -441,3 +443,86 @@ def sync_override_location_catalog(
     else:
         print(f"[OK] {path} (VPN_LOCATION_LABELS unchanged)")
     return True
+
+
+def yaml_quote(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def yaml_block(key: str, value: str, indent: int) -> list[str]:
+    pad = " " * indent
+    child = " " * (indent + 2)
+
+    lines = [f"{pad}{key}: |"]
+    lines.extend(f"{child}{line}" for line in value.splitlines())
+
+    return lines
+
+
+def get_directive(text: str, name: str) -> list[str] | None:
+    """
+    Read a single-line OpenVPN directive.
+
+    Important:
+    Do not use regex whitespace between directive name and value, because it can cross line
+    boundaries and accidentally parse a naked directive like "compress" as
+    "compress verb" from the next line.
+    """
+    pattern = rf"^[ \t]*{re.escape(name)}(?:[ \t]+([^\r\n#;]*))?[ \t]*(?:[#;].*)?$"
+    m = re.search(pattern, text, flags=re.M | re.I)
+
+    if not m:
+        return None
+
+    raw = m.group(1)
+
+    if raw is None:
+        return []
+
+    value = raw.strip()
+
+    if not value:
+        return []
+
+    return value.split()
+
+
+def get_inline_block(text: str, tag: str) -> str | None:
+    pattern = rf"<{re.escape(tag)}>\s*(.*?)\s*</{re.escape(tag)}>"
+    m = re.search(pattern, text, flags=re.S | re.I)
+
+    return m.group(1).strip() if m else None
+
+
+def value_same_for_all(nodes: Sequence[object], attr: str) -> bool:
+    if not nodes:
+        return False
+
+    values = [getattr(n, attr) for n in nodes]
+    return all(v == values[0] for v in values)
+
+
+def yaml_scalar(value: str | int | bool | None) -> str:
+    if value is None:
+        return '""'
+
+    if isinstance(value, bool):
+        return "true" if value else "false"
+
+    if isinstance(value, int):
+        return str(value)
+
+    s = str(value)
+
+    if s == "":
+        return '""'
+
+    if re.search(r"[\s:#{}\[\],&*?|\-<>=!%@`\"']", s):
+        return yaml_quote(s)
+
+    return s
+
+
+def yaml_kv(key: str, value: str | int | bool | None, indent: int) -> str:
+    return f"{' ' * indent}{key}: {yaml_scalar(value)}"

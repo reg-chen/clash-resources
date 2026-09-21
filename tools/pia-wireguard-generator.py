@@ -6,7 +6,6 @@ import base64
 import getpass
 import http.client
 import json
-import re
 import socket
 import ssl
 import urllib.parse
@@ -224,49 +223,23 @@ def multi_country_codes(infos: list[RegionInfo]) -> set[str]:
     return {cc for cc, stems in grouped.items() if len(stems) >= 2}
 
 
-def read_openvpn_endpoint_index(providers_root: Path) -> dict[str, tuple[Path, str | None]]:
-    """Index existing PIA OpenVPN payloads by source stem and first proxy display name."""
-    result: dict[str, tuple[Path, str | None]] = {}
+def read_openvpn_endpoint_index(providers_root: Path) -> dict[str, Path]:
+    """Index source stems and directories only; OV display text is not WG metadata."""
+    result: dict[str, Path] = {}
     if not providers_root.is_dir():
         return result
-
     for path in providers_root.rglob("pia-ov.yaml"):
         try:
             lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         except OSError:
             continue
-
-        stem: str | None = None
-        node_name: str | None = None
         for line in lines[:80]:
             if line.startswith("# Source endpoint stem:"):
                 stem = core.normalized_stem(line.split(":", 1)[1])
-            stripped = line.strip()
-            if node_name is None and stripped.startswith("- name:"):
-                value = stripped.split(":", 1)[1].strip()
-                if len(value) >= 2 and value[0] == value[-1] == '"':
-                    value = value[1:-1].replace('\\"', '"').replace('\\\\', '\\')
-                node_name = value
-            if stem and node_name:
+                if stem:
+                    result[stem] = path.parent
                 break
-
-        if stem:
-            result[stem] = (path.parent, node_name)
-
     return result
-
-
-def wg_name_from_openvpn(openvpn_name: str) -> str:
-    name = re.sub(r"-(?:UDP|TCP)$", "", openvpn_name)
-    return name.replace(" OV-PIA-", " WG-PIA-", 1)
-
-
-def fallback_node_name(info: RegionInfo, multi_countries: set[str]) -> str:
-    alpha2 = info.country_code.upper()
-    display = str(info.region.get("name", "")).strip() or alpha2
-    if info.country_code not in multi_countries:
-        display = alpha2
-    return f"{core.alpha2_flag(alpha2)} WG-PIA-{alpha2}({display})"
 
 
 def provision_region(
@@ -275,8 +248,7 @@ def provision_region(
     token: str,
     ca_pem: str,
     timeout: float,
-    multi_countries: set[str],
-    ov_index: dict[str, tuple[Path, str | None]],
+    location_path: str,
 ) -> WgNode:
     wg_server = info.region["servers"]["wg"][0]
     server_ip = str(wg_server["ip"])
@@ -292,9 +264,6 @@ def provision_region(
         timeout=timeout,
     )
 
-    ov_name = ov_index.get(info.stem, (Path(), None))[1]
-    name = wg_name_from_openvpn(ov_name) if ov_name else fallback_node_name(info, multi_countries)
-
     return WgNode(
         stem=info.stem,
         country_code=info.country_code,
@@ -303,25 +272,21 @@ def provision_region(
         peer_ip=str(response["peer_ip"]).split("/", 1)[0],
         server_key=str(response["server_key"]),
         server_port=int(response["server_port"]),
-        name=name,
+        name=core.vendor_location_name("WG-PIA", location_path),
     )
-
-
-def yaml_quote(value: str) -> str:
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def build_proxy_lines(node: WgNode, indent: int = 2) -> list[str]:
     pad = " " * indent
     child = " " * (indent + 2)
     return [
-        f"{pad}- name: {yaml_quote(node.name)}",
+        f"{pad}- name: {core.yaml_quote(node.name)}",
         f"{child}type: wireguard",
-        f"{child}server: {yaml_quote(node.server_ip)}",
+        f"{child}server: {core.yaml_quote(node.server_ip)}",
         f"{child}port: {node.server_port}",
-        f"{child}ip: {yaml_quote(node.peer_ip)}",
-        f"{child}private-key: {yaml_quote(node.private_key)}",
-        f"{child}public-key: {yaml_quote(node.server_key)}",
+        f"{child}ip: {core.yaml_quote(node.peer_ip)}",
+        f"{child}private-key: {core.yaml_quote(node.private_key)}",
+        f"{child}public-key: {core.yaml_quote(node.server_key)}",
         f"{child}allowed-ips:",
         f"{child}  - 0.0.0.0/0",
         f"{child}persistent-keepalive: 25",
@@ -407,6 +372,12 @@ def generate_wireguard(
     print("[INFO] Loading PIA certificate authority...")
     ca_pem = fetch_pia_ca(timeout)
     multi_countries = multi_country_codes(infos)
+    endpoint_dirs = {
+        info.stem: ov_index.get(info.stem) or core.endpoint_tree_dir(
+            providers_root, info.country_code, info.stem, multi_countries,
+        )
+        for info in infos
+    }
 
     nodes: list[WgNode] = []
     failures: list[tuple[RegionInfo, str]] = []
@@ -422,8 +393,7 @@ def generate_wireguard(
                 token=token,
                 ca_pem=ca_pem,
                 timeout=timeout,
-                multi_countries=multi_countries,
-                ov_index=ov_index,
+                location_path=endpoint_dirs[info.stem].relative_to(providers_root).as_posix(),
             ))
         except Exception as exc:
             failures.append((info, str(exc)))
@@ -443,13 +413,7 @@ def generate_wireguard(
     else:
         core.clear_generated_payloads(providers_root, "pia-wg.yaml")
         for node in nodes:
-            indexed = ov_index.get(node.stem)
-            endpoint_dir = indexed[0] if indexed else core.endpoint_tree_dir(
-                providers_root,
-                node.country_code,
-                node.stem,
-                multi_countries,
-            )
+            endpoint_dir = endpoint_dirs[node.stem]
             endpoint_dir.mkdir(parents=True, exist_ok=True)
             path = endpoint_dir / "pia-wg.yaml"
             path.write_text(build_endpoint_yaml(node), encoding="utf-8", newline="\n")

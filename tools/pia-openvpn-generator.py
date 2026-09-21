@@ -293,14 +293,11 @@ class OvpnNode:
     name: str
 
     country_code: str
-    location_label: str | None
 
     dev: str | None
     cipher: str | None
     auth: str | None
-    compress: str | None
     comp_lzo: str | None
-    reneg_sec: str | None
 
     ca: str | None
     cert: str | None
@@ -361,84 +358,9 @@ def collect_ovpn_inputs(input_paths: list[Path]) -> list[OvpnFile]:
     return result
 
 
-def get_directive(text: str, name: str) -> list[str] | None:
-    """
-    Read a single-line OpenVPN directive.
-
-    Important:
-    Do not use regex whitespace between directive name and value, because it can cross line
-    boundaries and accidentally parse a naked directive like "compress" as
-    "compress verb" from the next line.
-    """
-    pattern = rf"^[ \t]*{re.escape(name)}(?:[ \t]+([^\r\n#;]*))?[ \t]*(?:[#;].*)?$"
-    m = re.search(pattern, text, flags=re.M | re.I)
-
-    if not m:
-        return None
-
-    raw = m.group(1)
-
-    if raw is None:
-        return []
-
-    value = raw.strip()
-
-    if not value:
-        return []
-
-    return value.split()
-
-
 def has_directive(text: str, name: str) -> bool:
     pattern = rf"^\s*{re.escape(name)}(?:\s+.*)?$"
     return bool(re.search(pattern, text, flags=re.M | re.I))
-
-
-def get_inline_block(text: str, tag: str) -> str | None:
-    pattern = rf"<{re.escape(tag)}>\s*(.*?)\s*</{re.escape(tag)}>"
-    m = re.search(pattern, text, flags=re.S | re.I)
-
-    return m.group(1).strip() if m else None
-
-
-def yaml_quote(value: str) -> str:
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
-
-
-def yaml_scalar(value: str | int | bool | None) -> str:
-    if value is None:
-        return '""'
-
-    if isinstance(value, bool):
-        return "true" if value else "false"
-
-    if isinstance(value, int):
-        return str(value)
-
-    s = str(value)
-
-    if s == "":
-        return '""'
-
-    if re.search(r"[\s:#{}\[\],&*?|\-<>=!%@`\"']", s):
-        return yaml_quote(s)
-
-    return s
-
-
-def yaml_kv(key: str, value: str | int | bool | None, indent: int) -> str:
-    return f"{' ' * indent}{key}: {yaml_scalar(value)}"
-
-
-def yaml_block(key: str, value: str, indent: int) -> list[str]:
-    pad = " " * indent
-    child = " " * (indent + 2)
-
-    lines = [f"{pad}{key}: |"]
-    lines.extend(f"{child}{line}" for line in value.splitlines())
-
-    return lines
 
 
 def normalize_proto(proto: str | None) -> str:
@@ -457,7 +379,7 @@ def normalize_proto(proto: str | None) -> str:
 
 
 def parse_remote(text: str) -> tuple[str, int]:
-    remote = get_directive(text, "remote")
+    remote = core.get_directive(text, "remote")
 
     if not remote:
         raise ValueError("找不到 remote，例如：remote tw.privacy.network 1197")
@@ -483,19 +405,13 @@ def is_streaming_optimized_source(source_name: str) -> bool:
     return stem_from_source(source_name).endswith("_streaming_optimized")
 
 
-def location_from_stem(stem: str) -> tuple[str, str | None]:
+def country_from_stem(stem: str) -> str:
+    """Decode PIA source identity without resolving presentation text."""
     if stem in COUNTRY_BY_STEM:
-        return COUNTRY_BY_STEM[stem], None
-
-    # Multi-location PIA profiles use a two-letter country prefix. Canonicalize
-    # the source stem first, then resolve its user-facing label from shared core.
-    m = re.match(r"^(?P<cc>[a-z]{2})_(?P<label>.+)$", stem)
-    if m:
-        cc = m.group("cc")
-        slug = core.endpoint_slug(stem, cc)
-        path = f"{cc.upper()}\\{slug}"
-        return cc, core.LOCATION_ZH.get(path, slug)
-
+        return COUNTRY_BY_STEM[stem]
+    match = re.match(r"^(?P<cc>[a-z]{2})_.+$", stem)
+    if match:
+        return match.group("cc")
     raise ValueError(f"未知 PIA 檔名位置格式：{stem}")
 
 
@@ -530,36 +446,22 @@ def get_provider_bucket(country_code: str) -> str:
     return "global-extra"
 
 
-def pia_base_name(country_code: str, location_label: str | None, multi_location_countries: set[str], city_mode: str) -> str:
-    alpha2 = country_code.upper()
-    should_show_location = (
-        city_mode == "always"
-        or (city_mode == "multi" and country_code in multi_location_countries)
-    )
-    if should_show_location and location_label:
-        country = core.country_label(alpha2)
-        flag_cc = "GB" if alpha2 == "UK" else alpha2
-        return f"{core.alpha2_flag(flag_cc)} OV-PIA-{alpha2}({country}-{location_label})"
-    return core.vendor_location_name("OV-PIA", alpha2)
-
-
 def parse_ovpn(ovpn_file: OvpnFile) -> OvpnNode:
     text = ovpn_file.text
 
     server, port = parse_remote(text)
     stem = stem_from_source(ovpn_file.name)
-    country_code, location_label = location_from_stem(stem)
+    country_code = country_from_stem(stem)
 
-    proto_parts = get_directive(text, "proto")
+    proto_parts = core.get_directive(text, "proto")
     proto = normalize_proto(proto_parts[0] if proto_parts else None)
 
-    dev_parts = get_directive(text, "dev")
-    cipher_parts = get_directive(text, "cipher")
-    auth_parts = get_directive(text, "auth")
-    comp_lzo_parts = get_directive(text, "comp-lzo")
-    compress_parts = get_directive(text, "compress")
-    reneg_sec_parts = get_directive(text, "reneg-sec")
-    key_direction_parts = get_directive(text, "key-direction")
+    dev_parts = core.get_directive(text, "dev")
+    cipher_parts = core.get_directive(text, "cipher")
+    auth_parts = core.get_directive(text, "auth")
+    comp_lzo_parts = core.get_directive(text, "comp-lzo")
+    compress_parts = core.get_directive(text, "compress")
+    key_direction_parts = core.get_directive(text, "key-direction")
 
     # PIA Strong profiles contain a naked OpenVPN "compress" directive.
     # Empirical test on Clash Verge nightly / recent Mihomo shows that PIA works
@@ -571,11 +473,11 @@ def parse_ovpn(ovpn_file: OvpnFile) -> OvpnNode:
     else:
         comp_lzo = None
 
-    ca = get_inline_block(text, "ca")
-    cert = get_inline_block(text, "cert")
-    key = get_inline_block(text, "key")
-    tls_auth = get_inline_block(text, "tls-auth")
-    tls_crypt = get_inline_block(text, "tls-crypt")
+    ca = core.get_inline_block(text, "ca")
+    cert = core.get_inline_block(text, "cert")
+    key = core.get_inline_block(text, "key")
+    tls_auth = core.get_inline_block(text, "tls-auth")
+    tls_crypt = core.get_inline_block(text, "tls-crypt")
 
     if not ca:
         raise ValueError(f"{ovpn_file.name}: 找不到 <ca>...</ca>")
@@ -594,14 +496,11 @@ def parse_ovpn(ovpn_file: OvpnFile) -> OvpnNode:
         name="",
 
         country_code=country_code,
-        location_label=location_label,
 
         dev=dev_parts[0] if dev_parts else "tun",
         cipher=cipher_parts[0] if cipher_parts else None,
         auth=auth_parts[0] if auth_parts else None,
-        compress=None,
         comp_lzo=comp_lzo,
-        reneg_sec=reneg_sec_parts[0] if reneg_sec_parts else None,
 
         ca=ca,
         cert=cert,
@@ -646,23 +545,6 @@ def get_multi_endpoint_country_codes(nodes: list[OvpnNode]) -> set[str]:
     }
 
 
-def endpoint_slug(stem: str, country_code: str) -> str:
-    """
-    Filesystem/config slug for one endpoint.
-
-    For the common cc_* form, strip the country prefix because the endpoint already
-    lives below providers/<CC>/. Otherwise keep the source stem for stability.
-    """
-    raw = stem
-    prefix = f"{country_code.lower()}_"
-    if raw.startswith(prefix):
-        raw = raw[len(prefix):]
-
-    raw = raw.strip("_")
-    raw = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
-    return raw or "default"
-
-
 def endpoint_representative(nodes: list[OvpnNode], stem: str) -> OvpnNode:
     for node in nodes:
         if endpoint_stem(node) == stem:
@@ -674,46 +556,23 @@ def endpoint_group_name(
     node: OvpnNode,
     multi_endpoint_countries: set[str],
 ) -> str:
-    """
-    User-facing hidden group name.
-
-    Single-endpoint countries keep the compact country label. Multi-endpoint countries
-    expose the endpoint/location so region groups retain the same practical granularity
-    as the old raw-node design.
-    """
-    return pia_base_name(
-        country_code=node.country_code,
-        location_label=node.location_label,
-        multi_location_countries=multi_endpoint_countries,
-        city_mode="multi",
-    )
+    path = core.endpoint_tree_dir(
+        Path(), node.country_code, endpoint_stem(node), multi_endpoint_countries,
+    ).as_posix()
+    return core.vendor_location_name("OV-PIA", path)
 
 
 def apply_node_names(nodes: list[OvpnNode], city_mode: str) -> None:
-    # Raw node names still end in -UDP/-TCP.  In multi-endpoint countries the
-    # location is always required for uniqueness, regardless of city_mode.
-    multi_endpoint_countries = get_multi_endpoint_country_codes(nodes)
-
+    # Multi-endpoint countries always include their location for uniqueness.
+    multi = get_multi_endpoint_country_codes(nodes)
     for node in nodes:
-        effective_mode = city_mode
-        if node.country_code in multi_endpoint_countries:
-            effective_mode = "multi"
-
-        base_name = pia_base_name(
-            country_code=node.country_code,
-            location_label=node.location_label,
-            multi_location_countries=multi_endpoint_countries,
-            city_mode=effective_mode,
-        )
-        node.name = f"{base_name}-{node.proto.upper()}"
-
-
-def value_same_for_all(nodes: list[OvpnNode], attr: str) -> bool:
-    if not nodes:
-        return False
-
-    values = [getattr(n, attr) for n in nodes]
-    return all(v == values[0] for v in values)
+        show_location = multi
+        if city_mode == "always" and endpoint_stem(node) not in COUNTRY_BY_STEM:
+            show_location = multi | {node.country_code}
+        path = core.endpoint_tree_dir(
+            Path(), node.country_code, endpoint_stem(node), show_location,
+        ).as_posix()
+        node.name = f"{core.vendor_location_name('OV-PIA', path)}-{node.proto.upper()}"
 
 
 def sort_key(node: OvpnNode) -> tuple[int, int, str, str, int, str, int]:
@@ -779,7 +638,7 @@ def provider_name(
     """Stable provider name: one PIA provider per endpoint, transport-agnostic."""
     alpha2 = country_alpha2(node.country_code).lower()
     if node.country_code in multi_endpoint_countries:
-        slug = endpoint_slug(endpoint_stem(node), node.country_code)
+        slug = core.endpoint_slug(endpoint_stem(node), node.country_code)
         return f"ov-pia-{alpha2}-{slug}"
     return f"ov-pia-{alpha2}"
 
@@ -806,9 +665,9 @@ def nodes_for_endpoint(nodes: list[OvpnNode], stem: str) -> list[OvpnNode]:
 
 def maybe_add_ping(lines: list[str], ping: int, ping_restart: int, indent: int) -> None:
     if ping > 0:
-        lines.append(yaml_kv("ping", ping, indent=indent))
+        lines.append(core.yaml_kv("ping", ping, indent=indent))
     if ping_restart > 0:
-        lines.append(yaml_kv("ping-restart", ping_restart, indent=indent))
+        lines.append(core.yaml_kv("ping-restart", ping_restart, indent=indent))
 
 
 def build_openvpn_base_anchor(
@@ -821,9 +680,9 @@ def build_openvpn_base_anchor(
     lines: list[str] = [
         "# 共用 PIA OpenVPN 設定（YAML anchors 僅在本檔有效）",
         "x-pia-ov: &PIA-OV",
-        yaml_kv("type", "openvpn", indent=2),
-        yaml_kv("username", username, indent=2),
-        yaml_kv("password", password, indent=2),
+        core.yaml_kv("type", "openvpn", indent=2),
+        core.yaml_kv("username", username, indent=2),
+        core.yaml_kv("password", password, indent=2),
     ]
 
     scalar_attrs = [
@@ -842,21 +701,21 @@ def build_openvpn_base_anchor(
     ]
 
     for attr, yaml_key in scalar_attrs:
-        if value_same_for_all(all_nodes, attr):
+        if core.value_same_for_all(all_nodes, attr):
             value = getattr(all_nodes[0], attr)
             if value is not None:
-                lines.append(yaml_kv(yaml_key, value, indent=2))
+                lines.append(core.yaml_kv(yaml_key, value, indent=2))
                 common_fields.add(attr)
 
     # Hard requirement retained from the validated v2 generator.
     # This caps only handshakes that have already started; it does not initiate them.
-    lines.append(yaml_kv("handshake-timeout", OPENVPN_HANDSHAKE_TIMEOUT, indent=2))
+    lines.append(core.yaml_kv("handshake-timeout", OPENVPN_HANDSHAKE_TIMEOUT, indent=2))
 
     for attr, yaml_key in block_attrs:
-        if value_same_for_all(all_nodes, attr):
+        if core.value_same_for_all(all_nodes, attr):
             value = getattr(all_nodes[0], attr)
             if value:
-                lines.extend(yaml_block(yaml_key, value, indent=2))
+                lines.extend(core.yaml_block(yaml_key, value, indent=2))
                 common_fields.add(attr)
 
     return lines, common_fields
@@ -869,11 +728,11 @@ def build_payload_node(
     indent: int = 2,
 ) -> list[str]:
     lines = [
-        f"{' ' * indent}- name: {yaml_scalar(node.name)}",
-        yaml_kv("server", node.server, indent=indent + 2),
-        yaml_kv("port", node.port, indent=indent + 2),
-        yaml_kv("proto", node.proto, indent=indent + 2),
-        yaml_kv("udp", node.proto == "udp", indent=indent + 2),
+        f"{' ' * indent}- name: {core.yaml_scalar(node.name)}",
+        core.yaml_kv("server", node.server, indent=indent + 2),
+        core.yaml_kv("port", node.port, indent=indent + 2),
+        core.yaml_kv("proto", node.proto, indent=indent + 2),
+        core.yaml_kv("udp", node.proto == "udp", indent=indent + 2),
     ]
 
     scalar_attrs = [
@@ -895,13 +754,13 @@ def build_payload_node(
         if attr not in common_fields:
             value = getattr(node, attr)
             if value is not None:
-                lines.append(yaml_kv(yaml_key, value, indent=indent + 2))
+                lines.append(core.yaml_kv(yaml_key, value, indent=indent + 2))
 
     for attr, yaml_key in block_attrs:
         if attr not in common_fields:
             value = getattr(node, attr)
             if value:
-                lines.extend(yaml_block(yaml_key, value, indent=indent + 2))
+                lines.extend(core.yaml_block(yaml_key, value, indent=indent + 2))
 
     lines.append(f"{' ' * (indent + 2)}<<: *{ov_anchor}")
     return lines

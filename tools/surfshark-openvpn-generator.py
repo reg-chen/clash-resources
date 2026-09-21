@@ -43,11 +43,8 @@ class OvpnNode:
     ping_restart: int | None = None
 
 
-def yaml_quote(value: str) -> str:
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
 def yaml_scalar(value) -> str:
+    # Preserve Surfshark numeric-string quoting, unlike the PIA scalar format.
     if value is None:
         return '""'
     if isinstance(value, bool):
@@ -58,7 +55,7 @@ def yaml_scalar(value) -> str:
     if not value:
         return '""'
     if value.isdigit() or re.search(r"[\s:#{}\[\],&*?|\-<>=!%@`\"']", value):
-        return yaml_quote(value)
+        return core.yaml_quote(value)
     return value
 
 
@@ -66,30 +63,8 @@ def yaml_kv(key: str, value, indent: int) -> str:
     return f"{' ' * indent}{key}: {yaml_scalar(value)}"
 
 
-def yaml_block(key: str, value: str, indent: int) -> list[str]:
-    pad = " " * indent
-    child = " " * (indent + 2)
-    return [f"{pad}{key}: |", *(f"{child}{line}" for line in value.splitlines())]
-
-
-def get_directive(text: str, name: str) -> list[str] | None:
-    pattern = rf"^[ \t]*{re.escape(name)}(?:[ \t]+([^\r\n#;]*))?[ \t]*(?:[#;].*)?$"
-    match = re.search(pattern, text, flags=re.M | re.I)
-    if not match:
-        return None
-    raw = match.group(1)
-    if raw is None or not raw.strip():
-        return []
-    return raw.strip().split()
-
-
-def get_inline_block(text: str, tag: str) -> str | None:
-    match = re.search(rf"<{re.escape(tag)}>\s*(.*?)\s*</{re.escape(tag)}>", text, flags=re.S | re.I)
-    return match.group(1).strip() if match else None
-
-
 def parse_int_directive(text: str, name: str) -> int | None:
-    parts = get_directive(text, name)
+    parts = core.get_directive(text, name)
     if not parts:
         return None
     try:
@@ -124,13 +99,13 @@ def parse_ovpn(item: OvpnFile) -> OvpnNode:
     country_code = endpoint.split("-", 1)[0]
     filename_proto = match.group("proto").lower()
 
-    remote = get_directive(item.text, "remote")
+    remote = core.get_directive(item.text, "remote")
     if not remote:
         raise ValueError(f"{item.name}: 找不到 remote")
     server = remote[0]
     port = int(remote[1]) if len(remote) >= 2 and remote[1].isdigit() else (1194 if filename_proto == "udp" else 1443)
 
-    proto_parts = get_directive(item.text, "proto")
+    proto_parts = core.get_directive(item.text, "proto")
     proto = proto_parts[0].lower() if proto_parts else filename_proto
     if proto.startswith("udp"):
         proto = "udp"
@@ -139,15 +114,15 @@ def parse_ovpn(item: OvpnFile) -> OvpnNode:
     else:
         raise ValueError(f"{item.name}: 不支援的 proto：{proto}")
 
-    ca = get_inline_block(item.text, "ca")
+    ca = core.get_inline_block(item.text, "ca")
     if not ca:
         raise ValueError(f"{item.name}: 找不到 <ca>...</ca>")
 
-    dev = get_directive(item.text, "dev")
-    cipher = get_directive(item.text, "cipher")
-    auth = get_directive(item.text, "auth")
-    comp_lzo = get_directive(item.text, "comp-lzo")
-    key_direction = get_directive(item.text, "key-direction")
+    dev = core.get_directive(item.text, "dev")
+    cipher = core.get_directive(item.text, "cipher")
+    auth = core.get_directive(item.text, "auth")
+    comp_lzo = core.get_directive(item.text, "comp-lzo")
+    key_direction = core.get_directive(item.text, "key-direction")
 
     return OvpnNode(
         source=item.name,
@@ -161,16 +136,12 @@ def parse_ovpn(item: OvpnFile) -> OvpnNode:
         auth=auth[0] if auth else None,
         comp_lzo=comp_lzo[0] if comp_lzo else None,
         ca=ca,
-        tls_auth=get_inline_block(item.text, "tls-auth"),
-        tls_crypt=get_inline_block(item.text, "tls-crypt"),
+        tls_auth=core.get_inline_block(item.text, "tls-auth"),
+        tls_crypt=core.get_inline_block(item.text, "tls-crypt"),
         key_direction=key_direction[0] if key_direction else None,
         ping=parse_int_directive(item.text, "ping"),
         ping_restart=parse_int_directive(item.text, "ping-restart"),
     )
-
-
-def endpoint_slug(endpoint: str, country_code: str) -> str:
-    return core.endpoint_slug(core.normalized_stem(endpoint), country_code)
 
 
 def get_multi_endpoint_country_codes(nodes: list[OvpnNode]) -> set[str]:
@@ -190,7 +161,7 @@ def topology_paths(nodes: list[OvpnNode]) -> list[str]:
     for endpoint, node in sorted(by_endpoint.items(), key=lambda item: (item[1].country_code, item[0])):
         cc = node.country_code.upper()
         result.append(
-            f"{cc}\\{endpoint_slug(endpoint, node.country_code)}"
+            f"{cc}\\{core.endpoint_slug(endpoint, node.country_code)}"
             if node.country_code in multi else cc
         )
     return result
@@ -213,7 +184,7 @@ def apply_node_names(nodes: list[OvpnNode]) -> None:
     multi = get_multi_endpoint_country_codes(nodes)
     for node in nodes:
         cc = node.country_code.upper()
-        path = f"{cc}\\{endpoint_slug(node.endpoint, node.country_code)}" if node.country_code in multi else cc
+        path = f"{cc}\\{core.endpoint_slug(node.endpoint, node.country_code)}" if node.country_code in multi else cc
         node.name = f"{core.vendor_location_name('OV-SS', path)}-{node.proto.upper()}"
 
 
@@ -228,10 +199,6 @@ def dedupe_nodes(nodes: list[OvpnNode]) -> list[OvpnNode]:
         result.append(node)
     result.sort(key=lambda node: (node.country_code, node.endpoint, 0 if node.proto == "udp" else 1, node.server, node.port))
     return result
-
-
-def value_same_for_all(nodes: list[OvpnNode], attr: str) -> bool:
-    return bool(nodes) and all(getattr(node, attr) == getattr(nodes[0], attr) for node in nodes)
 
 
 def build_openvpn_base_anchor(nodes: list[OvpnNode], username: str, password: str) -> tuple[list[str], set[str]]:
@@ -252,7 +219,7 @@ def build_openvpn_base_anchor(nodes: list[OvpnNode], username: str, password: st
     block_attrs = [("ca", "ca"), ("tls_crypt", "tls-crypt"), ("tls_auth", "tls-auth")]
 
     for attr, yaml_key in scalar_attrs:
-        if value_same_for_all(nodes, attr):
+        if core.value_same_for_all(nodes, attr):
             value = getattr(nodes[0], attr)
             if value is not None:
                 lines.append(yaml_kv(yaml_key, value, 2))
@@ -261,10 +228,10 @@ def build_openvpn_base_anchor(nodes: list[OvpnNode], username: str, password: st
     lines.append(yaml_kv("handshake-timeout", OPENVPN_HANDSHAKE_TIMEOUT, 2))
 
     for attr, yaml_key in block_attrs:
-        if value_same_for_all(nodes, attr):
+        if core.value_same_for_all(nodes, attr):
             value = getattr(nodes[0], attr)
             if value:
-                lines.extend(yaml_block(yaml_key, value, 2))
+                lines.extend(core.yaml_block(yaml_key, value, 2))
                 common_fields.add(attr)
 
     return lines, common_fields
@@ -295,7 +262,7 @@ def build_payload_node(node: OvpnNode, common_fields: set[str]) -> list[str]:
         if attr not in common_fields:
             value = getattr(node, attr)
             if value:
-                lines.extend(yaml_block(yaml_key, value, 4))
+                lines.extend(core.yaml_block(yaml_key, value, 4))
 
     lines.append("    <<: *SURFSHARK-OV")
     return lines
