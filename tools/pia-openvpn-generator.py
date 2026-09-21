@@ -273,37 +273,6 @@ def country_from_stem(stem: str) -> str:
     raise ValueError(f"未知 PIA 檔名位置格式：{stem}")
 
 
-def get_provider_bucket(country_code: str) -> str:
-    if country_code in HLS_COUNTRIES:
-        return "hls"
-
-    if country_code in CHINA_COUNTRIES:
-        return "china"
-
-    if country_code in ASIA_EXTRA_PRIMARY_COUNTRIES or country_code in OTHER_ASIA_COUNTRIES:
-        return "asia-extra"
-
-    if country_code in MIDDLE_EAST_COUNTRIES:
-        return "middle-east"
-
-    if country_code in EUROPE_COUNTRIES:
-        return "europe"
-
-    if country_code in NORTH_AMERICA_COUNTRIES:
-        return "north-america"
-
-    if country_code in LATIN_AMERICA_COUNTRIES:
-        return "latin-america"
-
-    if country_code in OCEANIA_COUNTRIES:
-        return "oceania"
-
-    if country_code in AFRICA_COUNTRIES:
-        return "africa"
-
-    return "global-extra"
-
-
 def parse_ovpn(ovpn_file: OvpnFile) -> OvpnNode:
     text = ovpn_file.text
 
