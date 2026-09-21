@@ -146,7 +146,6 @@ COUNTRY_ZH: dict[str, str] = {
 LOCATION_ZH: dict[str, str] = {
     "IN\\delhi": "德里",
     "IN\\mumbai": "孟買",
-    "NL\\netherlands": "荷蘭",
     "DE\\berlin": "柏林",
     "DE\\frankfurt": "法蘭克福",
     "UK\\edinburgh": "愛丁堡",
@@ -368,6 +367,31 @@ def source_override_path(filename: str = "vpn-providers.js") -> Path | None:
         return None
     candidate = Path(__file__).resolve().parents[1] / "overrides" / filename
     return candidate if candidate.is_file() else None
+
+
+def sync_generated_topology(
+    *,
+    marker: str,
+    const_name: str,
+    values: list[str],
+    source: str,
+    generator: str,
+    override_path: Path | None = None,
+) -> bool:
+    """Sync topology and shared location labels to the same override file."""
+    path = override_path or source_override_path()
+    if path is None:
+        return False
+    if not sync_generated_js_array(
+        marker=marker,
+        const_name=const_name,
+        values=values,
+        source=source,
+        generator=generator,
+        override_path=path,
+    ):
+        return False
+    return sync_override_location_catalog(generator=generator, override_path=path)
 
 
 def sync_generated_js_array(

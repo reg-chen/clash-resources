@@ -26,10 +26,8 @@
 #   --single-only
 #     skip the endpoint tree and emit only --single-yaml (Android-friendly)
 #
-# HLS / CHINA / ASIA-EXTRA endpoints are HOT regardless of transport at the
-# provider/group layer.  Inside pia-ov.yaml only HOT UDP keeps ping/ping-restart;
-# TCP stays free of forced OpenVPN keepalive. Health-check policy is owned by
-# config.yaml / the Clash Party JS override, not emitted into payload files.
+# Health checks and regional OpenVPN keepalive policy belong to the JS override.
+# Payloads contain connection settings only; no HOT/COLD classification is baked in.
 #
 # PIA Strong bundles use naked OpenVPN "compress"; this setup has been empirically
 # validated with Mihomo using comp-lzo: yes, which remains the default.
@@ -197,10 +195,6 @@ PROVIDER_BUCKET_ORDER = [
     "africa",
     "global-extra",
 ]
-
-# Smaller / frequently used PIA OpenVPN buckets can use the normal health-check cadence.
-# Large regional pools should use a slower cadence to avoid excessive OpenVPN handshakes.
-PIA_NORMAL_TEST_BUCKETS = {"hls", "china", "asia-extra"}
 
 COUNTRY_ORDER = {
     # HLS
@@ -552,7 +546,7 @@ def endpoint_representative(nodes: list[OvpnNode], stem: str) -> OvpnNode:
     raise KeyError(f"找不到 endpoint：{stem}")
 
 
-def endpoint_group_name(
+def endpoint_display_name(
     node: OvpnNode,
     multi_endpoint_countries: set[str],
 ) -> str:
@@ -631,28 +625,6 @@ def country_alpha2(country_code: str) -> str:
     return country_code.upper()
 
 
-def provider_name(
-    node: OvpnNode,
-    multi_endpoint_countries: set[str],
-) -> str:
-    """Stable provider name: one PIA provider per endpoint, transport-agnostic."""
-    alpha2 = country_alpha2(node.country_code).lower()
-    if node.country_code in multi_endpoint_countries:
-        slug = core.endpoint_slug(endpoint_stem(node), node.country_code)
-        return f"ov-pia-{alpha2}-{slug}"
-    return f"ov-pia-{alpha2}"
-
-
-def is_hot_country(country_code: str) -> bool:
-    return get_provider_bucket(country_code) in PIA_NORMAL_TEST_BUCKETS
-
-
-def is_hot_openvpn_file(country_code: str, proto: str) -> bool:
-    # Preserve the existing transport keepalive policy: only HOT UDP gets 20/60.
-    # HOT TCP is health-checked at the provider layer but does not get forced ping.
-    return is_hot_country(country_code) and proto == "udp"
-
-
 def nodes_for_endpoint(nodes: list[OvpnNode], stem: str) -> list[OvpnNode]:
     """Return all transports for one endpoint; sort_key keeps UDP before TCP."""
     result = [
@@ -661,13 +633,6 @@ def nodes_for_endpoint(nodes: list[OvpnNode], stem: str) -> list[OvpnNode]:
     ]
     result.sort(key=sort_key)
     return result
-
-
-def maybe_add_ping(lines: list[str], ping: int, ping_restart: int, indent: int) -> None:
-    if ping > 0:
-        lines.append(core.yaml_kv("ping", ping, indent=indent))
-    if ping_restart > 0:
-        lines.append(core.yaml_kv("ping-restart", ping_restart, indent=indent))
 
 
 def build_openvpn_base_anchor(
@@ -724,7 +689,6 @@ def build_openvpn_base_anchor(
 def build_payload_node(
     node: OvpnNode,
     common_fields: set[str],
-    ov_anchor: str,
     indent: int = 2,
 ) -> list[str]:
     lines = [
@@ -762,7 +726,7 @@ def build_payload_node(
             if value:
                 lines.extend(core.yaml_block(yaml_key, value, indent=indent + 2))
 
-    lines.append(f"{' ' * (indent + 2)}<<: *{ov_anchor}")
+    lines.append(f"{' ' * (indent + 2)}<<: *PIA-OV")
     return lines
 
 
@@ -772,8 +736,6 @@ def build_endpoint_provider_yaml(
     all_nodes: list[OvpnNode],
     username: str,
     password: str,
-    hot_ping: int,
-    hot_ping_restart: int,
     multi_endpoint_countries: set[str],
 ) -> str:
     """Build one vendor payload (pia-ov.yaml) containing UDP + TCP for an endpoint."""
@@ -783,7 +745,7 @@ def build_endpoint_provider_yaml(
         password=password,
     )
 
-    endpoint_name = endpoint_group_name(endpoint_node, multi_endpoint_countries)
+    endpoint_name = endpoint_display_name(endpoint_node, multi_endpoint_countries)
     lines: list[str] = [
         "# GENERATED FILE — edit the generator/source bundles, not this file.",
         f"# Endpoint: {endpoint_name} | vendor: PIA | transports: UDP + TCP",
@@ -792,19 +754,6 @@ def build_endpoint_provider_yaml(
         *base_lines,
     ]
 
-    has_hot_udp = any(
-        is_hot_openvpn_file(node.country_code, node.proto)
-        for node in provider_nodes
-    )
-    if has_hot_udp:
-        lines.extend([
-            "",
-            "# HOT UDP：HLS / CHINA / ASIA-EXTRA 保留積極 keepalive；同 endpoint 的 TCP 不套用。",
-            "x-pia-ov-hot: &PIA-OV-HOT",
-            "  <<: *PIA-OV",
-        ])
-        maybe_add_ping(lines, hot_ping, hot_ping_restart, indent=2)
-
     lines.append("")
     if not provider_nodes:
         lines.append("proxies: []")
@@ -812,12 +761,7 @@ def build_endpoint_provider_yaml(
 
     lines.append("proxies:")
     for node in provider_nodes:
-        ov_anchor = (
-            "PIA-OV-HOT"
-            if is_hot_openvpn_file(node.country_code, node.proto)
-            else "PIA-OV"
-        )
-        lines.extend(build_payload_node(node, common_fields, ov_anchor, indent=2))
+        lines.extend(build_payload_node(node, common_fields, indent=2))
 
     return "\n".join(lines) + "\n"
 
@@ -827,8 +771,6 @@ def write_endpoint_tree(
     nodes,
     username: str,
     password: str,
-    hot_ping: int,
-    hot_ping_restart: int,
 ) -> None:
     """Write one PIA OpenVPN payload per endpoint as pia-ov.yaml."""
     providers_dir = out_dir / "providers"
@@ -854,8 +796,6 @@ def write_endpoint_tree(
                 all_nodes=nodes,
                 username=username,
                 password=password,
-                hot_ping=hot_ping,
-                hot_ping_restart=hot_ping_restart,
                 multi_endpoint_countries=multi_endpoint_countries,
             ),
             encoding="utf-8",
@@ -870,8 +810,6 @@ def build_single_provider_yaml(
     nodes: list[OvpnNode],
     username: str,
     password: str,
-    hot_ping: int,
-    hot_ping_restart: int,
 ) -> str:
     """Build one Android payload containing every PIA node. Android config may expose multiple filtered provider views over this one file."""
     base_lines, common_fields = build_openvpn_base_anchor(
@@ -883,31 +821,12 @@ def build_single_provider_yaml(
     lines: list[str] = [
         "# GENERATED FILE — aggregate PIA Strong provider payload for Mihomo.",
         "# Contains all endpoints/transports; Android config can create multiple filtered proxy-provider views over this single file.",
-        "# HOT UDP nodes use PIA-OV-HOT; all other nodes use PIA-OV.",
         *base_lines,
     ]
 
-    has_hot_udp = any(
-        is_hot_openvpn_file(node.country_code, node.proto)
-        for node in nodes
-    )
-    if has_hot_udp:
-        lines.extend([
-            "",
-            "# HOT UDP：HLS / CHINA / ASIA-EXTRA 保留積極 keepalive。",
-            "x-pia-ov-hot: &PIA-OV-HOT",
-            "  <<: *PIA-OV",
-        ])
-        maybe_add_ping(lines, hot_ping, hot_ping_restart, indent=2)
-
     lines.extend(["", "proxies:"])
     for node in nodes:
-        ov_anchor = (
-            "PIA-OV-HOT"
-            if is_hot_openvpn_file(node.country_code, node.proto)
-            else "PIA-OV"
-        )
-        lines.extend(build_payload_node(node, common_fields, ov_anchor, indent=2))
+        lines.extend(build_payload_node(node, common_fields, indent=2))
 
     return "\n".join(lines) + "\n"
 
@@ -924,8 +843,6 @@ def write_single_yaml(
     nodes: list[OvpnNode],
     username: str,
     password: str,
-    hot_ping: int,
-    hot_ping_restart: int,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -933,8 +850,6 @@ def write_single_yaml(
             nodes=nodes,
             username=username,
             password=password,
-            hot_ping=hot_ping,
-            hot_ping_restart=hot_ping_restart,
         ),
         encoding="utf-8",
         newline="\n",
@@ -946,24 +861,10 @@ def print_summary(nodes) -> None:
     endpoint_stems = endpoint_stems_in_nodes(nodes)
     multi_endpoint_countries = get_multi_endpoint_country_codes(nodes)
 
-    hot_endpoints = [
-        stem for stem in endpoint_stems
-        if is_hot_country(endpoint_representative(nodes, stem).country_code)
-    ]
-    cold_endpoints = [
-        stem for stem in endpoint_stems
-        if not is_hot_country(endpoint_representative(nodes, stem).country_code)
-    ]
-
     print(f"節點總數：{len(nodes)}")
     print(f"國家數：{len(countries)}")
-    print(f"endpoint 數：{len(endpoint_stems)}（HOT {len(hot_endpoints)} / COLD {len(cold_endpoints)}）")
+    print(f"endpoint 數：{len(endpoint_stems)}")
     print(f"endpoint provider YAML：{len(endpoint_stems)}（每 endpoint 一份 pia-ov.yaml，內含 UDP + TCP）")
-    print("HOT endpoint 國家：" + ", ".join(
-        country_alpha2(cc)
-        for cc in countries
-        if is_hot_country(cc)
-    ))
 
     if multi_endpoint_countries:
         print(f"多 endpoint 國家數：{len(multi_endpoint_countries)}")
@@ -991,16 +892,13 @@ def topology_paths(nodes) -> list[str]:
 
 
 def sync_override_topology(nodes) -> bool:
-    synced = core.sync_generated_js_array(
+    return core.sync_generated_topology(
         marker="PIA OPENVPN PATHS",
         const_name="PIA_OV_PATHS",
         values=topology_paths(nodes),
         source="the current PIA OpenVPN bundles",
         generator="tools/pia-openvpn-generator.py",
     )
-    if synced:
-        core.sync_override_location_catalog(generator="tools/pia-openvpn-generator.py")
-    return synced
 
 
 def generate_openvpn(
@@ -1045,8 +943,6 @@ def generate_openvpn(
             nodes=nodes,
             username=username,
             password=password,
-            hot_ping=20,
-            hot_ping_restart=60,
         )
     else:
         providers_root = out_dir / "providers"
@@ -1056,8 +952,6 @@ def generate_openvpn(
             nodes=nodes,
             username=username,
             password=password,
-            hot_ping=20,
-            hot_ping_restart=60,
         )
         if sync_override and not sync_override_topology(nodes):
             print("[INFO] repo override 不在目前 source tree；略過 PIA OpenVPN topology sync。")
@@ -1102,18 +996,6 @@ def main() -> None:
         choices=["multi", "always", "never"],
         default="multi",
         help="raw node 命名：multi=多 endpoint 國家顯示位置；always=全部；never=單 endpoint 可省略位置。多 endpoint 國家為避免撞名仍強制顯示 endpoint。",
-    )
-    parser.add_argument(
-        "--pia-hot-ping",
-        type=int,
-        default=20,
-        help="HOT UDP OpenVPN ping interval 秒；0=不輸出。預設 20。",
-    )
-    parser.add_argument(
-        "--pia-hot-ping-restart",
-        type=int,
-        default=60,
-        help="HOT UDP OpenVPN ping-restart 秒；0=不輸出。預設 60。",
     )
     parser.add_argument(
         "--compress-map",
@@ -1180,8 +1062,6 @@ def main() -> None:
             nodes=nodes,
             username=args.username,
             password=args.password,
-            hot_ping=args.pia_hot_ping,
-            hot_ping_restart=args.pia_hot_ping_restart,
         )
 
     if args.single_yaml is not None:
@@ -1190,8 +1070,6 @@ def main() -> None:
             nodes=nodes,
             username=args.username,
             password=args.password,
-            hot_ping=args.pia_hot_ping,
-            hot_ping_restart=args.pia_hot_ping_restart,
         )
 
     print(f"OVPN 檔案數：{len(ovpn_inputs)}")

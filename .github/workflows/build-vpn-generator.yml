@@ -14,6 +14,8 @@ on:
       - .github/workflows/build-vpn-generator.yml
       - tests/test_vpn_gui.py
       - tests/test_vpn_generators.py
+      - tests/vpn-providers.test.cjs
+      - overrides/vpn-providers.js
 
 permissions:
   contents: read
@@ -53,6 +55,13 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: python -m unittest discover -s tests -v
+
+      - name: Validate runtime syntax and topology
+        shell: pwsh
+        run: |
+          node --check overrides/vpn-providers.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/vpn-providers.test.cjs
 
       - name: Build Windows executable
         shell: pwsh

@@ -326,16 +326,13 @@ def relative_provider_paths(paths: list[Path], providers_root: Path) -> list[str
 
 
 def sync_override_topology(paths: list[Path], providers_root: Path) -> bool:
-    synced = core.sync_generated_js_array(
+    return core.sync_generated_topology(
         marker="PIA WIREGUARD PATHS",
         const_name="PIA_WG_PATHS",
         values=relative_provider_paths(paths, providers_root),
         source="the successfully provisioned PIA WireGuard regions",
         generator="tools/pia-wireguard-generator.py",
     )
-    if synced:
-        core.sync_override_location_catalog(generator="tools/pia-wireguard-generator.py")
-    return synced
 
 
 def generate_wireguard(

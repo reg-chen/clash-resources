@@ -148,7 +148,6 @@ const VPN_LOCATION_LABELS = {
   "MY": "馬來西亞",
   "NG": "奈及利亞",
   "NL": "荷蘭",
-  "NL\\netherlands": "荷蘭-荷蘭",
   "NO": "挪威",
   "NP": "尼泊爾",
   "NZ": "紐西蘭",
@@ -311,6 +310,7 @@ const OCEANIA = new Set(['AU','NZ']);
 const AFRICA = new Set(['ZA','NG','GH','MA','DZ']);
 const ASIA = new Set([...HLS, ...CHINA, ...ASIA_EXTRA]);
 const HOT_COUNTRIES = new Set(ASIA);
+const OPENVPN_HOT_KEEPALIVE = { ping: 20, pingRestart: 60 };
 
 const REGION_DEFS = [
   ['ASIA', ASIA, 'fluent-emoji-flat/japanese-castle.svg'],
@@ -411,6 +411,19 @@ function makeProvider(path, healthCheck) {
   return { type: 'file', path, 'health-check': clone(healthCheck) };
 }
 
+// Requires Mihomo provider override-expr support. Clear old generated values
+// first so changing HOT_COUNTRIES also updates already-generated payloads.
+function openVpnOverride(location) {
+  const expressions = ['del(.ping, .["ping-restart"])'];
+  if (location.hot) {
+    expressions.push(
+      `(select(.proto == "udp") | .ping) = ${OPENVPN_HOT_KEEPALIVE.ping}`,
+      `(select(.proto == "udp") | .["ping-restart"]) = ${OPENVPN_HOT_KEEPALIVE.pingRestart}`
+    );
+  }
+  return { 'override-expr': expressions };
+}
+
 function flagFilter(countries) {
   return Array.from(countries).sort().map(locationFlagEmoji).join('|');
 }
@@ -422,8 +435,8 @@ const VENDOR_DEFS = [
     locations: buildLocations('PIA', PIA_OV_PATHS, PIA_WG_PATHS),
     health: { hot: 'x-pia-test', cold: 'x-pia-test-slow' },
     protocols: [
-      { toggle: 'x-pia-wireguard', providerPrefix: 'wg-pia', filename: 'pia-wg.yaml', paths: new Set(PIA_WG_PATHS) },
-      { toggle: 'x-pia-openvpn', providerPrefix: 'ov-pia', filename: 'pia-ov.yaml', paths: new Set(PIA_OV_PATHS) },
+      { toggle: 'x-pia-wireguard', type: 'wireguard', providerPrefix: 'wg-pia', filename: 'pia-wg.yaml', paths: new Set(PIA_WG_PATHS) },
+      { toggle: 'x-pia-openvpn', type: 'openvpn', providerPrefix: 'ov-pia', filename: 'pia-ov.yaml', paths: new Set(PIA_OV_PATHS) },
     ],
   },
   {
@@ -432,7 +445,7 @@ const VENDOR_DEFS = [
     locations: buildLocations('SS', SURFSHARK_OV_PATHS),
     health: { hot: 'x-ss-test', cold: 'x-ss-test-slow' },
     protocols: [
-      { toggle: 'x-ss-openvpn', providerPrefix: 'ov-ss', filename: 'surfshark-ov.yaml', paths: new Set(SURFSHARK_OV_PATHS) },
+      { toggle: 'x-ss-openvpn', type: 'openvpn', providerPrefix: 'ov-ss', filename: 'surfshark-ov.yaml', paths: new Set(SURFSHARK_OV_PATHS) },
     ],
     aggregateProviders: [
       { toggle: 'x-ss-wireguard', bucket: 'hls', name: 'hls-wg-ss', filename: 'hls-wg-ss.yaml' },
@@ -481,10 +494,14 @@ function renderVendor(vendor, flags, checks) {
     for (const protocol of vendor.protocols) {
       if (!flags[protocol.toggle] || !protocol.paths.has(location.path)) continue;
       const providerName = `${protocol.providerPrefix}-${location.id}`;
-      providers[providerName] = makeProvider(
+      const provider = makeProvider(
         `${PROVIDER_ROOT}\\${location.path}\\${protocol.filename}`,
         healthCheck
       );
+      if (protocol.type === 'openvpn') {
+        provider.override = openVpnOverride(location);
+      }
+      providers[providerName] = provider;
       uses.push(providerName);
     }
 

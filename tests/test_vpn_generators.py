@@ -140,7 +140,6 @@ class CleanupRegressionTests(unittest.TestCase):
             f"{stem}.ovpn", profile(proto, f"{stem}.example.com")))
             for stem in stems for proto in ("udp", "tcp")]
         expected_paths = {"DE/berlin", "DE/frankfurt", "IN/delhi", "IN/mumbai", "UK", "TW"}
-        multi = pia.get_multi_endpoint_country_codes(nodes)
         self.assertEqual({path.replace("\\", "/") for path in pia.topology_paths(nodes)}, expected_paths)
         labels = {"de_ber": "德國-柏林", "de_fra": "德國-法蘭克福",
                   "in_del": "印度-德里", "in_mum": "印度-孟買"}
@@ -157,11 +156,10 @@ class CleanupRegressionTests(unittest.TestCase):
                         self.assertEqual(node.name, f"🇬🇧 OV-PIA-UK({label})-{node.proto.upper()}")
                     else:
                         self.assertIn("OV-PIA-TW(台灣)", node.name)
-                self.assertEqual(pia.provider_name(nodes[0], multi), "ov-pia-de-berlin")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             with contextlib.redirect_stdout(io.StringIO()):
-                pia.write_endpoint_tree(root, nodes, "mock", "mock", 20, 60)
+                pia.write_endpoint_tree(root, nodes, "mock", "mock")
             actual = {path.parent.relative_to(root / "providers").as_posix()
                       for path in root.rglob("pia-ov.yaml")}
             self.assertEqual(actual, expected_paths)
@@ -253,6 +251,113 @@ class CleanupRegressionTests(unittest.TestCase):
                             single_file=False, exclude_streaming=True, sync_override=False)
                     self.assertEqual(written, [providers / "DE/berlin/pia-wg.yaml"])
                     self.assertIn("WG-PIA-DE(德國-柏林)", written[0].read_text(encoding="utf-8"))
+
+
+class SummaryAndSyncTests(unittest.TestCase):
+    def test_surfshark_payload_leaves_source_keepalive_to_runtime(self):
+        nodes = [ss.parse_ovpn(ss.OvpnFile(
+            f"{endpoint}.prod.surfshark.com_{proto}.ovpn",
+            profile(proto, f"{endpoint}.example.com") + "ping 10\nping-restart 120\n"))
+            for endpoint in ("tw-tai", "de-ber") for proto in ("udp", "tcp")]
+        ss.apply_node_names(nodes)
+        payload = ss.build_provider_yaml(nodes, "mock", "mock", [])
+        self.assertNotIn("ping:", payload)
+        self.assertNotIn("ping-restart:", payload)
+        for node in nodes:
+            self.assertFalse(hasattr(node, "ping"))
+            self.assertFalse(hasattr(node, "ping_restart"))
+
+    def test_surfshark_summary_counts_endpoints_not_transports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bundle = root / "ss.zip"
+            with zipfile.ZipFile(bundle, "w") as archive:
+                for endpoint in ("de-ber", "de-fra", "in-del", "in-mum", "tw-tai"):
+                    for proto in ("udp", "tcp"):
+                        archive.writestr(
+                            f"{endpoint}.prod.surfshark.com_{proto}.ovpn",
+                            profile(proto, f"{endpoint}.example.com"))
+            for single in (True, False):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    ss.generate_openvpn(
+                        bundle_zip=bundle, username="mock", password="mock",
+                        out_dir=root / str(single), single_file=single, sync_override=False)
+                lines = output.getvalue().splitlines()
+                for expected in ("節點總數：10", "國家數：3", "endpoint 數：5",
+                                 "多 endpoint 國家數：2", "  DE: 2 endpoints", "  IN: 2 endpoints"):
+                    self.assertIn(expected, lines)
+                self.assertFalse(any(line.startswith("  TW:") for line in lines))
+
+    def test_pia_payload_and_summary_leave_keepalive_policy_to_runtime(self):
+        nodes = [pia.parse_ovpn(pia.OvpnFile(
+            f"{stem}.ovpn", profile(proto, f"{stem}.example.com")))
+            for stem in ("taiwan", "de_berlin", "de_frankfurt")
+            for proto in ("udp", "tcp")]
+        pia.apply_node_names(nodes, "multi")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            pia.print_summary(nodes)
+        summary = output.getvalue()
+        self.assertNotIn("HOT", summary)
+        self.assertNotIn("COLD", summary)
+        self.assertIn("endpoint 數：3\n", summary)
+        self.assertIn("多 endpoint 國家數：1\n  DE: 2 endpoints\n", summary)
+        payload = pia.build_single_provider_yaml(nodes, "mock", "mock")
+        self.assertNotIn("ping:", payload)
+        self.assertNotIn("ping-restart:", payload)
+        self.assertNotIn("PIA-OV-HOT", payload)
+        self.assertEqual(payload.count("    <<: *PIA-OV"), len(nodes))
+
+    def test_every_generator_syncs_topology_and_catalog_together(self):
+        source = (ROOT / "overrides/vpn-providers.js").read_text(encoding="utf-8")
+        prefix, suffix = source.split("const VPN_LOCATION_LABELS = ", 1)
+        stale = prefix + "{};\n" + suffix.split(";\n", 1)[1]
+        pia_nodes = [pia.parse_ovpn(pia.OvpnFile(
+            f"{stem}.ovpn", profile("udp", f"{stem}.example.com")))
+            for stem in ("de_berlin", "de_frankfurt")]
+        ss_nodes = [ss.parse_ovpn(ss.OvpnFile(
+            f"{endpoint}.prod.surfshark.com_udp.ovpn", profile("udp", f"{endpoint}.example.com")))
+            for endpoint in ("in-del", "in-mum")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "override.js"
+            providers = root / "providers"
+            cases = [
+                (pia.sync_override_topology, (pia_nodes,), "PIA_OV_PATHS", ["DE\\berlin", "DE\\frankfurt"]),
+                (ss.sync_override_topology, (ss_nodes,), "SURFSHARK_OV_PATHS", ["IN\\delhi", "IN\\mumbai"]),
+                (wg.sync_override_topology, ([providers / "DE/berlin/pia-wg.yaml"], providers),
+                 "PIA_WG_PATHS", ["DE\\berlin"]),
+            ]
+            for sync, args, name, expected_paths in cases:
+                with self.subTest(topology=name):
+                    target.write_text(stale, encoding="utf-8")
+                    with mock.patch.object(core, "source_override_path", return_value=target), \
+                            contextlib.redirect_stdout(io.StringIO()):
+                        self.assertTrue(sync(*args))
+                        first = target.read_bytes()
+                        self.assertTrue(sync(*args))
+                        self.assertEqual(target.read_bytes(), first)
+                    updated = target.read_text(encoding="utf-8")
+                    paths = updated.split(f"const {name} = ", 1)[1].split(";\n", 1)[0]
+                    catalog = updated.split("const VPN_LOCATION_LABELS = ", 1)[1].split(";\n", 1)[0]
+                    self.assertEqual(json.loads(paths.replace(",\n]", "\n]")), expected_paths)
+                    self.assertEqual(json.loads(catalog), core.location_catalog())
+                    self.assertNotIn("NL\\netherlands", json.loads(catalog))
+                    self.assertIn("JP\\tokyo", json.loads(catalog))
+                    self.assertIn("DK\\copenhagen", json.loads(catalog))
+                    order = lambda text: text.split("const COUNTRY_DISPLAY_ORDER = ", 1)[1].split(";\n", 1)[0]
+                    self.assertEqual(order(updated), order(source))
+
+    def test_topology_sync_skips_writes_without_source_override(self):
+        with mock.patch.object(sys, "frozen", True, create=True), \
+                mock.patch.object(core, "sync_generated_js_array") as topology, \
+                mock.patch.object(core, "sync_override_location_catalog") as catalog:
+            self.assertFalse(core.sync_generated_topology(
+                marker="TEST", const_name="TEST_PATHS", values=["TW"],
+                source="test", generator="test"))
+            topology.assert_not_called()
+            catalog.assert_not_called()
 
 
 if __name__ == "__main__":

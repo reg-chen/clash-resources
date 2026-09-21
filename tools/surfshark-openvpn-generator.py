@@ -39,8 +39,6 @@ class OvpnNode:
     tls_auth: str | None = None
     tls_crypt: str | None = None
     key_direction: str | None = None
-    ping: int | None = None
-    ping_restart: int | None = None
 
 
 def yaml_scalar(value) -> str:
@@ -61,16 +59,6 @@ def yaml_scalar(value) -> str:
 
 def yaml_kv(key: str, value, indent: int) -> str:
     return f"{' ' * indent}{key}: {yaml_scalar(value)}"
-
-
-def parse_int_directive(text: str, name: str) -> int | None:
-    parts = core.get_directive(text, name)
-    if not parts:
-        return None
-    try:
-        return int(parts[0])
-    except ValueError:
-        return None
 
 
 def collect_ovpn_inputs(bundle: Path) -> list[OvpnFile]:
@@ -146,8 +134,6 @@ def parse_ovpn(item: OvpnFile) -> OvpnNode:
         tls_auth=core.get_inline_block(item.text, "tls-auth"),
         tls_crypt=core.get_inline_block(item.text, "tls-crypt"),
         key_direction=key_direction[0] if key_direction else None,
-        ping=parse_int_directive(item.text, "ping"),
-        ping_restart=parse_int_directive(item.text, "ping-restart"),
     )
 
 
@@ -175,16 +161,13 @@ def topology_paths(nodes: list[OvpnNode]) -> list[str]:
 
 
 def sync_override_topology(nodes: list[OvpnNode]) -> bool:
-    synced = core.sync_generated_js_array(
+    return core.sync_generated_topology(
         marker="SURFSHARK OPENVPN PATHS",
         const_name="SURFSHARK_OV_PATHS",
         values=topology_paths(nodes),
         source="the official Surfshark OpenVPN bundle",
         generator="tools/surfshark-openvpn-generator.py",
     )
-    if synced:
-        core.sync_override_location_catalog(generator="tools/surfshark-openvpn-generator.py")
-    return synced
 
 
 def apply_node_names(nodes: list[OvpnNode]) -> None:
@@ -221,7 +204,6 @@ def build_openvpn_base_anchor(nodes: list[OvpnNode], username: str, password: st
     scalar_attrs = [
         ("dev", "dev"), ("cipher", "cipher"), ("auth", "auth"),
         ("comp_lzo", "comp-lzo"), ("key_direction", "key-direction"),
-        ("ping", "ping"), ("ping_restart", "ping-restart"),
     ]
     block_attrs = [("ca", "ca"), ("tls_crypt", "tls-crypt"), ("tls_auth", "tls-auth")]
 
@@ -256,7 +238,6 @@ def build_payload_node(node: OvpnNode, common_fields: set[str]) -> list[str]:
     scalar_attrs = [
         ("dev", "dev"), ("cipher", "cipher"), ("auth", "auth"),
         ("comp_lzo", "comp-lzo"), ("key_direction", "key-direction"),
-        ("ping", "ping"), ("ping_restart", "ping-restart"),
     ]
     block_attrs = [("ca", "ca"), ("tls_crypt", "tls-crypt"), ("tls_auth", "tls-auth")]
 
@@ -330,6 +311,18 @@ def write_single_yaml(out_dir: Path, nodes: list[OvpnNode], username: str, passw
     print(f"[WRITE] {path} ({len(nodes)} nodes)")
 
 
+def print_summary(nodes: list[OvpnNode]) -> None:
+    multi = get_multi_endpoint_country_codes(nodes)
+    print(f"節點總數：{len(nodes)}")
+    print(f"國家數：{len({node.country_code for node in nodes})}")
+    print(f"endpoint 數：{len({node.endpoint for node in nodes})}")
+    if multi:
+        print(f"多 endpoint 國家數：{len(multi)}")
+        for cc in sorted(multi):
+            endpoints = {node.endpoint for node in nodes if node.country_code == cc}
+            print(f"  {cc.upper()}: {len(endpoints)} endpoints")
+
+
 def generate_openvpn(
     *,
     bundle_zip: Path,
@@ -357,9 +350,7 @@ def generate_openvpn(
         if sync_override and not sync_override_topology(nodes):
             print("[INFO] repo override 不在目前 source tree；略過 Surfshark topology sync。")
 
-    print(f"節點總數：{len(nodes)}")
-    print(f"endpoint 數：{len({node.endpoint for node in nodes})}")
-    print(f"國家數：{len({node.country_code for node in nodes})}")
+    print_summary(nodes)
 
 
 def main() -> None:

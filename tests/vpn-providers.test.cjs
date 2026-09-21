@@ -51,3 +51,50 @@ assert.equal(berlin.length, 1);
 assert.equal(berlin[0].use.length, 2);
 assert.ok(rendered.endpointGroups.some(g => g.name === '🇯🇵 PIA-JP(日本-東京)'));
 console.log('PASS: shared OV/WG path has one canonical group and both providers');
+
+// Runtime policy must cover both OpenVPN vendors and leave WireGuard alone.
+const policyContext = vm.createContext({});
+vm.runInContext(source +
+  '\nglobalThis.policy = {VENDOR_DEFS, renderVendor, openVpnOverride, HOT_COUNTRIES};', policyContext);
+const api = policyContext.policy;
+const policyCases = [];
+for (const definition of api.VENDOR_DEFS) {
+  const result = api.renderVendor(definition, flags(15), {hot:{interval:300},cold:{interval:1800}});
+  for (const group of result.endpointGroups) {
+    const location = definition.locations.find(l => l.name === group.name);
+    assert.ok(location, group.name);
+    assert.equal(group.type, location.hot ? 'fallback' : 'select', group.name);
+  }
+  for (const [name, provider] of Object.entries(result.providers)) {
+    if (name.startsWith('ov-')) {
+      assert.ok(Array.isArray(provider.override['override-expr']), name);
+    } else {
+      assert.equal(provider.override, undefined, name);
+    }
+  }
+  for (const cc of ['TW', 'DE']) {
+    const location = definition.locations.find(l => l.country === cc);
+    const providerName = 'ov-' + definition.key.toLowerCase() + '-' + location.id;
+    const expressions = result.providers[providerName].override['override-expr'];
+    assert.equal(expressions.length, cc === 'TW' ? 3 : 1);
+    assert.equal(expressions[0], 'del(.ping, .["ping-restart"])');
+    for (const proto of ['udp', 'tcp']) {
+      for (const legacy of [false, true]) {
+        const mapping = {name:providerName + '-' + proto,type:'openvpn',proto};
+        if (legacy) Object.assign(mapping, {ping:999,'ping-restart':999});
+        policyCases.push({
+          name:definition.key + '-' + cc + '-' + proto + '-' + (legacy ? 'legacy' : 'new'),
+          expressions, mapping, hot:cc === 'TW' && proto === 'udp',
+        });
+      }
+    }
+  }
+}
+// Reclassification uses the same HOT_COUNTRIES as group/health-check policy.
+api.HOT_COUNTRIES.delete('TW');
+vm.runInContext('globalThis.changedLocation = makeLocation("TW", "SS");', policyContext);
+assert.equal(api.openVpnOverride(policyContext.changedLocation)['override-expr'].length, 1);
+if (process.env.VPN_POLICY_CASES) {
+  fs.writeFileSync(process.env.VPN_POLICY_CASES, JSON.stringify(policyCases, null, 2));
+}
+console.log('PASS: both OpenVPN vendors share keepalive policy; WireGuard is unaffected');
