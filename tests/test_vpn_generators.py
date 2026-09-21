@@ -28,6 +28,34 @@ def profile(proto, host):
 
 
 class GeneratorTests(unittest.TestCase):
+    def test_surfshark_streaming_filter_is_explicit_and_optional(self):
+        # Synthetic marked profiles exercise the switch; official ordinary
+        # profiles and static-IP-looking names must remain untouched.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bundle = root / "ss.zip"
+            with zipfile.ZipFile(bundle, "w") as archive:
+                for endpoint in ("de-fra", "de-fra-st001", "de-fra-streaming-optimized"):
+                    for proto in ("udp", "tcp"):
+                        archive.writestr(
+                            f"{endpoint}.prod.surfshark.com_{proto}.ovpn",
+                            profile(proto, f"{endpoint}.example.com"))
+            for exclude in (True, False):
+                for single in (True, False):
+                    output = root / f"{exclude}-{single}"
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        ss.generate_openvpn(
+                            bundle_zip=bundle, username="mock", password="mock",
+                            out_dir=output, single_file=single, sync_override=False,
+                            exclude_streaming=exclude)
+                    payload = "\n".join(
+                        path.read_text(encoding="utf-8")
+                        for path in output.rglob("*.yaml"))
+                    self.assertIn("de-fra.example.com", payload)
+                    self.assertIn("de-fra-st001.example.com", payload)
+                    self.assertEqual("de-fra-streaming-optimized.example.com" in payload, not exclude)
+
+
     def test_india_zip_to_payload(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

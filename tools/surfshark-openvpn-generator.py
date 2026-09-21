@@ -90,6 +90,13 @@ def collect_ovpn_inputs(bundle: Path) -> list[OvpnFile]:
     return result
 
 
+def is_streaming_optimized_source(source_name: str) -> bool:
+    match = SURFSHARK_FILE_RE.match(Path(source_name).name)
+    return bool(
+        match and core.normalized_stem(match.group("endpoint")).endswith("_streaming_optimized")
+    )
+
+
 def parse_ovpn(item: OvpnFile) -> OvpnNode:
     match = SURFSHARK_FILE_RE.match(Path(item.name).name)
     if not match:
@@ -331,8 +338,12 @@ def generate_openvpn(
     out_dir: Path,
     single_file: bool,
     sync_override: bool = True,
+    exclude_streaming: bool = True,
 ) -> None:
-    nodes = dedupe_nodes([parse_ovpn(item) for item in collect_ovpn_inputs(bundle_zip)])
+    inputs = collect_ovpn_inputs(bundle_zip)
+    if exclude_streaming:
+        inputs = [item for item in inputs if not is_streaming_optimized_source(item.name)]
+    nodes = dedupe_nodes([parse_ovpn(item) for item in inputs])
     apply_node_names(nodes)
     if not nodes:
         raise RuntimeError("沒有任何 Surfshark OpenVPN 節點可輸出。")
@@ -359,6 +370,7 @@ def main() -> None:
     parser.add_argument("--out-dir", type=Path, default=Path("."))
     parser.add_argument("--single-file", action="store_true")
     parser.add_argument("--no-sync-override", action="store_true")
+    parser.add_argument("--include-streaming", action="store_true")
     args = parser.parse_args()
     generate_openvpn(
         bundle_zip=args.bundle_zip,
@@ -367,6 +379,7 @@ def main() -> None:
         out_dir=args.out_dir,
         single_file=args.single_file,
         sync_override=not args.no_sync_override,
+        exclude_streaming=not args.include_streaming,
     )
 
 

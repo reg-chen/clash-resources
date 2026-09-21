@@ -12,6 +12,8 @@ on:
       - tools/surfshark-openvpn-generator.py
       - tools/vpn-generator-gui.py
       - .github/workflows/build-vpn-generator.yml
+      - tests/test_vpn_gui.py
+      - tests/test_vpn_generators.py
 
 permissions:
   contents: read
@@ -45,6 +47,12 @@ jobs:
             tools/pia-wireguard-generator.py `
             tools/surfshark-openvpn-generator.py `
             tools/vpn-generator-gui.py
+
+      - name: Test generators and GUI provider state
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -s tests -v
 
       - name: Build Windows executable
         shell: pwsh
