@@ -285,7 +285,7 @@ skip-auth-prefixes:
 - ::1/128
 tun:
   enable: true
-  stack: mixed
+  stack: mips
   auto-route: true
   auto-redirect: false
   auto-detect-interface: true
