@@ -20,16 +20,11 @@ payload:
   - DOMAIN-SUFFIX,ytimg.com
   # - DOMAIN-SUFFIX,googlevideo.com
 
-  # Reddit Media
-  - DOMAIN,v.redd.it
-  - DOMAIN,i.redd.it
-  - DOMAIN,preview.redd.it
-  - DOMAIN,external-preview.redd.it
-  - DOMAIN,external-i.redd.it
-  - DOMAIN,packaged-media.redd.it
-  - DOMAIN,a.thumbs.redditmedia.com
-  - DOMAIN,b.thumbs.redditmedia.com
-  # - DOMAIN-SUFFIX,reddit.com
+  # Reddit（VPN 易觸發封鎖，整站直連）
+  - DOMAIN-SUFFIX,reddit.com
+  - DOMAIN-SUFFIX,redd.it
+  - DOMAIN-SUFFIX,redditmedia.com
+  - DOMAIN-SUFFIX,redditstatic.com
   
   - DOMAIN,raw.githubusercontent.com
   - DOMAIN,github.githubassets.com/
