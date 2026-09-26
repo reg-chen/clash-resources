@@ -29,56 +29,56 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/dns.yaml
+    url: https://rules.reginald.win/direct/dns.yaml
     path: rules/direct/dns.yaml
   direct-process:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/process.yaml
+    url: https://rules.reginald.win/direct/process.yaml
     path: rules/direct/process.yaml
   direct-android:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/android.yaml
+    url: https://rules.reginald.win/direct/android.yaml
     path: rules/direct/android.yaml
   direct-media:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/media.yaml
+    url: https://rules.reginald.win/direct/media.yaml
     path: rules/direct/media.yaml
   route-ai:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/ai.yaml
+    url: https://rules.reginald.win/proxy/ai.yaml
     path: rules/proxy/ai.yaml
   route-hls:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/hls.yaml
+    url: https://rules.reginald.win/proxy/hls.yaml
     path: rules/proxy/hls.yaml
   route-drm:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/drm.yaml
+    url: https://rules.reginald.win/proxy/drm.yaml
     path: rules/proxy/drm.yaml
   route-bankgov:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/bankgov.yaml
+    url: https://rules.reginald.win/proxy/bankgov.yaml
     path: rules/proxy/bankgov.yaml
   security-custom:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
     format: text
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/custom.txt
+    url: https://rules.reginald.win/security/custom.txt
     path: rules/security/custom.txt
   security-threat:
     <<: *RULE-PROVIDER
@@ -105,14 +105,14 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/riskport.yaml
+    url: https://rules.reginald.win/security/riskport.yaml
     path: rules/security/riskport.yaml
   privacy-custom:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
     format: text
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/custom.txt
+    url: https://rules.reginald.win/privacy/custom.txt
     path: rules/privacy/custom.txt
   privacy-native-amazon:
     <<: *RULE-PROVIDER
@@ -215,7 +215,7 @@ rule-providers:
     type: http
     behavior: domain
     format: text
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/custom.txt
+    url: https://rules.reginald.win/ads/custom.txt
     path: rules/ads/custom.txt
   # Local-only private provider; private.yaml is intentionally not stored in this repository.
   direct-private:
