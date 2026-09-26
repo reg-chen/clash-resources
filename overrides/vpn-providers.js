@@ -311,6 +311,17 @@ const AFRICA = new Set(['ZA','NG','GH','MA','DZ']);
 const ASIA = new Set([...HLS, ...CHINA, ...ASIA_EXTRA]);
 const HOT_COUNTRIES = new Set(ASIA);
 const OPENVPN_HOT_KEEPALIVE = { ping: 20, pingRestart: 60 };
+const HEALTH_CHECK_URL = 'http://www.gstatic.com/generate_204';
+const PROVIDER_HEALTH_CHECKS = {
+  PIA: {
+    hot: { url: HEALTH_CHECK_URL, enable: true, 'expect-status': [204, 200], interval: 120, timeout: 15000 },
+    cold: { url: HEALTH_CHECK_URL, enable: false, 'expect-status': [204, 200], interval: 900, timeout: 15000 },
+  },
+  SS: {
+    hot: { url: HEALTH_CHECK_URL, enable: true, 'expect-status': [204, 200], interval: 60, timeout: 3000 },
+    cold: { url: HEALTH_CHECK_URL, enable: true, 'expect-status': [204, 200], interval: 300, timeout: 3000 },
+  },
+};
 
 const REGION_DEFS = [
   ['ASIA', ASIA, 'fluent-emoji-flat/japanese-castle.svg'],
@@ -433,7 +444,6 @@ const VENDOR_DEFS = [
     key: 'PIA',
     icon: 'PrivateInternetAccess.svg',
     locations: buildLocations('PIA', PIA_OV_PATHS, PIA_WG_PATHS),
-    health: { hot: 'x-pia-test', cold: 'x-pia-test-slow' },
     protocols: [
       { toggle: 'x-pia-wireguard', type: 'wireguard', providerPrefix: 'wg-pia', filename: 'pia-wg.yaml', paths: new Set(PIA_WG_PATHS) },
       { toggle: 'x-pia-openvpn', type: 'openvpn', providerPrefix: 'ov-pia', filename: 'pia-ov.yaml', paths: new Set(PIA_OV_PATHS) },
@@ -443,7 +453,6 @@ const VENDOR_DEFS = [
     key: 'SS',
     icon: 'Surfshark.svg',
     locations: buildLocations('SS', SURFSHARK_OV_PATHS),
-    health: { hot: 'x-ss-test', cold: 'x-ss-test-slow' },
     protocols: [
       { toggle: 'x-ss-openvpn', type: 'openvpn', providerPrefix: 'ov-ss', filename: 'surfshark-ov.yaml', paths: new Set(SURFSHARK_OV_PATHS) },
     ],
@@ -470,15 +479,6 @@ function readFeatureFlags(config) {
     delete config[key];
   }
   return flags;
-}
-
-function readHealthChecks(config, vendor) {
-  const hot = config[vendor.health.hot]?.['health-check'];
-  const cold = config[vendor.health.cold]?.['health-check'];
-  if (!hot || !cold) {
-    throw new Error(`VPN provider override requires ${vendor.health.hot} and ${vendor.health.cold}`);
-  }
-  return { hot, cold };
 }
 
 function renderVendor(vendor, flags, checks) {
@@ -737,9 +737,7 @@ function main(config) {
   delete config['x-vpn-provider-override'];
 
   const flags = readFeatureFlags(config);
-  const checksByVendor = Object.fromEntries(
-    VENDOR_DEFS.map((vendor) => [vendor.key, readHealthChecks(config, vendor)])
-  );
+  const checksByVendor = PROVIDER_HEALTH_CHECKS;
   const renderedByVendor = Object.fromEntries(
     VENDOR_DEFS.map((vendor) => [vendor.key, renderVendor(vendor, flags, checksByVendor[vendor.key])])
   );
