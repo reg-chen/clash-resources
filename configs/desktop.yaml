@@ -83,7 +83,7 @@ proxy-groups:
   # =====================================================================
   - name: GLOBAL
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/world-map.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/world-map.svg
     proxies:
       - PROXY
       - REJECT
@@ -93,7 +93,7 @@ proxy-groups:
   # =====================================================================
   - name: PROXY
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/globe-with-meridians.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/globe-with-meridians.svg
     proxies:
       - AUTO-FAST
       - AUTO-SAFE
@@ -110,7 +110,7 @@ proxy-groups:
   # =====================================================================
   - name: DIRECT-PROXY
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/satellite.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/satellite.svg
     proxies:
       - DIRECT
       - PROXY
@@ -120,7 +120,7 @@ proxy-groups:
   # =====================================================================
   - name: AI-PROXY
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/robot.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/robot.svg
     proxies:
       - DIRECT
       - REJECT
@@ -131,7 +131,7 @@ proxy-groups:
   # =====================================================================
   - name: HLS-PROXY
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/film-frames.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/film-frames.svg
     proxies:
       - LB-HLS
       - LB-CONSISTENT
@@ -148,7 +148,7 @@ proxy-groups:
   # =====================================================================
   - name: DRM-PROXY
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/globe-showing-asia-australia.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/globe-showing-asia-australia.svg
     proxies:
       - DIRECT
       - REJECT
@@ -160,7 +160,7 @@ proxy-groups:
   # =====================================================================
   - name: BANKGOV-PROXY
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/bank.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/bank.svg
     proxies:
       - DIRECT
       - REJECT
@@ -172,7 +172,7 @@ proxy-groups:
   # =====================================================================
   - name: AREA-COMBINE
     type: select
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/airplane.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/airplane.svg
     proxies:
       - REJECT
 
@@ -181,7 +181,7 @@ proxy-groups:
   # =====================================================================
   - name: AUTO-FAST
     type: url-test
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/rocket.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/rocket.svg
     <<: *TEST
     interval: 900
     tolerance: 50
@@ -193,7 +193,7 @@ proxy-groups:
   # =====================================================================
   - name: AUTO-SAFE
     type: fallback
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/shield.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/shield.svg
     <<: *TEST
     interval: 900
     tolerance: 120
@@ -205,7 +205,7 @@ proxy-groups:
   # =====================================================================
   - name: LB-HLS
     type: load-balance
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/repeat-button.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/repeat-button.svg
     strategy: round-robin
     proxies:
       - REJECT
@@ -215,7 +215,7 @@ proxy-groups:
   # =====================================================================
   - name: LB-STICKY
     type: load-balance
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/repeat-button.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/repeat-button.svg
     strategy: sticky-sessions
     proxies:
       - REJECT
@@ -225,7 +225,7 @@ proxy-groups:
   # =====================================================================
   - name: LB-ROBIN
     type: load-balance
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/repeat-button.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/repeat-button.svg
     strategy: round-robin
     proxies:
       - REJECT
@@ -235,7 +235,7 @@ proxy-groups:
   # =====================================================================
   - name: LB-CONSISTENT
     type: load-balance
-    icon: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons/fluent-emoji-flat/repeat-button.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/repeat-button.svg
     strategy: consistent-hashing
     proxies:
       - REJECT
@@ -256,7 +256,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/dns.yaml"
+    url: "https://rules.reginald.win/direct/dns.yaml"
     path: "P:\\Clash\\rules\\direct\\dns.yaml"
 
   # =====================================================================
@@ -266,7 +266,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/process.yaml"
+    url: "https://rules.reginald.win/direct/process.yaml"
     path: "P:\\Clash\\rules\\direct\\process.yaml"
 
   # =====================================================================
@@ -276,7 +276,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/windows.yaml"
+    url: "https://rules.reginald.win/direct/windows.yaml"
     path: "P:\\Clash\\rules\\direct\\windows.yaml"
   
   # =====================================================================
@@ -286,7 +286,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/media.yaml"
+    url: "https://rules.reginald.win/direct/media.yaml"
     path: "P:\\Clash\\rules\\direct\\media.yaml"
 
   # =====================================================================
@@ -304,7 +304,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/direct/webview2.yaml"
+    url: "https://rules.reginald.win/direct/webview2.yaml"
     path: "P:\\Clash\\rules\\direct\\webview2.yaml"
 
   # =====================================================================
@@ -314,7 +314,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/ai.yaml"
+    url: "https://rules.reginald.win/proxy/ai.yaml"
     path: "P:\\Clash\\rules\\proxy\\ai.yaml"
 
   # =====================================================================
@@ -324,7 +324,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/hls.yaml"
+    url: "https://rules.reginald.win/proxy/hls.yaml"
     path: "P:\\Clash\\rules\\proxy\\hls.yaml"
 
   # =====================================================================
@@ -334,7 +334,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/drm.yaml"
+    url: "https://rules.reginald.win/proxy/drm.yaml"
     path: "P:\\Clash\\rules\\proxy\\drm.yaml"
 
   # =====================================================================
@@ -344,7 +344,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/proxy/bankgov.yaml"
+    url: "https://rules.reginald.win/proxy/bankgov.yaml"
     path: "P:\\Clash\\rules\\proxy\\bankgov.yaml"
 
     # =====================================================================
@@ -355,7 +355,7 @@ rule-providers:
     type: http
     behavior: domain
     format: text
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/custom.txt"
+    url: "https://rules.reginald.win/security/custom.txt"
     path: P:\\Clash\\rules\\security\\custom.txt
 
   # =====================================================================
@@ -398,7 +398,7 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/riskport.yaml"
+    url: "https://rules.reginald.win/security/riskport.yaml"
     path: P:\\Clash\\rules\\security\\riskport.yaml
 
   # =====================================================================
@@ -409,7 +409,7 @@ rule-providers:
     type: http
     behavior: domain
     format: text
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/custom.txt"
+    url: "https://rules.reginald.win/privacy/custom.txt"
     path: P:\\Clash\\rules\\privacy\\custom.txt
 
   # =====================================================================
@@ -541,7 +541,7 @@ rule-providers:
     type: http
     behavior: domain
     format: text
-    url: "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/custom.txt"
+    url: "https://rules.reginald.win/ads/custom.txt"
     path: P:\\Clash\\rules\\ads\\custom.txt
 
   # =====================================================================
