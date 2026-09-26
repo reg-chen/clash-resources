@@ -4,7 +4,7 @@
 // this override only renders policy from those generated paths.
 
 const PROVIDER_ROOT = String.raw`P:\Clash\providers`;
-const ICON_ROOT = 'https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/icons';
+const ICON_ROOT = 'https://icons.reginald.win';
 
 // BEGIN GENERATED PIA OPENVPN PATHS
 // AUTO-GENERATED from the current PIA OpenVPN bundles.
