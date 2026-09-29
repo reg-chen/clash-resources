@@ -1,8 +1,8 @@
 # =====================================================================
 # Windows Firewall-only / No-VPN
 # - No VPN proxy-providers / proxy-groups / VPN endpoints
-# - Self-contained: no absolute P:\ paths and no local private.yaml dependency
-# - Rule-provider caches stay inside Mihomo HomeDir via relative paths
+# - No absolute P:\ paths; provider caches use paths relative to Mihomo HomeDir
+# - Optional local private.yaml is supported; missing file acts as an empty rule set in Clash Party
 # - Windows / process DIRECT exceptions retain desktop ordering
 # - WebView2 still passes Security first, then bypasses Privacy / Ads
 # =====================================================================
@@ -51,6 +51,13 @@ rule-providers:
     behavior: classical
     url: https://rules.reginald.win/direct/media.yaml
     path: ./rules/direct/media.yaml
+
+  # Local-only private rules. Clash Party treats a missing file as an empty provider;
+  # creating/saving private.yaml later takes effect without changing this profile.
+  direct-private:
+    type: file
+    behavior: classical
+    path: ./private.yaml
 
   direct-webview2:
     <<: *RULE-PROVIDER
@@ -287,6 +294,7 @@ rules:
   - RULE-SET,direct-windows,DIRECT
   - RULE-SET,direct-process,DIRECT
   - RULE-SET,direct-media,DIRECT
+  - RULE-SET,direct-private,DIRECT
 
   - RULE-SET,route-ai,DIRECT
   - RULE-SET,route-hls,DIRECT
