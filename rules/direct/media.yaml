@@ -1,17 +1,4 @@
 payload:
-  # 巴哈姆特動畫瘋
-  - DOMAIN,api.gamer.com.tw
-  - DOMAIN,ani.gamer.com
-  - DOMAIN-SUFFIX,gamer.com.tw
-  - DOMAIN-SUFFIX,gamer.com
-
-  # Disney+
-  - DOMAIN-SUFFIX,disneyplus.com
-  - DOMAIN-SUFFIX,disney-plus.net
-  - DOMAIN-SUFFIX,bamgrid.com
-  - DOMAIN-SUFFIX,dssott.com
-  - DOMAIN-SUFFIX,disneystreaming.com
-
   # YouTube Premium（避免地區錯誤）
   # - DOMAIN-SUFFIX,youtube.com
   # YouTube media only
