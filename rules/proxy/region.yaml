@@ -2,6 +2,19 @@ payload:
   # 電腦王阿達：海外 / 非台灣出口 IP 敏感
   - DOMAIN-SUFFIX,kocpc.com.tw
 
+  # 巴哈姆特動畫瘋：依所在地區提供 / 限制服務
+  - DOMAIN,api.gamer.com.tw
+  - DOMAIN,ani.gamer.com
+  - DOMAIN-SUFFIX,gamer.com.tw
+  - DOMAIN-SUFFIX,gamer.com
+
+  # Disney+：內容與可用性依所在國家 / 地區而異
+  - DOMAIN-SUFFIX,disneyplus.com
+  - DOMAIN-SUFFIX,disney-plus.net
+  - DOMAIN-SUFFIX,bamgrid.com
+  - DOMAIN-SUFFIX,dssott.com
+  - DOMAIN-SUFFIX,disneystreaming.com
+
   # Hami Video：官方明確限制台灣地區收視
   - DOMAIN,hamivideo.hinet.net
 
