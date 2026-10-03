@@ -106,12 +106,23 @@ proxy-groups:
   # =====================================================================
   - name: DRM-PROXY
     type: select
-    icon: https://icons.reginald.win/fluent-emoji-flat/globe-showing-asia-australia.svg
+    icon: https://icons.reginald.win/fluent-emoji-flat/locked.svg
     proxies:
       - DIRECT
       - REJECT
       - LB-CONSISTENT
       - AREA-COMBINE
+
+  # =====================================================================
+  # 地區敏感服務（預設 AREA-COMBINE，可退回 DIRECT）
+  # =====================================================================
+  - name: REGION-PROXY
+    type: select
+    icon: https://icons.reginald.win/fluent-emoji-flat/globe-showing-asia-australia.svg
+    proxies:
+      - AREA-COMBINE
+      - DIRECT
+      - REJECT
 
   # =====================================================================
   # 銀行 / 政府專用（預設直連，必要時可手動切換國家）
@@ -294,6 +305,16 @@ rule-providers:
     behavior: classical
     url: "https://rules.reginald.win/proxy/drm.yaml"
     path: "P:\\Clash\\rules\\proxy\\drm.yaml"
+
+  # =====================================================================
+  # 🟧 REGION-PROXY（地區 / 出口國別敏感）
+  # =====================================================================
+  route-region:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: "https://rules.reginald.win/proxy/region.yaml"
+    path: "P:\\Clash\\rules\\proxy\\region.yaml"
 
   # =====================================================================
   # 🟦 台灣政府 / 公部門 / 銀行
@@ -593,6 +614,7 @@ rules:
   - RULE-SET,route-ai,AI-PROXY
   - RULE-SET,route-hls,HLS-PROXY
   - RULE-SET,route-drm,DRM-PROXY
+  - RULE-SET,route-region,REGION-PROXY
   - RULE-SET,route-bankgov,BANKGOV-PROXY,no-resolve
 
   # =====================================================================
