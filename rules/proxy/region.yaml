@@ -1,0 +1,21 @@
+payload:
+  # 電腦王阿達：海外 / 非台灣出口 IP 敏感
+  - DOMAIN-SUFFIX,kocpc.com.tw
+
+  # Hami Video：官方明確限制台灣地區收視
+  - DOMAIN,hamivideo.hinet.net
+
+  # MyVideo：官方明確限制台灣地區使用
+  - DOMAIN-SUFFIX,myvideo.net.tw
+
+  # friDay 影音：境外 IP 無法播放
+  - DOMAIN-SUFFIX,video.friday.tw
+
+  # LiTV：服務僅限台灣地區完整收看
+  - DOMAIN-SUFFIX,litv.tv
+
+  # ELTA.TV：需位於台灣地區網路環境
+  - DOMAIN-SUFFIX,eltaott.tv
+
+  # 四季線上 4gTV：台灣地區可完整收看，海外僅部分內容
+  - DOMAIN-SUFFIX,4gtv.tv
