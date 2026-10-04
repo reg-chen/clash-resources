@@ -8,10 +8,10 @@ ntp:
 # 共用測速設定（YAML merge key）
 x-test: &TEST
   # Google: 部分地區可能被干擾
-  url: http://www.gstatic.com/generate_204
+  # url: http://www.gstatic.com/generate_204
 
   # Cloudflare: 全球可達性通常較好
-  #url: http://cp.cloudflare.com/generate_204
+  url: http://cp.cloudflare.com/generate_204
 
   # Microsoft: Windows 環境備選
   # url: http://edge-http.microsoft.com/captiveportal/generate_204
@@ -102,6 +102,17 @@ proxy-groups:
       - REJECT
 
   # =====================================================================
+  # 地區敏感服務（預設 AREA-COMBINE，可退回 DIRECT）
+  # =====================================================================
+  - name: REGION-PROXY
+    type: select
+    icon: https://icons.reginald.win/fluent-emoji-flat/globe-showing-asia-australia.svg
+    proxies:
+      - AREA-COMBINE
+      - DIRECT
+      - REJECT
+
+  # =====================================================================
   # 直連優先（預設 DIRECT，但可自由選國家）
   # =====================================================================
   - name: DRM-PROXY
@@ -112,17 +123,6 @@ proxy-groups:
       - REJECT
       - LB-CONSISTENT
       - AREA-COMBINE
-
-  # =====================================================================
-  # 地區敏感服務（預設 AREA-COMBINE，可退回 DIRECT）
-  # =====================================================================
-  - name: REGION-PROXY
-    type: select
-    icon: https://icons.reginald.win/fluent-emoji-flat/globe-showing-asia-australia.svg
-    proxies:
-      - AREA-COMBINE
-      - DIRECT
-      - REJECT
 
   # =====================================================================
   # 銀行 / 政府專用（預設直連，必要時可手動切換國家）
