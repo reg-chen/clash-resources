@@ -9,6 +9,7 @@ on:
       - tools/vpn_generator_core.py
       - tools/pia-openvpn-generator.py
       - tools/pia-wireguard-generator.py
+      - tools/warp-wireguard-generator.py
       - tools/surfshark-openvpn-generator.py
       - tools/vpn-generator-gui.py
       - .github/workflows/build-vpn-generator.yml
@@ -47,6 +48,7 @@ jobs:
             tools/vpn_generator_core.py `
             tools/pia-openvpn-generator.py `
             tools/pia-wireguard-generator.py `
+            tools/warp-wireguard-generator.py `
             tools/surfshark-openvpn-generator.py `
             tools/vpn-generator-gui.py
 
@@ -75,6 +77,7 @@ jobs:
             --collect-all cryptography `
             --add-data "tools/pia-openvpn-generator.py;." `
             --add-data "tools/pia-wireguard-generator.py;." `
+            --add-data "tools/warp-wireguard-generator.py;." `
             --add-data "tools/surfshark-openvpn-generator.py;." `
             tools/vpn-generator-gui.py
 
