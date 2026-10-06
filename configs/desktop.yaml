@@ -145,7 +145,7 @@ proxy-groups:
   # =====================================================================
   - name: WARP-PROXY
     type: select
-    icon: https://icons.reginald.win/WARP-Cloudflare.svg
+    icon: https://icons.reginald.win/Cloudflare.svg
     proxies:
       - WARP
       - AREA-COMBINE
