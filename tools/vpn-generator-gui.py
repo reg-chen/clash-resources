@@ -101,8 +101,9 @@ class GenerateWorker(QThread):
                 print(f"[INFO] Provider: {provider_name}")
                 print(f"[INFO] Protocol: {' + '.join(selected)}")
                 print(f"[INFO] 輸出目錄: {self.out_dir}")
-                print(f"[INFO] 輸出模式: {'單一檔案' if self.single_file else '分節點檔案'}")
-                print(f"[INFO] 排除 Streaming Optimized: {'是' if self.exclude_streaming else '否'}")
+                if self.provider != "warp":
+                    print(f"[INFO] 輸出模式: {'單一檔案' if self.single_file else '分節點檔案'}")
+                    print(f"[INFO] 排除 Streaming Optimized: {'是' if self.exclude_streaming else '否'}")
 
                 self.out_dir.mkdir(parents=True, exist_ok=True)
 
