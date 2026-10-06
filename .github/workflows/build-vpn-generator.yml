@@ -75,6 +75,8 @@ jobs:
             --windowed `
             --name VPN-Mihomo-Generator `
             --collect-all cryptography `
+            --hidden-import urllib.request `
+            --hidden-import urllib.error `
             --add-data "tools/pia-openvpn-generator.py;." `
             --add-data "tools/pia-wireguard-generator.py;." `
             --add-data "tools/warp-wireguard-generator.py;." `
