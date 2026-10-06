@@ -34,7 +34,7 @@ def generate_wg_keypair() -> tuple[str, str]:
 
 
 def register_warp(public_key: str, timeout: float = 15.0) -> dict:
-    tos = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    tos = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
     payload = json.dumps({
         "key": public_key,
         "install_id": "",
@@ -47,8 +47,10 @@ def register_warp(public_key: str, timeout: float = 15.0) -> dict:
         WARP_API_URL,
         data=payload,
         headers={
+            # Match the working Lanrat implementation's curl client identity.
+            # Cloudflare currently rejects Python-urllib's default User-Agent with Error 1010.
+            "User-Agent": "curl/8.10.1",
             "Content-Type": "application/json",
-            "Accept": "application/json",
         },
         method="POST",
     )
