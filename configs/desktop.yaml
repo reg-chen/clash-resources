@@ -145,7 +145,7 @@ proxy-groups:
   # =====================================================================
   - name: GITHUB-PROXY
     type: select
-    icon: https://icons.reginald.win/GitHub.svg
+    icon: https://icons.reginald.win/GitHub-Invertocat.svg
     proxies:
       - WARP
       - AREA-COMBINE
