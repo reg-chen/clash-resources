@@ -141,11 +141,11 @@ proxy-groups:
       - AREA-COMBINE
 
   # =====================================================================
-  # GitHub 專用（WARP 優先；其餘比照 REGION-PROXY）
+  # WARP 專用（HiNet ↔ Fastly 路由問題）
   # =====================================================================
-  - name: GITHUB-PROXY
+  - name: WARP-PROXY
     type: select
-    icon: https://icons.reginald.win/GitHub-Invertocat.svg
+    icon: https://icons.reginald.win/WARP.svg
     proxies:
       - WARP
       - AREA-COMBINE
@@ -153,7 +153,7 @@ proxy-groups:
       - REJECT
 
   # =====================================================================
-  # WARP（本機 provider；供 GitHub 專線引用）
+  # WARP（本機 provider；供 WARP-PROXY 引用）
   # =====================================================================
   - name: WARP
     type: select
@@ -312,14 +312,14 @@ rule-providers:
     path: "P:\\Clash\\rules\\proxy\\ai.yaml"
 
   # =====================================================================
-  # 🟧 GITHUB-PROXY（GitHub / assets / raw / packages）
+  # 🟧 WARP-PROXY（HiNet ↔ Fastly 路由 workaround）
   # =====================================================================
-  route-github:
+  route-fastly:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://rules.reginald.win/proxy/github.yaml"
-    path: "P:\\Clash\\rules\\proxy\\github.yaml"
+    url: "https://rules.reginald.win/proxy/fastly.yaml"
+    path: "P:\\Clash\\rules\\proxy\\fastly.yaml"
 
   # =====================================================================
   # 🟧 HLS-PROXY（第一順位 LB-HLS，可手動切換路由）
@@ -647,7 +647,7 @@ rules:
   # 🟧 特殊路由
   # =====================================================================
   - RULE-SET,route-ai,AI-PROXY
-  - RULE-SET,route-github,GITHUB-PROXY
+  - RULE-SET,route-fastly,WARP-PROXY
   - RULE-SET,route-hls,HLS-PROXY
   - RULE-SET,route-drm,DRM-PROXY
   - RULE-SET,route-region,REGION-PROXY
