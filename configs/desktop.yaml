@@ -63,6 +63,7 @@ proxy-groups:
       - LB-CONSISTENT
       - LB-ROBIN
       - LB-STICKY
+      - WARP
       - AREA-COMBINE
       - DIRECT
       - REJECT
@@ -99,6 +100,7 @@ proxy-groups:
       - LB-CONSISTENT
       - LB-ROBIN
       - LB-STICKY
+      - WARP
       - AREA-COMBINE
       - AUTO-FAST
       - AUTO-SAFE
