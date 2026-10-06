@@ -1,0 +1,21 @@
+payload:
+  # Core website / API / git / codeload / packages under *.github.com
+  - DOMAIN-SUFFIX,github.com
+
+  # Raw content, release assets, avatars, Actions artifacts/content
+  - DOMAIN-SUFFIX,githubusercontent.com
+
+  # Static web assets
+  - DOMAIN-SUFFIX,githubassets.com
+
+  # GitHub Pages
+  - DOMAIN-SUFFIX,github.io
+
+  # GitHub Container Registry
+  - DOMAIN-SUFFIX,ghcr.io
+
+  # GitHub Apps / Dependabot integrations
+  - DOMAIN-SUFFIX,githubapp.com
+
+  # Git LFS legacy/object storage endpoint
+  - DOMAIN,github-cloud.s3.amazonaws.com
