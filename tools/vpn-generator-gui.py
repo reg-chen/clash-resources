@@ -93,7 +93,11 @@ class GenerateWorker(QThread):
                 if self.generate_wireguard:
                     selected.append("WireGuard")
 
-                provider_name = "PIA" if self.provider == "pia" else "Surfshark"
+                provider_name = {
+                    "pia": "PIA",
+                    "surfshark": "Surfshark",
+                    "warp": "Cloudflare WARP",
+                }.get(self.provider, self.provider)
                 print(f"[INFO] Provider: {provider_name}")
                 print(f"[INFO] Protocol: {' + '.join(selected)}")
                 print(f"[INFO] 輸出目錄: {self.out_dir}")
@@ -161,6 +165,15 @@ class GenerateWorker(QThread):
                             exclude_streaming=self.exclude_streaming,
                         )
                         print("[OK] Surfshark OpenVPN 完成。")
+
+                elif self.provider == "warp":
+                    print("\n===== Cloudflare WARP WireGuard =====")
+                    warp = core.load_sibling(
+                        "warp-wireguard-generator.py",
+                        "warp_wireguard_generator_gui",
+                    )
+                    target = warp.generate_warp(out_dir=self.out_dir)
+                    print(f"[OK] Cloudflare WARP 完成：{target}")
                 else:
                     raise RuntimeError(f"未知 provider：{self.provider}")
 
@@ -199,12 +212,15 @@ class MainWindow(QMainWindow):
         provider_layout.setContentsMargins(0, 0, 0, 0)
         self.pia_radio = QRadioButton("PIA")
         self.surfshark_radio = QRadioButton("Surfshark")
+        self.warp_radio = QRadioButton("Cloudflare WARP")
         self.pia_radio.setChecked(True)
         provider_group = QButtonGroup(self)
         provider_group.addButton(self.pia_radio)
         provider_group.addButton(self.surfshark_radio)
+        provider_group.addButton(self.warp_radio)
         provider_layout.addWidget(self.pia_radio)
         provider_layout.addWidget(self.surfshark_radio)
+        provider_layout.addWidget(self.warp_radio)
         provider_layout.addStretch(1)
         form.addRow("Provider", provider_row)
 
@@ -237,8 +253,8 @@ class MainWindow(QMainWindow):
         self.password_edit.setEchoMode(QLineEdit.Password)
         self.password_edit.setPlaceholderText("Password")
 
-        credentials_row = QWidget()
-        credentials_layout = QHBoxLayout(credentials_row)
+        self.credentials_row = QWidget()
+        credentials_layout = QHBoxLayout(self.credentials_row)
         credentials_layout.setContentsMargins(0, 0, 0, 0)
         credentials_layout.addWidget(self.username_edit, 1)
         credentials_layout.addWidget(self.password_edit, 1)
@@ -251,7 +267,7 @@ class MainWindow(QMainWindow):
         )
         credentials_layout.addWidget(self.show_password)
         self.credentials_label = QLabel("PIA 帳號 / 密碼")
-        form.addRow(self.credentials_label, credentials_row)
+        form.addRow(self.credentials_label, self.credentials_row)
 
         self.out_edit = QLineEdit()
         form.addRow("輸出目錄", self._path_row(self.out_edit, self.pick_output_dir))
@@ -294,6 +310,8 @@ class MainWindow(QMainWindow):
 
         self.openvpn_checkbox.toggled.connect(self.update_protocol_controls)
         self.pia_radio.toggled.connect(self.update_provider_controls)
+        self.surfshark_radio.toggled.connect(self.update_provider_controls)
+        self.warp_radio.toggled.connect(self.update_provider_controls)
         self.wireguard_checkbox.toggled.connect(self.remember_pia_wireguard_preference)
 
         self.restore_settings()
@@ -301,6 +319,8 @@ class MainWindow(QMainWindow):
         self.update_protocol_controls()
 
     def selected_provider(self) -> str:
+        if self.warp_radio.isChecked():
+            return "warp"
         return "surfshark" if self.surfshark_radio.isChecked() else "pia"
 
     def _path_row(self, edit: QLineEdit, callback) -> QWidget:
@@ -326,43 +346,92 @@ class MainWindow(QMainWindow):
             self._active_provider = provider
 
         surfshark = provider == "surfshark"
+        warp = provider == "warp"
 
-        if surfshark:
+        if warp:
             if self.wireguard_checkbox.isEnabled():
                 self._pia_wireguard_preference = self.wireguard_checkbox.isChecked()
+
+            self.openvpn_checkbox.blockSignals(True)
+            self.openvpn_checkbox.setChecked(False)
+            self.openvpn_checkbox.blockSignals(False)
+            self.openvpn_checkbox.setEnabled(False)
+
             self.wireguard_checkbox.blockSignals(True)
-            self.wireguard_checkbox.setChecked(False)
+            self.wireguard_checkbox.setChecked(True)
             self.wireguard_checkbox.blockSignals(False)
             self.wireguard_checkbox.setEnabled(False)
-            self.wireguard_checkbox.setToolTip("Surfshark WireGuard generator 尚未實作；預留給未來 provisioning/API。")
+            self.wireguard_checkbox.setToolTip("Cloudflare WARP 固定使用 WireGuard。")
 
-            self.udp_label.setText("OpenVPN ZIP")
+            self.udp_label.hide()
+            self.udp_row.hide()
             self.tcp_label.hide()
             self.tcp_row.hide()
-            self.credentials_label.setText("Surfshark 帳號 / 密碼")
-            self.exclude_streaming.setText("排除 Surfshark Streaming Optimized")
-        else:
-            self.wireguard_checkbox.setEnabled(True)
-            self.wireguard_checkbox.setToolTip("")
-            self.wireguard_checkbox.blockSignals(True)
-            self.wireguard_checkbox.setChecked(self._pia_wireguard_preference)
-            self.wireguard_checkbox.blockSignals(False)
+            self.credentials_label.hide()
+            self.credentials_row.hide()
+            self.exclude_streaming_label.hide()
+            self.exclude_streaming.hide()
+            self.single_radio.setEnabled(False)
+            self.multi_radio.setEnabled(False)
 
-            self.udp_label.setText("OpenVPN UDP ZIP")
-            self.tcp_label.show()
-            self.tcp_row.show()
-            self.credentials_label.setText("PIA 帳號 / 密碼")
-            self.exclude_streaming.setText("排除 PIA Streaming Optimized")
+        else:
+            self.openvpn_checkbox.setEnabled(True)
+            self.udp_label.show()
+            self.udp_row.show()
+            self.credentials_label.show()
+            self.credentials_row.show()
+            self.exclude_streaming_label.show()
+            self.exclude_streaming.show()
+            self.single_radio.setEnabled(True)
+            self.multi_radio.setEnabled(True)
+
+            if surfshark:
+                if self.wireguard_checkbox.isEnabled():
+                    self._pia_wireguard_preference = self.wireguard_checkbox.isChecked()
+                self.wireguard_checkbox.blockSignals(True)
+                self.wireguard_checkbox.setChecked(False)
+                self.wireguard_checkbox.blockSignals(False)
+                self.wireguard_checkbox.setEnabled(False)
+                self.wireguard_checkbox.setToolTip("Surfshark WireGuard generator 尚未實作；預留給未來 provisioning/API。")
+
+                self.udp_label.setText("OpenVPN ZIP")
+                self.tcp_label.hide()
+                self.tcp_row.hide()
+                self.credentials_label.setText("Surfshark 帳號 / 密碼")
+                self.exclude_streaming.setText("排除 Surfshark Streaming Optimized")
+            else:
+                self.wireguard_checkbox.setEnabled(True)
+                self.wireguard_checkbox.setToolTip("")
+                self.wireguard_checkbox.blockSignals(True)
+                self.wireguard_checkbox.setChecked(self._pia_wireguard_preference)
+                self.wireguard_checkbox.blockSignals(False)
+
+                self.udp_label.setText("OpenVPN UDP ZIP")
+                self.tcp_label.show()
+                self.tcp_row.show()
+                self.credentials_label.setText("PIA 帳號 / 密碼")
+                self.exclude_streaming.setText("排除 PIA Streaming Optimized")
 
         self.update_protocol_controls()
 
     def update_protocol_controls(self, *_args) -> None:
+        if self.selected_provider() == "warp":
+            self.udp_row.setEnabled(False)
+            self.tcp_row.setEnabled(False)
+            return
         enabled = self.openvpn_checkbox.isChecked()
         self.udp_row.setEnabled(enabled)
         if self.selected_provider() == "pia":
             self.tcp_row.setEnabled(enabled)
 
     def show_output_mode_help(self) -> None:
+        if self.selected_provider() == "warp":
+            QMessageBox.information(
+                self,
+                "輸出模式說明",
+                "Cloudflare WARP 固定輸出：providers/warp.yaml",
+            )
+            return
         if self.selected_provider() == "surfshark":
             text = (
                 "分節點檔案\n"
@@ -430,12 +499,12 @@ class MainWindow(QMainWindow):
         problems: list[str] = []
         provider = self.selected_provider()
         ov_enabled = self.openvpn_checkbox.isChecked()
-        wg_enabled = self.wireguard_checkbox.isChecked() and provider == "pia"
+        wg_enabled = self.wireguard_checkbox.isChecked() and provider in ("pia", "warp")
 
         if not ov_enabled and not wg_enabled:
             problems.append("請至少選擇一個目前支援的協定。")
 
-        if ov_enabled:
+        if ov_enabled and provider != "warp":
             udp = Path(self.udp_edit.text().strip())
             if not udp.is_file() or udp.suffix.lower() != ".zip":
                 if provider == "surfshark":
@@ -448,7 +517,7 @@ class MainWindow(QMainWindow):
                 if not tcp.is_file() or tcp.suffix.lower() != ".zip":
                     problems.append("請選擇有效的 OpenVPN TCP ZIP。")
 
-        credentials_required = wg_enabled or (provider == "surfshark" and ov_enabled)
+        credentials_required = (provider == "pia" and wg_enabled) or (provider == "surfshark" and ov_enabled)
         if credentials_required and (
             not self.username_edit.text().strip()
             or not self.password_edit.text()
@@ -475,7 +544,7 @@ class MainWindow(QMainWindow):
 
         provider = self.selected_provider()
         ov_enabled = self.openvpn_checkbox.isChecked()
-        wg_enabled = self.wireguard_checkbox.isChecked() and provider == "pia"
+        wg_enabled = self.wireguard_checkbox.isChecked() and provider in ("pia", "warp")
         self.worker = GenerateWorker(
             provider=provider,
             generate_openvpn=ov_enabled,
@@ -573,10 +642,13 @@ class MainWindow(QMainWindow):
         provider = self.settings.value("provider", "pia", str)
         self.pia_radio.blockSignals(True)
         self.surfshark_radio.blockSignals(True)
+        self.warp_radio.blockSignals(True)
+        self.warp_radio.setChecked(provider == "warp")
         self.surfshark_radio.setChecked(provider == "surfshark")
-        self.pia_radio.setChecked(provider != "surfshark")
+        self.pia_radio.setChecked(provider not in ("surfshark", "warp"))
         self.pia_radio.blockSignals(False)
         self.surfshark_radio.blockSignals(False)
+        self.warp_radio.blockSignals(False)
 
         self._active_provider = self.selected_provider()
         self.restore_provider_settings(self._active_provider)
