@@ -109,6 +109,36 @@ class ProviderStateTests(unittest.TestCase):
                     exclude_streaming=exclude,
                 )
 
+    def test_warp_provider_state_and_worker(self):
+        window = self.window
+        window.warp_radio.setChecked(True)
+        self.assertEqual(window.selected_provider(), "warp")
+        self.assertFalse(window.openvpn_checkbox.isEnabled())
+        self.assertFalse(window.openvpn_checkbox.isChecked())
+        self.assertFalse(window.wireguard_checkbox.isEnabled())
+        self.assertTrue(window.wireguard_checkbox.isChecked())
+        self.assertTrue(window.udp_row.isHidden())
+        self.assertTrue(window.tcp_row.isHidden())
+        self.assertTrue(window.credentials_row.isHidden())
+        self.assertTrue(window.exclude_streaming.isHidden())
+        self.assertEqual(window.validate_inputs(), ["請選擇輸出目錄。"])
+
+        generator = mock.Mock()
+        generator.generate_warp.return_value = Path(self.directory.name) / "providers" / "warp.yaml"
+        worker = gui.GenerateWorker(
+            provider="warp", generate_openvpn=False,
+            generate_wireguard=True, udp_zip=None, tcp_zip=None,
+            username="", password="",
+            out_dir=Path(self.directory.name), single_file=False,
+            exclude_streaming=True,
+        )
+        completed = []
+        worker.completed.connect(lambda ok, detail: completed.append(ok))
+        with mock.patch.object(core, "load_sibling", return_value=generator):
+            worker.run()
+        self.assertEqual(completed, [True])
+        generator.generate_warp.assert_called_once_with(out_dir=Path(self.directory.name))
+
 
 if __name__ == "__main__":
     unittest.main()
