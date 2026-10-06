@@ -32,3 +32,10 @@ payload:
 
   # 四季線上 4gTV：台灣地區可完整收看，海外僅部分內容
   - DOMAIN-SUFFIX,4gtv.tv
+
+  # Discord：出口 IP / 地區敏感；API、邀請、媒體與語音統一走同一類路由
+  - DOMAIN-SUFFIX,discord.com
+  - DOMAIN-SUFFIX,discord.gg
+  - DOMAIN-SUFFIX,discordapp.com
+  - DOMAIN-SUFFIX,discordapp.net
+  - DOMAIN-SUFFIX,discord.media
