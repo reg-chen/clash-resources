@@ -141,7 +141,7 @@ proxy-groups:
       - AREA-COMBINE
 
   # =====================================================================
-  # WARP 專用（HiNet ↔ Fastly 路由問題）
+  # WARP 專用（HiNet ↔ Fastly 路由 workaround）
   # =====================================================================
   - name: WARP-PROXY
     type: select
