@@ -113,6 +113,20 @@ proxy-groups:
       - REJECT
 
   # =====================================================================
+  # GitHub 專用（獨立出口，避開直連/CDN 路由問題）
+  # =====================================================================
+  - name: GITHUB-PROXY
+    type: select
+    icon: https://icons.reginald.win/fluent-emoji-flat/globe-with-meridians.svg
+    proxies:
+      - AREA-COMBINE
+      - AUTO-FAST
+      - AUTO-SAFE
+      - LB-CONSISTENT
+      - DIRECT
+      - REJECT
+
+  # =====================================================================
   # 直連優先（預設 DIRECT，但可自由選國家）
   # =====================================================================
   - name: DRM-PROXY
@@ -285,6 +299,16 @@ rule-providers:
     behavior: classical
     url: "https://rules.reginald.win/proxy/ai.yaml"
     path: "P:\\Clash\\rules\\proxy\\ai.yaml"
+
+  # =====================================================================
+  # 🟧 GITHUB-PROXY（GitHub / assets / raw / packages）
+  # =====================================================================
+  route-github:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: "https://rules.reginald.win/proxy/github.yaml"
+    path: "P:\\Clash\\rules\\proxy\\github.yaml"
 
   # =====================================================================
   # 🟧 HLS-PROXY（第一順位 LB-HLS，可手動切換路由）
@@ -612,6 +636,7 @@ rules:
   # 🟧 特殊路由
   # =====================================================================
   - RULE-SET,route-ai,AI-PROXY
+  - RULE-SET,route-github,GITHUB-PROXY
   - RULE-SET,route-hls,HLS-PROXY
   - RULE-SET,route-drm,DRM-PROXY
   - RULE-SET,route-region,REGION-PROXY
