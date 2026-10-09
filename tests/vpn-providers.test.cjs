@@ -33,6 +33,26 @@ for(let mask=0;mask<16;mask++) {
 }
 console.log('PASS: all 16 toggle combinations, references and repeat application');
 
+// Route groups must expose all locations from both enabled vendors.
+for (const mask of [0, 3, 12, 15]) {
+  const config = {
+    'x-vpn-provider-override': true, ...flags(mask),
+    'proxy-groups': ['HLS-PROXY', 'DRM-PROXY', 'BANKGOV-PROXY'].map(name => ({
+      name, type:'select', proxies:['DIRECT']
+    }))
+  };
+  const result = main(config);
+  for (const name of ['HLS-PROXY', 'DRM-PROXY', 'BANKGOV-PROXY']) {
+    const group = result['proxy-groups'].find(g => g.name === name);
+    const proxies = Array.from(group.proxies);
+    assert.equal(proxies.includes('SS-ALL'), !!(mask & 12), name + ' SS-ALL mask ' + mask);
+    assert.equal(proxies.includes('PIA-ALL'), !!(mask & 3), name + ' PIA-ALL mask ' + mask);
+    assert.equal(proxies.includes('PIA-ASIA'), false, name + ' must not inject PIA-ASIA');
+  }
+}
+console.log('PASS: HLS/DRM/BANKGOV use enabled vendors ALL groups');
+
+
 
 assert.equal(VPN_LOCATION_LABELS['IN\\delhi'], '印度-德里');
 assert.equal(VPN_LOCATION_LABELS['IN\\mumbai'], '印度-孟買');
