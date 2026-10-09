@@ -2,21 +2,6 @@ name: Build VPN Mihomo Generator
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - tools/vpn_generator_core.py
-      - tools/pia-openvpn-generator.py
-      - tools/pia-wireguard-generator.py
-      - tools/warp-wireguard-generator.py
-      - tools/surfshark-openvpn-generator.py
-      - tools/vpn-generator-gui.py
-      - .github/workflows/build-vpn-generator.yml
-      - tests/test_vpn_gui.py
-      - tests/test_vpn_generators.py
-      - tests/vpn-providers.test.cjs
-      - overrides/vpn-providers.js
 
 permissions:
   contents: read
