@@ -719,9 +719,9 @@ function applyRouteGroupPolicy(baseGroups, vendorGroups) {
       'SS-ALL','SS-ASIA','SS-MIDDLE-EAST','SS-EUROPE','SS-NORTH-AMERICA','SS-LATIN-AMERICA','SS-OCEANIA','SS-AFRICA',
       'PIA-ALL','PIA-ASIA','PIA-MIDDLE-EAST','PIA-EUROPE','PIA-NORTH-AMERICA','PIA-LATIN-AMERICA','PIA-OCEANIA','PIA-AFRICA',
     ],
-    'HLS-PROXY': ['SS-ALL', 'PIA-ASIA'],
-    'DRM-PROXY': ['SS-ALL', 'PIA-ASIA'],
-    'BANKGOV-PROXY': ['SS-ALL', 'PIA-ASIA'],
+    'HLS-PROXY': ['SS-ALL', 'PIA-ALL'],
+    'DRM-PROXY': ['SS-ALL', 'PIA-ALL'],
+    'BANKGOV-PROXY': ['SS-ALL', 'PIA-ALL'],
   };
 
   for (const group of baseGroups) {
