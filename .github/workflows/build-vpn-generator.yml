@@ -78,6 +78,7 @@ jobs:
         with:
           name: VPN-Mihomo-Generator-win-x64
           path: dist/VPN-Mihomo-Generator.exe
+          archive: false
           if-no-files-found: error
           retention-days: 30
 
