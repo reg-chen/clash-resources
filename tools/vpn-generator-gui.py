@@ -6,11 +6,15 @@ import sys
 import traceback
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, QThread, Signal
+from PySide6.QtCore import QSettings, QThread, Signal, QTime
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QTimeEdit,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -27,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 import vpn_generator_core as core
+import warp_schedule
 
 APP_NAME = "PIA Mihomo Generator"  # keep existing QSettings namespace for migration compatibility
 ORG_NAME = "reg-chen"
@@ -189,6 +194,71 @@ class GenerateWorker(QThread):
             self.completed.emit(False, str(exc))
 
 
+class WarpScheduleDialog(QDialog):
+    def __init__(self, parent, out_dir: str, settings: QSettings):
+        super().__init__(parent)
+        self.setWindowTitle("WARP 工作排程")
+        self.setMinimumWidth(380)
+        self.settings = settings
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("由 Windows 工作排程執行 WARP 更新，不需要開啟 GUI。"))
+        form = QFormLayout()
+        layout.addLayout(form)
+        self.frequency = QComboBox()
+        self.frequency.addItem("每月 5、10、15、20、25、30 日（預設）", "monthly")
+        self.frequency.addItem("每天", "daily")
+        self.frequency.addItem("每 5 天", "every5")
+        self.frequency.addItem("每 7 天", "weekly")
+        saved_mode = settings.value("warp/schedule_frequency", "monthly", str)
+        self.frequency.setCurrentIndex(max(0, self.frequency.findData(saved_mode)))
+        form.addRow("執行頻率", self.frequency)
+        self.time_edit = QTimeEdit()
+        self.time_edit.setDisplayFormat("HH:mm")
+        saved_time = settings.value("warp/schedule_time", "03:00", str)
+        self.time_edit.setTime(QTime.fromString(saved_time, "HH:mm") if QTime.fromString(saved_time, "HH:mm").isValid() else QTime(3, 0))
+        form.addRow("執行時間", self.time_edit)
+        self.output = QLineEdit(out_dir or r"P:\Clash")
+        form.addRow("Mihomo 目錄", self.output)
+        layout.addWidget(QLabel("注意：若使用 P: 映射磁碟，Windows 使用者必須已登入。"))
+        actions = QHBoxLayout()
+        install = QPushButton("安裝／更新排程")
+        install.clicked.connect(self.install)
+        remove = QPushButton("移除排程")
+        remove.clicked.connect(self.remove)
+        actions.addWidget(install)
+        actions.addWidget(remove)
+        layout.addLayout(actions)
+        close = QDialogButtonBox(QDialogButtonBox.Close)
+        close.rejected.connect(self.reject)
+        layout.addWidget(close)
+
+    def install(self):
+        directory = self.output.text().strip()
+        if not directory:
+            QMessageBox.warning(self, "缺少目錄", "請設定 Mihomo 輸出目錄。")
+            return
+        try:
+            result = warp_schedule.configure_schedule(
+                action="install", out_dir=Path(directory),
+                mode=self.frequency.currentData(), time=self.time_edit.time().toString("HH:mm"),
+            )
+            self.settings.setValue("warp/schedule_frequency", self.frequency.currentData())
+            self.settings.setValue("warp/schedule_time", self.time_edit.time().toString("HH:mm"))
+            self.settings.setValue("warp/out_dir", directory)
+            QMessageBox.information(self, "排程已設定", "Windows 工作排程已建立／更新。\\n" + result)
+        except Exception as exc:
+            QMessageBox.critical(self, "排程失敗", str(exc))
+
+    def remove(self):
+        if QMessageBox.question(self, "確認移除", "要移除 Clash WARP Refresh 工作排程嗎？") != QMessageBox.Yes:
+            return
+        try:
+            warp_schedule.configure_schedule(action="remove")
+            QMessageBox.information(self, "完成", "排程已移除。")
+        except Exception as exc:
+            QMessageBox.critical(self, "移除失敗", str(exc))
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -303,6 +373,9 @@ class MainWindow(QMainWindow):
         self.run_button = QPushButton("執行")
         self.run_button.clicked.connect(self.start_generation)
         root.addWidget(self.run_button)
+        self.warp_schedule_button = QPushButton("安裝／管理 WARP 排程")
+        self.warp_schedule_button.clicked.connect(self.open_warp_schedule)
+        root.addWidget(self.warp_schedule_button)
 
         root.addWidget(QLabel("Log"))
         self.log_view = QPlainTextEdit()
@@ -413,6 +486,7 @@ class MainWindow(QMainWindow):
                 self.credentials_label.setText("PIA 帳號 / 密碼")
                 self.exclude_streaming.setText("排除 PIA Streaming Optimized")
 
+        self.warp_schedule_button.setVisible(warp)
         self.update_protocol_controls()
 
     def update_protocol_controls(self, *_args) -> None:
@@ -532,6 +606,10 @@ class MainWindow(QMainWindow):
             problems.append("請選擇輸出目錄。")
 
         return problems
+
+    def open_warp_schedule(self) -> None:
+        self.save_settings()
+        WarpScheduleDialog(self, self.out_edit.text().strip(), self.settings).exec()
 
     def start_generation(self) -> None:
         problems = self.validate_inputs()
