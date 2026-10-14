@@ -48,6 +48,12 @@ jobs:
             printf '%s\n' "${COMMIT_MESSAGE#jsDelivr purge: }" >> /tmp/jsdelivr-paths
           fi
 
+          # Build scripts, workflow definitions, tests and docs are not consumed from jsDelivr.
+          # Keep manually dispatched paths explicit (including emergency overrides).
+          if [[ "${{ github.event_name }}" != "workflow_dispatch" ]]; then
+            grep -Ev '^(\.github/|tools/|tests/|docs/|README([.]|$)|LICENSE([.]|$))' /tmp/jsdelivr-paths > /tmp/jsdelivr-filtered || true
+            mv /tmp/jsdelivr-filtered /tmp/jsdelivr-paths
+          fi
           sort -u -o /tmp/jsdelivr-paths /tmp/jsdelivr-paths
           echo "Paths to purge:"
           cat /tmp/jsdelivr-paths
@@ -147,13 +153,18 @@ jobs:
               else:
                   print(f"Expected deletion: {path}")
 
+              # One purge per changed path. CDN verification may be temporarily
+              # unavailable (503, timeout) without implying an unsuccessful purge.
+              purge(path)
               matched = False
               for attempt in range(1, 9):
-                  purge(path)
-
                   temp = Path("/tmp/jsdelivr-verify.bin")
                   temp.unlink(missing_ok=True)
-                  status, _ = run_curl(cdn_url, output=temp)
+                  try:
+                      status, _ = run_curl(cdn_url, output=temp)
+                  except RuntimeError as exc:
+                      print(f"Verify {path} attempt {attempt}/8: {exc}", flush=True)
+                      status = 0
 
                   if expected_exists:
                       actual_sha = sha256_file(temp) if status == 200 and temp.exists() else None
