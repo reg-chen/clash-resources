@@ -23,13 +23,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.14'
 
       - name: Restore pip wheel downloads
         uses: actions/cache@v5
         with:
           path: ~/AppData/Local/pip/Cache
-          key: vpn-generator-pip-${{ runner.os }}-py312-v1
+          key: vpn-generator-pip-${{ runner.os }}-py314-v1
 
       - name: Install build dependencies
         shell: pwsh
@@ -41,9 +41,9 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: build/VPN-Mihomo-Generator
-          key: vpn-generator-pyinstaller-${{ runner.os }}-py312-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
+          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
           restore-keys: |
-            vpn-generator-pyinstaller-${{ runner.os }}-py312-
+            vpn-generator-pyinstaller-${{ runner.os }}-py314-
 
       - name: Validate Python sources
         shell: pwsh
@@ -90,7 +90,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: build/VPN-Mihomo-Generator
-          key: vpn-generator-pyinstaller-${{ runner.os }}-py312-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
+          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
 
       - name: Upload executable
         id: uploaded_artifact
