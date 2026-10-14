@@ -74,6 +74,7 @@ jobs:
             tools/vpn-generator-gui.py
 
       - name: Upload executable
+        id: uploaded_artifact
         uses: actions/upload-artifact@v7
         with:
           name: VPN-Mihomo-Generator-win-x64
@@ -87,21 +88,24 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const names = ["VPN-Mihomo-Generator-win-x64"];
+            const names = ["VPN-Mihomo-Generator-win-x64","VPN-Mihomo-Generator.exe"];
+            const keepId = Number('${{ steps.uploaded_artifact.outputs.artifact-id }}');
+            if (!Number.isSafeInteger(keepId) || keepId <= 0) {
+              core.setFailed('Upload action returned no valid artifact ID; no cleanup performed.');
+              return;
+            }
             const artifacts = await github.paginate(
               github.rest.actions.listArtifactsForRepo,
               { owner, repo, per_page: 100 }
             );
-            const matches = artifacts.filter(a => names.includes(a.name) && !a.expired);
-            const current = matches.filter(a => a.workflow_run?.id === context.runId);
-            if (current.length !== 1) {
-              core.setFailed('Expected exactly one new artifact for this run; no cleanup performed.');
+            const current = artifacts.find(a => a.id === keepId);
+            if (!current || current.workflow_run?.id !== context.runId) {
+              core.setFailed('New upload artifact not found for this run; no cleanup performed.');
               return;
             }
-            const keepId = current[0].id;
-            for (const artifact of matches) {
-              if (artifact.id === keepId) continue;
+            const old = artifacts.filter(a => a.id !== keepId && names.includes(a.name) && !a.expired);
+            for (const artifact of old) {
               await github.rest.actions.deleteArtifact({owner, repo, artifact_id: artifact.id});
               core.info(`Deleted old artifact ${artifact.name} (${artifact.id})`);
             }
-            core.info(`Retained artifact ${keepId}`);
+            core.info(`Retained artifact ${current.name} (${keepId}); deleted ${old.length} older artifacts.`);
