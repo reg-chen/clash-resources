@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 TASK_NAME = "Clash WARP Refresh"
-MODES = {"monthly", "daily", "every5", "weekly"}
+MODES = {"monthly", "daily", "interval"}
 
 # EncodedCommand avoids shell quoting issues for exe paths containing spaces.
 _SCRIPT = r"""
@@ -26,6 +26,7 @@ $exe = $env:WARP_TASK_EXE
 $outDir = $env:WARP_TASK_OUT
 $mode = $env:WARP_TASK_MODE
 $clock = $env:WARP_TASK_TIME
+$intervalDays = [int]$env:WARP_TASK_INTERVAL
 if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw "EXE not found: $exe" }
 if ($outDir.Contains('"')) { throw 'Output path contains invalid quotation mark' }
 $definition = $service.NewTask(0)
@@ -44,10 +45,9 @@ if ($mode -eq 'monthly') {
     foreach ($day in @(5,10,15,20,25,30)) { $mask = $mask -bor (1 -shl ($day - 1)) }
     $trigger.DaysOfMonth = $mask
     $trigger.MonthsOfYear = 4095
-} elseif ($mode -eq 'every5') {
-    $trigger.DaysInterval = 5
-} elseif ($mode -eq 'weekly') {
-    $trigger.DaysInterval = 7
+} elseif ($mode -eq 'interval') {
+    if ($intervalDays -lt 1 -or $intervalDays -gt 365) { throw 'Invalid interval: 1 to 365 days' }
+    $trigger.DaysInterval = $intervalDays
 } else {
     $trigger.DaysInterval = 1
 }
@@ -65,13 +65,15 @@ Write-Output 'Installed'
 
 
 def configure_schedule(*, action: str, out_dir: Path | None = None,
-                       mode: str = "monthly", time: str = "03:00") -> str:
+                       mode: str = "monthly", time: str = "03:00", interval_days: int = 5) -> str:
     if sys.platform != "win32":
         raise RuntimeError("Windows 工作排程只支援 Windows。")
     if action not in {"install", "remove"}:
         raise ValueError("Unsupported schedule action")
     if mode not in MODES:
         raise ValueError("Unsupported schedule frequency")
+    if isinstance(interval_days, bool) or not isinstance(interval_days, int) or not 1 <= interval_days <= 365:
+        raise ValueError("排程間隔天數必須為 1 至 365 的整數。")
     import re
     if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", time):
         raise ValueError("Invalid HH:mm time")
@@ -88,6 +90,7 @@ def configure_schedule(*, action: str, out_dir: Path | None = None,
         "WARP_TASK_OUT": str(out_dir or ""),
         "WARP_TASK_MODE": mode,
         "WARP_TASK_TIME": time,
+        "WARP_TASK_INTERVAL": str(interval_days),
     })
     encoded = base64.b64encode(_SCRIPT.encode("utf-16le")).decode("ascii")
     result = subprocess.run(
