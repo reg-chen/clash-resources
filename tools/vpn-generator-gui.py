@@ -207,11 +207,10 @@ class WarpScheduleDialog(QDialog):
         layout.addLayout(form)
         self.frequency = QComboBox()
         self.frequency.addItem("每月 5、10、15、20、25、30 日（預設）", "monthly")
-        self.frequency.addItem("每天", "daily")
         self.frequency.addItem("每 N 天", "interval")
         saved_mode = settings.value("warp/schedule_frequency", "monthly", str)
-        if saved_mode in ("every5", "weekly"):
-            migrated = 5 if saved_mode == "every5" else 7
+        if saved_mode in ("every5", "weekly", "daily"):
+            migrated = {"every5": 5, "weekly": 7, "daily": 1}[saved_mode]
             settings.setValue("warp/schedule_interval", migrated)
             saved_mode = "interval"
         self.frequency.setCurrentIndex(max(0, self.frequency.findData(saved_mode)))
