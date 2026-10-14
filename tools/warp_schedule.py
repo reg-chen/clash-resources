@@ -73,12 +73,12 @@ def configure_schedule(*, action: str, out_dir: Path | None = None,
     if mode not in MODES:
         raise ValueError("Unsupported schedule frequency")
     import re
-    if not re.fullmatch(r"(?:[01]\\d|2[0-3]):[0-5]\\d", time):
+    if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", time):
         raise ValueError("Invalid HH:mm time")
     if action == "install" and (not out_dir or not str(out_dir).strip()):
         raise ValueError("請選擇輸出目錄。")
     exe = Path(sys.executable).resolve()
-    if action == "install" and exe.suffix.lower() != ".exe":
+    if action == "install" and not getattr(sys, "frozen", False):
         raise RuntimeError("請使用打包後的 VPN-Mihomo-Generator.exe 安裝排程。")
     env = os.environ.copy()
     env.update({
