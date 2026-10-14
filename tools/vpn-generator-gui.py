@@ -665,7 +665,45 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
 
+def run_warp_cli(argv: list[str]) -> int:
+    """Headless WARP generation for Windows Task Scheduler / packaged EXE."""
+    import argparse
+    from datetime import datetime
+    from contextlib import redirect_stdout, redirect_stderr
+
+    parser = argparse.ArgumentParser(description="Regenerate Cloudflare WARP without opening the GUI.")
+    parser.add_argument("--warp", action="store_true", help="Generate the WARP WireGuard provider")
+    parser.add_argument("--out-dir", type=Path, default=Path(r"P:\Clash"),
+                        help=r"Mihomo directory (default: P:\Clash); writes providers\warp.yaml")
+    parser.add_argument("--timeout", type=float, default=15.0, help="WARP API timeout in seconds")
+    parser.add_argument("--log-file", type=Path, help="Optional log path (default: OUT_DIR/logs/warp-generator.log)")
+    args = parser.parse_args(argv)
+    if not args.warp:
+        parser.error("Specify --warp")
+    log_file = args.log_file or args.out_dir / "logs" / "warp-generator.log"
+    try:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        with log_file.open("a", encoding="utf-8") as log:
+            with redirect_stdout(log), redirect_stderr(log):
+                print(f"\\n===== WARP scheduled run {datetime.now().astimezone().isoformat(timespec='seconds')} =====", flush=True)
+                try:
+                    warp = core.load_sibling("warp-wireguard-generator.py", "warp_wireguard_generator_cli")
+                    result = warp.generate_warp(out_dir=args.out_dir, timeout=args.timeout)
+                    print(f"[OK] {result}", flush=True)
+                    return 0
+                except Exception:
+                    traceback.print_exc()
+                    print("[ERROR] WARP generation failed; existing provider is preserved.", flush=True)
+                    return 1
+    except OSError:
+        # PyInstaller --windowed has no console; report failure via exit status.
+        return 2
+
+
 def main() -> int:
+    # Process CLI arguments before Qt startup: scheduled runs must remain headless.
+    if len(sys.argv) > 1:
+        return run_warp_cli(sys.argv[1:])
     app = QApplication(sys.argv)
     app.setOrganizationName(ORG_NAME)
     app.setApplicationName(APP_NAME)
