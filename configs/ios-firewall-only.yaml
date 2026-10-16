@@ -104,7 +104,6 @@ rule-providers:
     path: ./rules/ads/antiad.mrs
 
 rules:
-  - IP-CIDR6,::/0,REJECT,no-resolve
   - RULE-SET,direct-dns,DIRECT
   - RULE-SET,direct-ios,DIRECT
   - RULE-SET,direct-media,DIRECT
@@ -121,7 +120,7 @@ rules:
 
 dns:
   enable: true
-  ipv6: false
+  ipv6: true
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
   fake-ip-filter:
