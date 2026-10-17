@@ -58,9 +58,6 @@ payload:
   - PROCESS-NAME,com.valvesoftware.android.steam.community
   - PROCESS-NAME,com.blizzard.messenger
 
-  # Smart home / local device control
-  - PROCESS-NAME,com.google.android.apps.chromecast.app
-
   # Shopping
   - PROCESS-NAME,com.coupang.mobile.lightspeed
 
