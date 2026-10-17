@@ -23,6 +23,11 @@ payload:
   - PROCESS-NAME,com.google.android.configupdater
 
   # ==========================================================
+  # 🟩 Google Home / smart home device control
+  # ==========================================================
+  - PROCESS-NAME,com.google.android.apps.chromecast.app
+
+  # ==========================================================
   # 🟩 Remote Key Provisioning / device attestation
   # ==========================================================
   - PROCESS-NAME,com.android.rkpd
