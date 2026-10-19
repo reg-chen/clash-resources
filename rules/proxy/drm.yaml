@@ -34,6 +34,16 @@ payload:
   - DOMAIN-SUFFIX,nflximg.com
   - DOMAIN-SUFFIX,fast.com
 
+  # HBO Max / Max
+  # Official service, API and dedicated playback/CDN hosts.
+  - DOMAIN-SUFFIX,hbomax.com
+  - DOMAIN-SUFFIX,hbomaxcdn.com
+  - DOMAIN-SUFFIX,max.com
+  - DOMAIN-SUFFIX,discomax.com
+  - DOMAIN-SUFFIX,h264.io
+  - DOMAIN-SUFFIX,hbomaxdash.s.llnwi.net
+  - DOMAIN,wmff.warnermediacdn.com
+
   # PlayStation Network
   - DOMAIN-SUFFIX,playstation.com
   - DOMAIN-SUFFIX,playstation.net
