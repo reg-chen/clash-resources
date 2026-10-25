@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git diff --name-only HEAD^ HEAD -- 'rules/**/mrs/*.mrs' > /tmp/mrs-changed
+          git diff --name-only HEAD^ HEAD -- rules/ads/mrs rules/privacy/mrs rules/security/mrs > /tmp/mrs-changed
           while IFS= read -r path; do
             test -n "$path" || continue
             url="https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/$path"
