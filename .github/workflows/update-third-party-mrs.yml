@@ -1,7 +1,7 @@
 name: Update third-party MRS
 on:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '30 * * * *'
   workflow_dispatch:
 permissions:
   contents: write
