@@ -1,0 +1,18 @@
+{
+  "ads-loyalsoldier": "f3d0ed4d2bcaec82dc3f660427789cffa16703f6ec9da9ac35f380de10f43a1c",
+  "ads-popup": "209dc0d8a1b8338876438115a8860e01d42557094956cfe87120cfed8512a93b",
+  "privacy-native-amazon": "f38a4adc5290dd379e3323d2084e0cbe0d5bdd641450b1eb74f133317147b3c9",
+  "privacy-native-apple": "c6cb5ab90dd06c5278d13f14c2ae4b4f8531aaa82160672e9f47d597c8b323aa",
+  "privacy-native-huawei": "6c90f7f28abf41f1c173899f83d4951703540a5e4662b4bedc40c451cdfb75a3",
+  "privacy-native-lgwebos": "e5f7f2346fa302b102ce9853acc99f12a52be863eb48e9571d67bbe4a2676013",
+  "privacy-native-oppo-realme": "88bd02c603c640921079e5d89674cf3fbe0f508edea9d4b181f32ebd0dd1ee77",
+  "privacy-native-roku": "390c37a225a076039ef043cd9e6d8a8579fbebad0fb825045a5a7b65ed0eb872",
+  "privacy-native-samsung": "f3ff6ded350e3580cddd06ae9b2c82ddcdf7bc39187e714c5dd0c83fc8b5f8ff",
+  "privacy-native-tiktok": "f2a8046bb03d874f2c8208414fd4ec016be3f59f026909d7c635c192e376de66",
+  "privacy-native-vivo": "bcc27f7523de08de2d6ed2a7d751001a1b80799d9272eb457da4dabd5b9213f5",
+  "privacy-native-winoffice": "68153befe2ded801ca062574083c710455496c39439b925e460da5dadc594846",
+  "privacy-native-xiaomi": "1faedc33691a5c0c5b2cbf78cb721e7c32f6a5dda26aee9ce4cf0914094fe94a",
+  "security-dyndns": "116b3701853d49ef8f7026a7c0d1aabf82f091e45184c02239c00ab1c61a1fa9",
+  "security-phishing": "70c6c2e24e6b3484e7ace27b079723e55937bc1f4cbd98bea38a472ec8e37326",
+  "security-threat": "5a4585c28c3f84b0237894ac42e023e4efd172e0e57374b25301ce6ad3926ed2"
+}

@@ -391,9 +391,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/tif.mini-onlydomains.txt"
-    path: P:\\Clash\\rules\\security\\threat.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/mrs/threat.mrs
+    path: P:\\Clash\\rules\\security\\mrs\\threat.mrs
     
   # =====================================================================
   # 🟥 Phishing / 詐騙網站 (強制拒絕)
@@ -402,9 +402,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/Phishing-Database/Phishing.Database@master/phishing-domains-ACTIVE.txt"
-    path: P:\\Clash\\rules\\security\\phishing.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/mrs/phishing.mrs
+    path: P:\\Clash\\rules\\security\\mrs\\phishing.mrs
 
   # =====================================================================
   # 🟥 Dynamic DNS / Phishing / C2 Infrastructure
@@ -413,9 +413,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/dyndns-onlydomains.txt"
-    path: P:\\Clash\\rules\\security\\dyndns.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/mrs/dyndns.mrs
+    path: P:\\Clash\\rules\\security\\mrs\\dyndns.mrs
 
   # =====================================================================
   # 🟥 Risk Ports - Encrypted DNS / Internet Egress
@@ -445,9 +445,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.amazon-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\amazon.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-amazon.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-amazon.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - Apple
@@ -456,9 +456,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.apple-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\apple.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-apple.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-apple.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - Huawei
@@ -467,9 +467,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.huawei-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\huawei.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-huawei.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-huawei.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - Microsoft / Windows / Office
@@ -478,9 +478,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.winoffice-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\winoffice.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-winoffice.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-winoffice.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - Samsung
@@ -489,9 +489,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.samsung-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\samsung.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-samsung.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-samsung.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - TikTok (Aggressive)
@@ -500,9 +500,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.tiktok.extended-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\tiktok.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-tiktok.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-tiktok.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - LG webOS
@@ -511,9 +511,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.lgwebos-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\lgwebos.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-lgwebos.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-lgwebos.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - Roku
@@ -522,9 +522,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.roku-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\roku.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-roku.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-roku.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - Vivo
@@ -533,9 +533,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.vivo-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\vivo.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-vivo.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-vivo.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - OPPO / Realme
@@ -544,9 +544,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.oppo-realme-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\oppo-realme.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-oppo-realme.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-oppo-realme.mrs
 
   # =====================================================================
   # 🟥 Native Tracker - Xiaomi
@@ -555,9 +555,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.xiaomi-onlydomains.txt"
-    path: P:\\Clash\\rules\\privacy\\native\\xiaomi.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-xiaomi.mrs
+    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-xiaomi.mrs
 
   # =====================================================================
   # 🟥 廣告 - Custom
@@ -577,9 +577,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/popupads-onlydomains.txt"
-    path: P:\\Clash\\rules\\ads\\popup.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/mrs/popup.mrs
+    path: P:\\Clash\\rules\\ads\\mrs\\popup.mrs
 
   # =====================================================================
   # 🟥 廣告 - Loyalsoldier
@@ -588,8 +588,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt"
-    path: P:\\Clash\\rules\\ads\\loyalsoldier.yaml
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/mrs/loyalsoldier.mrs
+    path: P:\\Clash\\rules\\ads\\mrs\\loyalsoldier.mrs
 
   # =====================================================================
   # 🟥 廣告 - Anti-AD

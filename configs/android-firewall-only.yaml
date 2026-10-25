@@ -84,23 +84,23 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/tif.mini-onlydomains.txt
-    path: rules/security/threat.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/mrs/threat.mrs
+    path: rules/security/mrs/threat.mrs
   security-phishing:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/Phishing-Database/Phishing.Database@master/phishing-domains-ACTIVE.txt
-    path: rules/security/phishing.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/mrs/phishing.mrs
+    path: rules/security/mrs/phishing.mrs
   security-dyndns:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/dyndns-onlydomains.txt
-    path: rules/security/dyndns.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/mrs/dyndns.mrs
+    path: rules/security/mrs/dyndns.mrs
   security-riskport:
     <<: *RULE-PROVIDER
     type: http
@@ -118,92 +118,93 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.amazon-onlydomains.txt
-    path: rules/privacy/native/amazon.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-amazon.mrs
+    path: rules/privacy/native/mrs/native-amazon.mrs
   privacy-native-apple:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.apple-onlydomains.txt
-    path: rules/privacy/native/apple.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-apple.mrs
+    path: rules/privacy/native/mrs/native-apple.mrs
   privacy-native-huawei:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.huawei-onlydomains.txt
-    path: rules/privacy/native/huawei.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-huawei.mrs
+    path: rules/privacy/native/mrs/native-huawei.mrs
   privacy-native-winoffice:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.winoffice-onlydomains.txt
-    path: rules/privacy/native/winoffice.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-winoffice.mrs
+    path: rules/privacy/native/mrs/native-winoffice.mrs
   privacy-native-samsung:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.samsung-onlydomains.txt
-    path: rules/privacy/native/samsung.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-samsung.mrs
+    path: rules/privacy/native/mrs/native-samsung.mrs
   privacy-native-tiktok:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.tiktok.extended-onlydomains.txt
-    path: rules/privacy/native/tiktok.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-tiktok.mrs
+    path: rules/privacy/native/mrs/native-tiktok.mrs
   privacy-native-lgwebos:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.lgwebos-onlydomains.txt
-    path: rules/privacy/native/lgwebos.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-lgwebos.mrs
+    path: rules/privacy/native/mrs/native-lgwebos.mrs
   privacy-native-roku:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.roku-onlydomains.txt
-    path: rules/privacy/native/roku.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-roku.mrs
+    path: rules/privacy/native/mrs/native-roku.mrs
   privacy-native-vivo:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.vivo-onlydomains.txt
-    path: rules/privacy/native/vivo.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-vivo.mrs
+    path: rules/privacy/native/mrs/native-vivo.mrs
   privacy-native-oppo-realme:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.oppo-realme-onlydomains.txt
-    path: rules/privacy/native/oppo-realme.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-oppo-realme.mrs
+    path: rules/privacy/native/mrs/native-oppo-realme.mrs
   privacy-native-xiaomi:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.xiaomi-onlydomains.txt
-    path: rules/privacy/native/xiaomi.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-xiaomi.mrs
+    path: rules/privacy/native/mrs/native-xiaomi.mrs
   ads-popup:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    format: text
-    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/popupads-onlydomains.txt
-    path: rules/ads/popup.txt
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/mrs/popup.mrs
+    path: rules/ads/mrs/popup.mrs
   ads-loyalsoldier:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt
-    path: rules/ads/loyalsoldier.yaml
+    format: mrs
+    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/mrs/loyalsoldier.mrs
+    path: rules/ads/mrs/loyalsoldier.mrs
   ads-antiad:
     <<: *RULE-PROVIDER
     type: http
