@@ -1,0 +1,67 @@
+name: Update third-party MRS
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: third-party-mrs
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Download latest Mihomo
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=$(curl -fsSL https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | jq -r '.assets[] | select(.name | test("^mihomo-linux-amd64(-compatible)?-v[0-9].*\\.gz$")) | .browser_download_url' | head -1)
+          test -n "$url"
+          curl -fL --retry 3 "$url" -o /tmp/mihomo.gz
+          gzip -dc /tmp/mihomo.gz > ./mihomo
+          chmod +x ./mihomo
+          ./mihomo -v
+      - name: Convert updated providers
+        run: python3 tools/build-third-party-mrs.py
+      - name: Commit updated MRS
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json
+          if git diff --cached --quiet; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(mrs): refresh third-party rule providers'
+          git push
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+      - name: Purge changed MRS paths and verify CDN
+        if: steps.commit.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only HEAD^ HEAD -- 'rules/**/mrs/*.mrs' > /tmp/mrs-changed
+          while IFS= read -r path; do
+            test -n "$path" || continue
+            url="https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/$path"
+            printf 'Purging %s\n' "$url"
+            response=$(curl -fsSL --retry 3 "$url")
+            echo "$response" | jq -e --arg key "/gh/${GITHUB_REPOSITORY}@main/$path" '.status == "finished" and (.paths[$key].throttled != true) and (.paths[$key].providers | all(. == true))' > /dev/null
+            expected=$(sha256sum "$path" | cut -d' ' -f1)
+            matched=false
+            for attempt in 1 2 3 4 5 6 7 8; do
+              if curl -fsSL --max-time 30 "https://cdn.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/$path" -o /tmp/cdn-mrs; then
+                actual=$(sha256sum /tmp/cdn-mrs | cut -d' ' -f1)
+                if [[ "$expected" == "$actual" ]]; then matched=true; break; fi
+              fi
+              sleep 5
+            done
+            test "$matched" = true || { echo "::error::CDN mismatch: $path"; exit 1; }
+          done < /tmp/mrs-changed
