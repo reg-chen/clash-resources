@@ -100,8 +100,8 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://anti-ad.net/mihomo.mrs
-    path: ./rules/ads/antiad.mrs
+    url: https://rules.reginald.win/ads/mrs/antiad.mrs
+    path: ./rules/ads/mrs/antiad.mrs
 
 rules:
   - RULE-SET,direct-dns,DIRECT

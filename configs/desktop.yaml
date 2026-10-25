@@ -392,7 +392,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/mrs/threat.mrs
+    url: https://rules.reginald.win/security/mrs/threat.mrs
     path: P:\\Clash\\rules\\security\\mrs\\threat.mrs
     
   # =====================================================================
@@ -403,7 +403,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/mrs/phishing.mrs
+    url: https://rules.reginald.win/security/mrs/phishing.mrs
     path: P:\\Clash\\rules\\security\\mrs\\phishing.mrs
 
   # =====================================================================
@@ -414,7 +414,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/security/mrs/dyndns.mrs
+    url: https://rules.reginald.win/security/mrs/dyndns.mrs
     path: P:\\Clash\\rules\\security\\mrs\\dyndns.mrs
 
   # =====================================================================
@@ -446,7 +446,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-amazon.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-amazon.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-amazon.mrs
 
   # =====================================================================
@@ -457,7 +457,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-apple.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-apple.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-apple.mrs
 
   # =====================================================================
@@ -468,7 +468,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-huawei.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-huawei.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-huawei.mrs
 
   # =====================================================================
@@ -479,7 +479,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-winoffice.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-winoffice.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-winoffice.mrs
 
   # =====================================================================
@@ -490,7 +490,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-samsung.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-samsung.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-samsung.mrs
 
   # =====================================================================
@@ -501,7 +501,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-tiktok.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-tiktok.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-tiktok.mrs
 
   # =====================================================================
@@ -512,7 +512,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-lgwebos.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-lgwebos.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-lgwebos.mrs
 
   # =====================================================================
@@ -523,7 +523,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-roku.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-roku.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-roku.mrs
 
   # =====================================================================
@@ -534,7 +534,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-vivo.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-vivo.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-vivo.mrs
 
   # =====================================================================
@@ -545,7 +545,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-oppo-realme.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-oppo-realme.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-oppo-realme.mrs
 
   # =====================================================================
@@ -556,7 +556,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/privacy/mrs/native-xiaomi.mrs
+    url: https://rules.reginald.win/privacy/mrs/native-xiaomi.mrs
     path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-xiaomi.mrs
 
   # =====================================================================
@@ -578,7 +578,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/mrs/popup.mrs
+    url: https://rules.reginald.win/ads/mrs/popup.mrs
     path: P:\\Clash\\rules\\ads\\mrs\\popup.mrs
 
   # =====================================================================
@@ -589,7 +589,7 @@ rule-providers:
     type: http
     behavior: domain
     format: mrs
-    url: https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/rules/ads/mrs/loyalsoldier.mrs
+    url: https://rules.reginald.win/ads/mrs/loyalsoldier.mrs
     path: P:\\Clash\\rules\\ads\\mrs\\loyalsoldier.mrs
 
   # =====================================================================
@@ -599,8 +599,9 @@ rule-providers:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
-    url: "https://anti-ad.net/clash.yaml"
-    path: P:\\Clash\\rules\\ads\\antiad.yaml
+    format: mrs
+    url: https://rules.reginald.win/ads/mrs/antiad.mrs
+    path: P:\\Clash\\rules\\ads\\mrs\\antiad.mrs
 
 
 # ================== 子規則 ==================
