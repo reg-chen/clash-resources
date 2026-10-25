@@ -1,0 +1,98 @@
+[
+  {
+    "name": "security-threat",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/tif.mini-onlydomains.txt",
+    "target": "rules/security/mrs/threat.mrs",
+    "format": "text"
+  },
+  {
+    "name": "security-phishing",
+    "source": "https://cdn.jsdelivr.net/gh/Phishing-Database/Phishing.Database@master/phishing-domains-ACTIVE.txt",
+    "target": "rules/security/mrs/phishing.mrs",
+    "format": "text"
+  },
+  {
+    "name": "security-dyndns",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/dyndns-onlydomains.txt",
+    "target": "rules/security/mrs/dyndns.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-amazon",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.amazon-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-amazon.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-apple",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.apple-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-apple.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-huawei",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.huawei-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-huawei.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-winoffice",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.winoffice-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-winoffice.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-samsung",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.samsung-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-samsung.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-tiktok",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.tiktok.extended-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-tiktok.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-lgwebos",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.lgwebos-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-lgwebos.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-roku",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.roku-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-roku.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-vivo",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.vivo-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-vivo.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-oppo-realme",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.oppo-realme-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-oppo-realme.mrs",
+    "format": "text"
+  },
+  {
+    "name": "privacy-native-xiaomi",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.xiaomi-onlydomains.txt",
+    "target": "rules/privacy/mrs/native-xiaomi.mrs",
+    "format": "text"
+  },
+  {
+    "name": "ads-popup",
+    "source": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/popupads-onlydomains.txt",
+    "target": "rules/ads/mrs/popup.mrs",
+    "format": "text"
+  },
+  {
+    "name": "ads-loyalsoldier",
+    "source": "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt",
+    "target": "rules/ads/mrs/loyalsoldier.mrs",
+    "format": "yaml"
+  }
+]
