@@ -27,12 +27,14 @@ jobs:
           ./mihomo -v
       - name: Convert updated providers
         run: python3 tools/build-third-party-mrs.py
+      - name: Migrate providers after successful conversion
+        run: python3 tools/migrate-third-party-mrs.py
       - name: Commit updated MRS
         id: commit
         shell: bash
         run: |
           set -euo pipefail
-          git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json
+          git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml
           if git diff --cached --quiet; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
