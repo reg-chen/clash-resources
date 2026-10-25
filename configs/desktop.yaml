@@ -34,6 +34,16 @@ proxy-providers:
   warp-local:
     type: file
     path: "P:\\Clash\\providers\\warp.yaml"
+    # WG is initialized on first connection; an eager check removes the
+    # post-reboot need to press WARP latency test manually.
+    # Retry every minute if the network is not yet ready at startup.
+    health-check:
+      enable: true
+      url: http://cp.cloudflare.com/generate_204
+      interval: 60
+      timeout: 8000
+      lazy: false
+      expected-status: 204
 
 # ================== 五種自動化組（微調穩定性） ==================
 
