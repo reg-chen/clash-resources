@@ -38,8 +38,8 @@ proxy-providers:
     # post-reboot need to press WARP latency test manually.
     # Retry every minute if the network is not yet ready at startup.
     health-check:
+      <<: *TEST
       enable: true
-      url: http://cp.cloudflare.com/generate_204
       interval: 60
       timeout: 8000
       lazy: false
