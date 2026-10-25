@@ -6,7 +6,7 @@ import re
 
 root = pathlib.Path(__file__).resolve().parent.parent
 items = json.loads((root / "tools/third-party-mrs-sources.json").read_text())
-for config in [root / "configs/desktop.yaml", root / "configs/android-firewall-only.yaml", root / "configs/ios-firewall-only.yaml"]:
+for config in [root / "configs/desktop.yaml", root / "configs/android-firewall-only.yaml", root / "configs/ios-firewall-only.yaml", root / "configs/windows-firewall-only.yaml"]:
     text = config.read_text()
     original = text
     for item in items:
@@ -16,8 +16,6 @@ for config in [root / "configs/desktop.yaml", root / "configs/android-firewall-o
         if not match:
             continue
         block = match.group(2)
-        if "format: mrs" in block:
-            continue
         old_path = re.search(r"(?m)^(    path:\s*)([^\n]+)$", block)
         old_url = re.search(r"(?m)^(    url:\s*)([^\n]+)$", block)
         if old_path is None or old_url is None:
@@ -28,8 +26,10 @@ for config in [root / "configs/desktop.yaml", root / "configs/android-firewall-o
         last_sep = max(raw_path.rfind("/"), raw_path.rfind("\\"))
         prefix = raw_path[:last_sep + 1]
         sep = "\\\\" if "\\\\" in raw_path else "/"
-        new_path = prefix + "mrs" + sep + pathlib.PurePosixPath(item["target"]).name
-        new_url = "https://cdn.jsdelivr.net/gh/reg-chen/clash-resources@main/" + item["target"]
+        filename = pathlib.PurePosixPath(item["target"]).name
+        already_in_mrs = "/mrs/" in raw_path or "\\mrs\\" in raw_path
+        new_path = (prefix if already_in_mrs else prefix + "mrs" + sep) + filename
+        new_url = "https://rules.reginald.win/" + item["target"].removeprefix("rules/")
         block = block[:old_url.start(2)] + quote + new_url + quote + block[old_url.end(2):]
         old_path = re.search(r"(?m)^(    path:\s*)([^\n]+)$", block)
         block = block[:old_path.start(2)] + quote + new_path + quote + block[old_path.end(2):]
