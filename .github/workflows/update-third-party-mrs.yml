@@ -1,5 +1,12 @@
 name: Update third-party MRS
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/update-third-party-mrs.yml'
+      - 'tools/third-party-mrs-sources.json'
+      - 'tools/build-third-party-mrs.py'
+      - 'tools/migrate-third-party-mrs.py'
   schedule:
     - cron: '30 * * * *'
   workflow_dispatch:
@@ -34,7 +41,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml
+          git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml
           if git diff --cached --quiet; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
@@ -44,12 +51,12 @@ jobs:
           git commit -m 'chore(mrs): refresh third-party rule providers'
           git push
           echo 'changed=true' >> "$GITHUB_OUTPUT"
-      - name: Purge changed MRS paths and verify CDN
+      - name: Purge changed MRS and config paths, verify CDN
         if: steps.commit.outputs.changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          git diff --name-only HEAD^ HEAD -- rules/ads/mrs rules/privacy/mrs rules/security/mrs > /tmp/mrs-changed
+          git diff --name-only HEAD^ HEAD -- rules/ads/mrs rules/privacy/mrs rules/security/mrs configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml > /tmp/mrs-changed
           while IFS= read -r path; do
             test -n "$path" || continue
             url="https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/$path"
@@ -66,4 +73,17 @@ jobs:
               sleep 5
             done
             test "$matched" = true || { echo "::error::CDN mismatch: $path"; exit 1; }
+            if [[ "$path" == rules/* ]]; then
+              # Own domain is a path-preserving rules/ alias; verify after CDN purge.
+              rules_url="https://rules.reginald.win/${path#rules/}"
+              verified=false
+              for attempt in 1 2 3 4 5 6 7 8; do
+                if curl -fsSL --max-time 30 "$rules_url" -o /tmp/own-domain-mrs; then
+                  actual=$(sha256sum /tmp/own-domain-mrs | cut -d' ' -f1)
+                  if [[ "$expected" == "$actual" ]]; then verified=true; break; fi
+                fi
+                sleep 5
+              done
+              test "$verified" = true || { echo "::error::Domain mismatch: $rules_url"; exit 1; }
+            fi
           done < /tmp/mrs-changed
