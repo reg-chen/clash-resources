@@ -94,5 +94,11 @@
     "source": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/reject.txt",
     "target": "rules/ads/mrs/loyalsoldier.mrs",
     "format": "yaml"
+  },
+  {
+    "name": "ads-antiad",
+    "source": "https://anti-ad.net/mihomo.mrs",
+    "target": "rules/ads/mrs/antiad.mrs",
+    "format": "mrs"
   }
 ]
