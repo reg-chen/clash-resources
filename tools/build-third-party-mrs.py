@@ -34,8 +34,14 @@ for item in SOURCES:
     source = target.with_suffix(".source.tmp")
     temp = target.with_suffix(".mrs.tmp")
     try:
-        source.write_bytes(raw)
-        subprocess.run(["./mihomo", "convert-ruleset", "domain", item["format"], str(source), str(temp)], check=True)
+        if item["format"] == "mrs":
+            # Upstream already publishes MRS: mirror bytes, do not reconvert.
+            if len(raw) < 512 or raw.lstrip().lower().startswith((b"<html", b"<!doctype", b"error:")):
+                raise RuntimeError(f"Invalid upstream MRS response: {item['name']}")
+            temp.write_bytes(raw)
+        else:
+            source.write_bytes(raw)
+            subprocess.run(["./mihomo", "convert-ruleset", "domain", item["format"], str(source), str(temp)], check=True)
         if not temp.is_file() or temp.stat().st_size < 8:
             raise RuntimeError(f"No MRS output: {item['name']}")
         os.replace(temp, target)
