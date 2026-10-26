@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   build-windows:
-    if: github.actor == 'reg-chen'
+    if: github.actor == github.repository_owner
     runs-on: windows-latest
 
     steps:
