@@ -1,12 +1,8 @@
 name: Update third-party MRS
 on:
+  # Path filters suppress empty commits; gate pushes by verified content below.
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/update-third-party-mrs.yml'
-      - 'tools/third-party-mrs-sources.json'
-      - 'tools/build-third-party-mrs.py'
-      - 'tools/migrate-third-party-mrs.py'
   schedule:
     - cron: '30 * * * *'
   workflow_dispatch:
@@ -16,7 +12,51 @@ concurrency:
   group: third-party-mrs
   cancel-in-progress: false
 jobs:
+  gate:
+    # Only push events need path/empty-commit checks; cron and manual runs bypass it.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Permit source changes or a verified empty refresh commit
+        id: decide
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          echo "run=false" >> "$GITHUB_OUTPUT"
+          subject="$(git log -1 --format=%s "$AFTER")"
+          if [[ "$subject" == "build: refresh mrs" ]] &&
+             [[ "$(git rev-list --parents -n 1 "$AFTER" | wc -w)" -eq 2 ]] &&
+             [[ "$(git rev-parse "$AFTER^{tree}")" == "$(git rev-parse "$AFTER^1^{tree}")" ]]; then
+            echo "Verified empty refresh commit."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Preserve the original push triggers for workflow/builder edits.
+          if [[ "$BEFORE" =~ ^0+$ ]]; then
+            changed="$(git diff-tree --no-commit-id --name-only -r "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/migrate-third-party-mrs.py)"
+          else
+            changed="$(git diff --name-only "$BEFORE" "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/migrate-third-party-mrs.py)"
+          fi
+          if [[ -n "$changed" ]]; then
+            printf 'Build source changed:\n%s\n' "$changed"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping unrelated push."
+          fi
+
   build:
+    needs: gate
+    if: ${{ always() && (github.event_name != 'push' || needs.gate.outputs.run == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
