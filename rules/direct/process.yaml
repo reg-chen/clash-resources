@@ -43,8 +43,8 @@ payload:
   # ==========================================================
   # 🟦 Windows application paths
   # ==========================================================
-  - PROCESS-PATH-WILDCARD,C:\Program Files\AVG\*
-  - PROCESS-PATH-WILDCARD,C:\Program Files (x86)\AVG\*
+  # - PROCESS-PATH-WILDCARD,C:\Program Files\AVG\*
+  # - PROCESS-PATH-WILDCARD,C:\Program Files (x86)\AVG\*
   - PROCESS-PATH-WILDCARD,D:\RagnarokOnline\*
   - PROCESS-PATH-WILDCARD,C:\Program Files\OpenBoxLab\RaiDrive Mount\*
 
