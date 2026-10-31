@@ -148,6 +148,8 @@ payload:
   # =====================================================================
   - DOMAIN-SUFFIX,fisc.com.tw
   - DOMAIN-SUFFIX,nccc.com.tw
+  - DOMAIN-SUFFIX,twqr.com.tw
+  - DOMAIN,ebill.ba.org.tw
 
   # =====================================================================
   # 信用卡 / 國際金流組織
@@ -201,6 +203,8 @@ payload:
   # LINE Pay
   - DOMAIN-SUFFIX,linepay.com
   - DOMAIN-SUFFIX,linepay.tw
+  - DOMAIN,pay.line.me
+  - DOMAIN,api-pay.line.me
 
   # 街口支付
   - DOMAIN-SUFFIX,jkopay.com
