@@ -1,19 +1,19 @@
 {
   "ads-antiad": "8b3a3964c3d5711cb38e67efdbc30aa261a6a76e8986f00f1d642410bfea72be",
   "ads-loyalsoldier": "ed9eb7d95c65e9e96cddf8d6fbcf8613b86e3986be26a31b7f7ab8aea6c8271b",
-  "ads-popup": "6bc5190bc02a86150bc77dbcc281033b27f81977968c2e9398c6d297a6451c6d",
-  "privacy-native-amazon": "e3483d2e95af853e16b30daf4eca626f685e72393b77778d0a83e389956063a9",
+  "ads-popup": "5fecb2269bc2e7efcd39abca9fee8a7946db75b7eaa66c7f4ff28ad4b05ce0ff",
+  "privacy-native-amazon": "50183f33ceec87be168b9810edf4cd4073eec25f999ede2a376894f506a2bdc2",
   "privacy-native-apple": "c6cb5ab90dd06c5278d13f14c2ae4b4f8531aaa82160672e9f47d597c8b323aa",
   "privacy-native-huawei": "6c90f7f28abf41f1c173899f83d4951703540a5e4662b4bedc40c451cdfb75a3",
-  "privacy-native-lgwebos": "e5f7f2346fa302b102ce9853acc99f12a52be863eb48e9571d67bbe4a2676013",
-  "privacy-native-oppo-realme": "88bd02c603c640921079e5d89674cf3fbe0f508edea9d4b181f32ebd0dd1ee77",
+  "privacy-native-lgwebos": "c3d076e0c49d861e5c0680d3d8b6a1a0f8af10cf2496295c233cdd92862c0174",
+  "privacy-native-oppo-realme": "52d660728b9ac14448e3854436345fde5bf0daf943e0d0108f8afc799496ba07",
   "privacy-native-roku": "390c37a225a076039ef043cd9e6d8a8579fbebad0fb825045a5a7b65ed0eb872",
   "privacy-native-samsung": "e1245102fa79d0bad91c62cb1857e439151ce850165d0cafbd6c385d0615b081",
   "privacy-native-tiktok": "d761249bb0e998b326219b5cdc131569717d309012f43fc02d9d6ed49822bd56",
-  "privacy-native-vivo": "bcc27f7523de08de2d6ed2a7d751001a1b80799d9272eb457da4dabd5b9213f5",
-  "privacy-native-winoffice": "68153befe2ded801ca062574083c710455496c39439b925e460da5dadc594846",
+  "privacy-native-vivo": "e6acfec126fd0680f9c9ba0c06646a0b0db871a2f9bf8699f92c1cd6fd7ad120",
+  "privacy-native-winoffice": "42fdca67daaa1a46bafc5d5b1ab442c9b2f406b4a990b868f4301972128d3663",
   "privacy-native-xiaomi": "16e9734110ae5a065ea10b9fc5c0108986910943de5e88969482f8b157af5b64",
   "security-dyndns": "6136c56de10eaf3d6bb0e8cb17111728667e89ebff879d7d85a767761c08ac70",
   "security-phishing": "70c6c2e24e6b3484e7ace27b079723e55937bc1f4cbd98bea38a472ec8e37326",
-  "security-threat": "9f2d3ee6b91f842951358fcf521967b185ba1e6692c326f2c223eb51316326e9"
+  "security-threat": "dc5bafb9d69ae85e4e4ece8b36bb9d56f898d37c799b677302fc43f25a88e141"
 }
