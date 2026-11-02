@@ -61,6 +61,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: main
           persist-credentials: true
       - name: Download latest Mihomo
         shell: bash
@@ -81,16 +82,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml
-          if git diff --cached --quiet; then
-            echo 'changed=false' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'chore(mrs): refresh third-party rule providers'
-          git push
-          echo 'changed=true' >> "$GITHUB_OUTPUT"
+          # A queued schedule can check out an older main; never force-push it.
+          for attempt in 1 2 3; do
+            if (( attempt > 1 )); then
+              echo "::notice::Remote main advanced; rebuild on latest main ($attempt/3)"
+              sleep $((attempt * 5))
+              git fetch --no-tags origin main
+              git reset --hard origin/main
+              python3 tools/build-third-party-mrs.py
+              python3 tools/migrate-third-party-mrs.py
+            fi
+
+            git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml
+            if git diff --cached --quiet; then
+              echo 'No new MRS changes to push.'
+              echo 'changed=false' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            git commit -m 'chore(mrs): refresh third-party rule providers'
+            if git push origin HEAD:main; then
+              echo 'changed=true' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "::error::Could not push MRS after 3 rebuild attempts; never force-pushing."
+          exit 1
       - name: Purge changed MRS and config paths, verify CDN
         if: steps.commit.outputs.changed == 'true'
         shell: bash
@@ -117,13 +136,17 @@ jobs:
               # Own domain is a path-preserving rules/ alias; verify after CDN purge.
               rules_url="https://rules.reginald.win/${path#rules/}"
               verified=false
-              for attempt in 1 2 3 4 5 6 7 8; do
+              # The Worker/CDN can lag behind the newly-pushed commit.
+              for attempt in {1..16}; do
                 if curl -fsSL --max-time 30 "$rules_url" -o /tmp/own-domain-mrs; then
                   actual=$(sha256sum /tmp/own-domain-mrs | cut -d' ' -f1)
                   if [[ "$expected" == "$actual" ]]; then verified=true; break; fi
+                  echo "::notice::Domain stale ($attempt/16): $rules_url expected=$expected actual=$actual"
+                else
+                  echo "::notice::Domain fetch failed ($attempt/16): $rules_url"
                 fi
-                sleep 5
+                if (( attempt < 16 )); then sleep 8; fi
               done
-              test "$verified" = true || { echo "::error::Domain mismatch: $rules_url"; exit 1; }
+              test "$verified" = true || { echo "::error::Domain mismatch after 16 attempts: $rules_url"; exit 1; }
             fi
           done < /tmp/mrs-changed
