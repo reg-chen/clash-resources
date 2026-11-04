@@ -1,6 +1,7 @@
 payload:
   # Twitch / Google / Microsoft
   - DOMAIN-SUFFIX,twitch.tv
+  - DOMAIN,k.twitchcdn.net
   # - DOMAIN-SUFFIX,google.com
   - DOMAIN,accounts.google.com
   - DOMAIN,myaccount.google.com
