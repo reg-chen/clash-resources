@@ -1,7 +1,7 @@
 {
   "ads-antiad": "8ed8ff83f466ec7d9e1b2088bd0c635710f87873af36218ccc16f056db461653",
-  "ads-loyalsoldier": "5fdcc8c4a9e1e8a31a5fc2f833caf9e42953debac1a277dcfa223048b1e8e5a8",
-  "ads-popup": "e1ef9a6cb344a947a55c0168b6fcd913ba8ee0beae5dfc80fdb20d07371cfe8b",
+  "ads-loyalsoldier": "e6a99a662bc7dc80cd50688be4b2192319a651b74c795b50c0ad98e21a9585b0",
+  "ads-popup": "8ec567edac5de7d9146ffedef870224617aa9c94888dc07073cb6ef9b3e24635",
   "privacy-native-amazon": "50183f33ceec87be168b9810edf4cd4073eec25f999ede2a376894f506a2bdc2",
   "privacy-native-apple": "c6cb5ab90dd06c5278d13f14c2ae4b4f8531aaa82160672e9f47d597c8b323aa",
   "privacy-native-huawei": "6c90f7f28abf41f1c173899f83d4951703540a5e4662b4bedc40c451cdfb75a3",
@@ -15,5 +15,5 @@
   "privacy-native-xiaomi": "16e9734110ae5a065ea10b9fc5c0108986910943de5e88969482f8b157af5b64",
   "security-dyndns": "1a4d767dd3729a5b086ff983fd35475b17c11c8dece767df80a084288d6dd630",
   "security-phishing": "70c6c2e24e6b3484e7ace27b079723e55937bc1f4cbd98bea38a472ec8e37326",
-  "security-threat": "6742fe221212f54575db0e898ff745acf8b33189a02d4e3650ba1de69b3acfc4"
+  "security-threat": "c78cbb23e9c2444be7a13f9cba90787bd251aadc9728083edc150685b54c654d"
 }
