@@ -252,6 +252,9 @@ sub-rules:
 rules:
 - RULE-SET,direct-dns,DIRECT
 - RULE-SET,direct-android,DIRECT
+# LINE ad hosts must be rejected before LINE process bypass
+- DOMAIN,a.line.me,REJECT
+- DOMAIN,ad.line-scdn.net,REJECT
 - RULE-SET,direct-process,DIRECT
 - RULE-SET,direct-media,DIRECT
 - RULE-SET,direct-private,DIRECT

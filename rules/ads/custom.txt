@@ -1,3 +1,6 @@
 +.ironsource.mobi
 +.g.jwpsrv.com
 +.events.reddit.com
+# LINE ad endpoints (DNS-level blocks; shared LINE CDNs are intentionally excluded)
++.a.line.me
++.ad.line-scdn.net

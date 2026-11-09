@@ -653,6 +653,9 @@ rules:
   # =====================================================================
   - RULE-SET,direct-dns,DIRECT-PROXY
   - RULE-SET,direct-windows,DIRECT-PROXY
+  # LINE ad hosts must be rejected before LINE process bypass
+  - DOMAIN,a.line.me,REJECT
+  - DOMAIN,ad.line-scdn.net,REJECT
   - RULE-SET,direct-process,DIRECT-PROXY
   - RULE-SET,direct-media,DIRECT-PROXY
   - RULE-SET,direct-private,DIRECT-PROXY
