@@ -25,6 +25,13 @@ x-rule-provider-common: &RULE-PROVIDER
   proxy: DIRECT
 
 rule-providers:
+  REJECT-CUSTOM:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://rules.reginald.win/reject/custom.yaml
+    path: rules/reject/custom.yaml
+
   direct-dns:
     <<: *RULE-PROVIDER
     type: http
@@ -250,11 +257,9 @@ sub-rules:
   - RULE-SET,ads-loyalsoldier,REJECT
   - RULE-SET,ads-antiad,REJECT
 rules:
+- RULE-SET,REJECT-CUSTOM,REJECT
 - RULE-SET,direct-dns,DIRECT
 - RULE-SET,direct-android,DIRECT
-# LINE ad hosts must be rejected before LINE process bypass
-- DOMAIN,a.line.me,REJECT
-- DOMAIN,ad.line-scdn.net,REJECT
 - RULE-SET,direct-process,DIRECT
 - RULE-SET,direct-media,DIRECT
 - RULE-SET,direct-private,DIRECT

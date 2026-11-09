@@ -1,0 +1,4 @@
+payload:
+  # Confirmed LINE ad endpoints; exact hosts only.
+  - DOMAIN,a.line.me
+  - DOMAIN,ad.line-scdn.net

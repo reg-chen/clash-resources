@@ -255,6 +255,13 @@ x-rule-provider-common: &RULE-PROVIDER
   proxy: DIRECT
 
 rule-providers:
+  REJECT-CUSTOM:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: classical
+    url: https://rules.reginald.win/reject/custom.yaml
+    path: P:\\Clash\\rules\\reject\\custom.yaml
+
   # =====================================================================
   # 🟩 特殊DNS（強制直連）
   # =====================================================================
@@ -649,13 +656,15 @@ rules:
   - IP-CIDR6,::/0,REJECT,no-resolve
 
   # =====================================================================
+  # ⛔ REJECT-CUSTOM — confirmed blocks before DIRECT
+  # =====================================================================
+  - RULE-SET,REJECT-CUSTOM,REJECT
+
+  # =====================================================================
   # 🟩 DIRECT / PROXY 可切換
   # =====================================================================
   - RULE-SET,direct-dns,DIRECT-PROXY
   - RULE-SET,direct-windows,DIRECT-PROXY
-  # LINE ad hosts must be rejected before LINE process bypass
-  - DOMAIN,a.line.me,REJECT
-  - DOMAIN,ad.line-scdn.net,REJECT
   - RULE-SET,direct-process,DIRECT-PROXY
   - RULE-SET,direct-media,DIRECT-PROXY
   - RULE-SET,direct-private,DIRECT-PROXY
