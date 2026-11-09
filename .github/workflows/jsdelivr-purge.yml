@@ -14,6 +14,11 @@ on:
 permissions:
   contents: read
 
+# Serialize pushes; jobs targeting mutable @main must not purge in parallel.
+concurrency:
+  group: jsdelivr-purge-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   purge:
     if: github.event_name != 'workflow_dispatch' || github.actor == github.repository_owner
@@ -23,6 +28,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: main
 
       - name: Collect changed paths
         id: paths
@@ -140,62 +146,97 @@ jobs:
                       digest.update(chunk)
               return digest.hexdigest()
 
+          def refresh_main() -> str:
+              # A queued run may start after newer pushes. Verify @main
+              # against the *current* repository state, not the event SHA.
+              remote = subprocess.run(
+                  ["git", "ls-remote", "origin", "refs/heads/main"],
+                  check=True, capture_output=True, text=True,
+              ).stdout.split()[0]
+              local = subprocess.run(
+                  ["git", "rev-parse", "HEAD"],
+                  check=True, capture_output=True, text=True,
+              ).stdout.strip()
+              if remote != local:
+                  print(f"Refreshing checkout: {local[:12]} -> {remote[:12]}", flush=True)
+                  subprocess.run(["git", "fetch", "--quiet", "origin", "main"], check=True)
+                  subprocess.run(["git", "reset", "--hard", "FETCH_HEAD"], check=True)
+                  local = subprocess.run(
+                      ["git", "rev-parse", "HEAD"],
+                      check=True, capture_output=True, text=True,
+                  ).stdout.strip()
+              return local
+
           failures: list[str] = []
 
           for path in paths:
-              local = Path(path)
               encoded = quote(path, safe="/")
               cdn_url = f"https://cdn.jsdelivr.net/gh/{repo}@main/{encoded}"
-              expected_exists = local.is_file()
-              expected_sha = sha256_file(local) if expected_exists else None
-
-              if expected_exists:
-                  print(f"Expected SHA256 {path}: {expected_sha}")
-              else:
-                  print(f"Expected deletion: {path}")
-
-              # One purge per changed path. CDN verification may be temporarily
-              # unavailable (503, timeout) without implying an unsuccessful purge.
-              purge(path)
               matched = False
-              for attempt in range(1, 9):
-                  temp = Path("/tmp/jsdelivr-verify.bin")
-                  temp.unlink(missing_ok=True)
-                  try:
-                      status, _ = run_curl(cdn_url, output=temp)
-                  except RuntimeError as exc:
-                      print(f"Verify {path} attempt {attempt}/8: {exc}", flush=True)
-                      status = 0
+              last_actual = None
+              last_status = None
+              for revision_try in range(1, 3):
+                  snapshot_sha = refresh_main()
+                  local = Path(path)
+                  expected_exists = local.is_file()
+                  expected_sha = sha256_file(local) if expected_exists else None
+                  print(
+                      f"Verifying {path} at main={snapshot_sha[:12]}: "
+                      f"expected SHA256={expected_sha if expected_exists else '<deleted>'}",
+                      flush=True,
+                  )
 
-                  if expected_exists:
-                      actual_sha = sha256_file(temp) if status == 200 and temp.exists() else None
+                  # Finished purge means providers accepted invalidation; it
+                  # does not guarantee a fresh branch alias response yet.
+                  purge(path)
+                  for attempt in range(1, 17):
+                      temp = Path("/tmp/jsdelivr-verify.bin")
+                      temp.unlink(missing_ok=True)
+                      try:
+                          status, _ = run_curl(cdn_url, output=temp)
+                      except RuntimeError as exc:
+                          print(f"Verify {path} {attempt}/16: {exc}", flush=True)
+                          status = 0
+
+                      last_status = status
+                      last_actual = sha256_file(temp) if status == 200 and temp.exists() else None
+                      if expected_exists:
+                          matched = status == 200 and last_actual == expected_sha
+                      else:
+                          matched = status in (404, 410)
+
                       print(
-                          f"Verify {path} attempt {attempt}/8: "
-                          f"HTTP {status}, SHA256={actual_sha}"
+                          f"Verify {path} {attempt}/16: HTTP {status}, "
+                          f"SHA256={last_actual}, matched={matched}",
+                          flush=True,
                       )
-                      if status == 200 and actual_sha == expected_sha:
-                          matched = True
-                          break
-                  else:
-                      print(f"Verify deletion {path} attempt {attempt}/8: HTTP {status}")
-                      if status in (404, 410):
-                          matched = True
+                      if matched:
                           break
 
-                  if attempt < 8:
-                      time.sleep(5)
+                      # Avoid repeated purge bursts. One delayed re-purge is
+                      # allowed if the first invalidation remains stale.
+                      if attempt == 8:
+                          print(f"Delayed re-purge for {path} after stale CDN content", flush=True)
+                          purge(path)
+                      if attempt < 16:
+                          time.sleep(8)
 
-              if not matched:
-                  if expected_exists:
-                      failures.append(
-                          f"{path}: jsDelivr @main did not match repository SHA256 "
-                          f"{expected_sha} after 8 purge/verify attempts"
+                  if matched:
+                      break
+                  current_sha = refresh_main()
+                  if current_sha != snapshot_sha and revision_try == 1:
+                      print(
+                          f"main advanced during verification of {path}; "
+                          "retry once using its current content.",
+                          flush=True,
                       )
-                  else:
-                      failures.append(
-                          f"{path}: jsDelivr @main still served the deleted path "
-                          "after 8 purge/verify attempts"
-                      )
+                      continue
+                  failures.append(
+                      f"{path}: @main did not converge for main={snapshot_sha[:12]} "
+                      f"after 16 checks; expected={expected_sha if expected_exists else '<deleted>'}, "
+                      f"actual={last_actual}, HTTP={last_status}"
+                  )
+                  break
 
           if failures:
               print("\nVerification failures:")
