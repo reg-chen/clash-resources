@@ -132,12 +132,20 @@ jobs:
               if not entry:
                   raise RuntimeError(f"jsDelivr purge response omitted {key}: {payload}")
               if entry.get("throttled"):
-                  raise RuntimeError(f"jsDelivr purge was throttled for {path}: {entry}")
+                  reset = int(entry.get("throttlingReset") or 0)
+                  print(
+                      f"::warning::jsDelivr throttled {path}; "
+                      f"retry after about {reset} seconds. No further purge "
+                      "requests will be sent for this path in this run.",
+                      flush=True,
+                  )
+                  return False, reset
 
               providers = entry.get("providers") or {}
               failed = [name for name, ok in providers.items() if ok is not True]
               if failed:
                   raise RuntimeError(f"jsDelivr purge provider failure for {path}: {providers}")
+              return True, 0
 
           def sha256_file(path: Path) -> str:
               digest = hashlib.sha256()
@@ -188,14 +196,15 @@ jobs:
 
                   # Finished purge means providers accepted invalidation; it
                   # does not guarantee a fresh branch alias response yet.
-                  purge(path)
-                  for attempt in range(1, 17):
+                  purged, throttle_reset = purge(path)
+                  checks = 16 if purged else 4
+                  for attempt in range(1, checks + 1):
                       temp = Path("/tmp/jsdelivr-verify.bin")
                       temp.unlink(missing_ok=True)
                       try:
                           status, _ = run_curl(cdn_url, output=temp)
                       except RuntimeError as exc:
-                          print(f"Verify {path} {attempt}/16: {exc}", flush=True)
+                          print(f"Verify {path} {attempt}/{checks}: {exc}", flush=True)
                           status = 0
 
                       last_status = status
@@ -206,34 +215,35 @@ jobs:
                           matched = status in (404, 410)
 
                       print(
-                          f"Verify {path} {attempt}/16: HTTP {status}, "
+                          f"Verify {path} {attempt}/{checks}: HTTP {status}, "
                           f"SHA256={last_actual}, matched={matched}",
                           flush=True,
                       )
                       if matched:
                           break
 
-                      # Avoid repeated purge bursts. One delayed re-purge is
-                      # allowed if the first invalidation remains stale.
-                      if attempt == 8:
-                          print(f"Delayed re-purge for {path} after stale CDN content", flush=True)
-                          purge(path)
-                      if attempt < 16:
+                      # Keep verification reads bounded; do not re-purge a
+                      # stale or throttled URL within the same revision.
+                      if attempt < checks:
                           time.sleep(8)
 
                   if matched:
                       break
                   current_sha = refresh_main()
-                  if current_sha != snapshot_sha and revision_try == 1:
+                  if purged and current_sha != snapshot_sha and revision_try == 1:
                       print(
                           f"main advanced during verification of {path}; "
                           "retry once using its current content.",
                           flush=True,
                       )
                       continue
+                  reason = (
+                      f"purge rate-limited (reset ~{throttle_reset}s)"
+                      if not purged else "CDN stale after completed purge"
+                  )
                   failures.append(
-                      f"{path}: @main did not converge for main={snapshot_sha[:12]} "
-                      f"after 16 checks; expected={expected_sha if expected_exists else '<deleted>'}, "
+                      f"{path}: {reason}; main={snapshot_sha[:12]}, "
+                      f"expected={expected_sha if expected_exists else '<deleted>'}, "
                       f"actual={last_actual}, HTTP={last_status}"
                   )
                   break
