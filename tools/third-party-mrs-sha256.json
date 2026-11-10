@@ -1,19 +1,19 @@
 {
   "ads-antiad": "6083562f12a640cbad875e3c25e17db04a25411b9645b4cb22f0231ce3cf93ff",
-  "ads-loyalsoldier": "ba39bdf9efb5ba0cd33080d422b1fc517ad66d7916a78137c503efb15c49d233",
-  "ads-popup": "8c1c4e0ff6aeb85c91f9ef1396ac531dccc806c22a96c9468024937b7878970e",
+  "ads-loyalsoldier": "1b9790f729b190b473baf27880e4784e05450e0e1ab6def9690cc90ebb22314f",
+  "ads-popup": "a618d09eac2cf1c3e34f5a3755362f1451797e20c73f26abd62b242d14d99e53",
   "privacy-native-amazon": "f5b08e32ee780c55c90e5c0bde5700219686f7d64016f08d37f612935000d99c",
   "privacy-native-apple": "56b93d5f7190d26ed60a6c18b897f260c77ac29d9972abab89a34c92a7a7b915",
-  "privacy-native-huawei": "6c90f7f28abf41f1c173899f83d4951703540a5e4662b4bedc40c451cdfb75a3",
+  "privacy-native-huawei": "32f57b43934a25b19a9a1c2f2f203924a2e9555b87b39fec2827b67ec77958ca",
   "privacy-native-lgwebos": "bb3c368b9b9f9fa2da25f2857519340ca06cde7b460ae5a71c1d7dc5164a644e",
   "privacy-native-oppo-realme": "2af0660eaba29d25600f4604c2fb30372c9a1abe2e5e54dbc3d83a5c1626c1e0",
   "privacy-native-roku": "390c37a225a076039ef043cd9e6d8a8579fbebad0fb825045a5a7b65ed0eb872",
   "privacy-native-samsung": "e1245102fa79d0bad91c62cb1857e439151ce850165d0cafbd6c385d0615b081",
-  "privacy-native-tiktok": "83a2288f98706d15e74cc6d9dab870e58b413bbdb0e958d993f5410fef347ae5",
+  "privacy-native-tiktok": "68f546aa02d59255c7984b1664d20d2fdde4046921b8b6239405dd760bfcd070",
   "privacy-native-vivo": "a657436c257e6613efccf00450692d50ec0be9efc4d008f75fe7cca60302ae2a",
   "privacy-native-winoffice": "c8dd1f6070398100fffbfa99955048928dcf9597ffd3ea5d84f704a43bada6af",
   "privacy-native-xiaomi": "49e066ff64207d7a29d258634d8e4f8a1699ad260b18245bff8dbd1a43858e39",
   "security-dyndns": "8febefc4d639fad237ee4099b75712a1be5b0af13f38765b85e49f61673f28e6",
   "security-phishing": "70c6c2e24e6b3484e7ace27b079723e55937bc1f4cbd98bea38a472ec8e37326",
-  "security-threat": "2f3a28c89bd7a566ff04ecc6ffeacb767fd44b019fb661a45578fd0567c05e43"
+  "security-threat": "afee60af5319e46f91cd364b262aef10139528d73be836f84a4ecc5ba2424f58"
 }
