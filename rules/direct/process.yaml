@@ -3,6 +3,8 @@ payload:
   # 🟦 Windows applications
   # ==========================================================
   - PROCESS-NAME,Spotify.exe
+  - PROCESS-NAME,Lyricify Fusion.exe
+  - PROCESS-NAME,Lyricify Lite.exe
   - PROCESS-NAME,Steam.exe
   - PROCESS-NAME,steam.exe
   - PROCESS-NAME,steamwebhelper.exe
