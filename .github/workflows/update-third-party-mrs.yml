@@ -116,37 +116,4 @@ jobs:
         run: |
           set -euo pipefail
           git diff --name-only HEAD^ HEAD -- rules/ads/mrs rules/privacy/mrs rules/security/mrs configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml > /tmp/mrs-changed
-          while IFS= read -r path; do
-            test -n "$path" || continue
-            url="https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/$path"
-            printf 'Purging %s\n' "$url"
-            response=$(curl -fsSL --retry 3 "$url")
-            echo "$response" | jq -e --arg key "/gh/${GITHUB_REPOSITORY}@main/$path" '.status == "finished" and (.paths[$key].throttled != true) and (.paths[$key].providers | all(. == true))' > /dev/null
-            expected=$(sha256sum "$path" | cut -d' ' -f1)
-            matched=false
-            for attempt in 1 2 3 4 5 6 7 8; do
-              if curl -fsSL --max-time 30 "https://cdn.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/$path" -o /tmp/cdn-mrs; then
-                actual=$(sha256sum /tmp/cdn-mrs | cut -d' ' -f1)
-                if [[ "$expected" == "$actual" ]]; then matched=true; break; fi
-              fi
-              sleep 5
-            done
-            test "$matched" = true || { echo "::error::CDN mismatch: $path"; exit 1; }
-            if [[ "$path" == rules/* ]]; then
-              # Own domain is a path-preserving rules/ alias; verify after CDN purge.
-              rules_url="https://rules.reginald.win/${path#rules/}"
-              verified=false
-              # The Worker/CDN can lag behind the newly-pushed commit.
-              for attempt in {1..16}; do
-                if curl -fsSL --max-time 30 "$rules_url" -o /tmp/own-domain-mrs; then
-                  actual=$(sha256sum /tmp/own-domain-mrs | cut -d' ' -f1)
-                  if [[ "$expected" == "$actual" ]]; then verified=true; break; fi
-                  echo "::notice::Domain stale ($attempt/16): $rules_url expected=$expected actual=$actual"
-                else
-                  echo "::notice::Domain fetch failed ($attempt/16): $rules_url"
-                fi
-                if (( attempt < 16 )); then sleep 8; fi
-              done
-              test "$verified" = true || { echo "::error::Domain mismatch after 16 attempts: $rules_url"; exit 1; }
-            fi
-          done < /tmp/mrs-changed
+          python3 tools/cdn_purge_verify.py --paths-file /tmp/mrs-changed --verify-domain
