@@ -148,6 +148,44 @@ class ProviderStateTests(unittest.TestCase):
                     exclude_streaming=exclude,
                 )
 
+    def test_safe_paths_checkbox_is_opt_in_and_only_writes_after_success(self):
+        window = self.window
+        self.assertFalse(window.safe_paths_checkbox.isChecked())
+        window.out_edit.setText(r"P:\Clash")
+
+        with mock.patch.object(window, "validate_inputs", return_value=[]):
+            with mock.patch.object(gui, "GenerateWorker") as worker:
+                with mock.patch.object(gui.safe_paths, "ensure_machine_safe_path", return_value=True) as ensure:
+                    with mock.patch.object(gui.QMessageBox, "information") as info:
+                        window.start_generation()
+                        worker.return_value.start.assert_called_once_with()
+                        self.assertIsNone(window._pending_safe_paths)
+                        window.generation_finished(True, "done")
+                        ensure.assert_not_called()
+
+                        window.safe_paths_checkbox.setChecked(True)
+                        window.start_generation()
+                        self.assertFalse(window.safe_paths_checkbox.isEnabled())
+                        self.assertEqual(window._pending_safe_paths, r"P:\Clash\providers")
+                        window.generation_finished(True, "done")
+                        ensure.assert_called_once_with(r"P:\Clash\providers")
+                        self.assertFalse(window.safe_paths_checkbox.isChecked())
+                        self.assertTrue(window.safe_paths_checkbox.isEnabled())
+                        self.assertIn("SAFE_PATHS 已加入", info.call_args.args[2])
+
+    def test_safe_paths_not_modified_when_generation_fails(self):
+        window = self.window
+        window.out_edit.setText(r"P:\Clash")
+        window.safe_paths_checkbox.setChecked(True)
+        with mock.patch.object(window, "validate_inputs", return_value=[]):
+            with mock.patch.object(gui, "GenerateWorker"):
+                with mock.patch.object(gui.safe_paths, "ensure_machine_safe_path") as ensure:
+                    with mock.patch.object(gui.QMessageBox, "critical"):
+                        window.start_generation()
+                        window.generation_finished(False, "provider error")
+                    ensure.assert_not_called()
+        self.assertFalse(window.safe_paths_checkbox.isChecked())
+
     def test_warp_provider_state_and_worker(self):
         window = self.window
         window.warp_radio.setChecked(True)
