@@ -4,17 +4,19 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "rules/**"
   workflow_dispatch:
     inputs:
       path:
-        description: "Repository path to purge, e.g. icons/WARP-Cloudflare.svg"
+        description: "Path under rules/ only, e.g. rules/direct/process.yaml or rules/ads/mrs/combined.mrs"
         required: true
         type: string
 
 permissions:
   contents: read
 
-# Serialize pushes; jobs targeting mutable @main must not purge in parallel.
+# Serialize rule-file purges; other repository paths do not trigger this workflow.
 concurrency:
   group: jsdelivr-purge-${{ github.ref }}
   cancel-in-progress: false
@@ -36,32 +38,27 @@ jobs:
         env:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           DISPATCH_PATH: ${{ inputs.path }}
         run: |
           set -euo pipefail
           : > /tmp/jsdelivr-paths
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            printf '%s\n' "${DISPATCH_PATH}" >> /tmp/jsdelivr-paths
+            if [[ "$DISPATCH_PATH" != rules/* || "$DISPATCH_PATH" == "rules/" ]]; then
+              echo "::error::Only files under rules/ may be purged."
+              exit 1
+            fi
+            printf '%s\n' "$DISPATCH_PATH" > /tmp/jsdelivr-paths
           elif [[ -n "${BEFORE:-}" && "$BEFORE" != "0000000000000000000000000000000000000000" ]]; then
-            git diff --name-only "$BEFORE" "$AFTER" >> /tmp/jsdelivr-paths
+            git diff --name-only "$BEFORE" "$AFTER" -- rules/ > /tmp/jsdelivr-paths
+          else
+            git diff-tree --no-commit-id --name-only -r "$AFTER" -- rules/ > /tmp/jsdelivr-paths
           fi
 
-          # Empty commits can be used for an explicit one-off purge without
-          # touching repository content:
-          #   jsDelivr purge: rules/direct/process.yaml
-          if [[ ! -s /tmp/jsdelivr-paths && "${COMMIT_MESSAGE:-}" == "jsDelivr purge: "* ]]; then
-            printf '%s\n' "${COMMIT_MESSAGE#jsDelivr purge: }" >> /tmp/jsdelivr-paths
-          fi
-
-          # Build scripts, workflow definitions, tests and docs are not consumed from jsDelivr.
-          # Keep manually dispatched paths explicit (including emergency overrides).
-          if [[ "${{ github.event_name }}" != "workflow_dispatch" ]]; then
-            grep -Ev '^(\.github/|tools/|tests/|docs/|README([.]|$)|LICENSE([.]|$))' /tmp/jsdelivr-paths > /tmp/jsdelivr-filtered || true
-            mv /tmp/jsdelivr-filtered /tmp/jsdelivr-paths
-          fi
-          sort -u -o /tmp/jsdelivr-paths /tmp/jsdelivr-paths
+          # This workflow serves rule files (including MRS) only.
+          # The MRS builder also purges its own generated MRS when publishing.
+          grep -E '^rules/.+' /tmp/jsdelivr-paths | sort -u > /tmp/jsdelivr-filtered || true
+          mv /tmp/jsdelivr-filtered /tmp/jsdelivr-paths
           echo "Paths to purge:"
           cat /tmp/jsdelivr-paths
 
