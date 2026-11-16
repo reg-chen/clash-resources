@@ -79,10 +79,11 @@ proxy-groups:
       - LB-CONSISTENT
       - LB-ROBIN
       - LB-STICKY
-      - WARP
       - AREA-COMBINE
       - DIRECT
       - REJECT
+    use:
+      - warp-local
 
   # =====================================================================
   # DIRECT / PROXY 總切換（平常 DIRECT；出國時可整組切到 PROXY）
@@ -116,12 +117,13 @@ proxy-groups:
       - LB-CONSISTENT
       - LB-ROBIN
       - LB-STICKY
-      - WARP
       - AREA-COMBINE
       - AUTO-FAST
       - AUTO-SAFE
       - DIRECT
       - REJECT
+    use:
+      - warp-local
 
   # =====================================================================
   # 地區敏感服務（預設 AREA-COMBINE，可退回 DIRECT）
@@ -164,18 +166,11 @@ proxy-groups:
   - name: WARP-PROXY
     type: select
     icon: https://icons.reginald.win/Cloudflare.svg
+    default-selected: WARP
     proxies:
-      - WARP
       - AREA-COMBINE
       - DIRECT
       - REJECT
-
-  # =====================================================================
-  # WARP（本機 provider；供 WARP-PROXY 引用）
-  # =====================================================================
-  - name: WARP
-    type: select
-    hidden: true
     use:
       - warp-local
 

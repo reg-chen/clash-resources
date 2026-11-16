@@ -85,6 +85,9 @@ jobs:
           if test -s /tmp/mrs-overlap.md; then
             cat /tmp/mrs-overlap.md >> "$GITHUB_STEP_SUMMARY"
           fi
+          if test -s /tmp/mrs-skipped.md; then
+            cat /tmp/mrs-skipped.md >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Commit updated MRS
         id: commit
         shell: bash

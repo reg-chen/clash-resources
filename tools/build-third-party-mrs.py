@@ -20,6 +20,7 @@ changed = []
 overlap_sets = {}
 overlap_notes = []
 merge_sets = {}
+skipped_details = []
 
 for item in SOURCES:
     url = item["source"]
@@ -65,7 +66,19 @@ for item in SOURCES:
             overlap_notes.append(f"{item['name']}: 未解析出可比較的網域鍵；已略過。")
         # Strict parser: source formats that cannot be represented losslessly
         # in one domain MRS stop the build before YAML is migrated.
-        merge_sets[item["name"]] = parse_domain_rules(analysis_raw, analysis_fmt)
+        skipped = []
+        merge_sets[item["name"]] = parse_domain_rules(
+            analysis_raw, analysis_fmt,
+            skipped_invalid=skipped if analysis_fmt == "text" else None,
+        )
+        if skipped:
+            total = len(merge_sets[item["name"]]) + len(skipped)
+            details = "; ".join(f"line {n}: {value[:100]}" for n, value in skipped[:3])
+            message = (f"{item['name']}: skipped {len(skipped):,}/{total:,} "
+                       f"non-domain entries; examples: {details}")
+            skipped_details.append(message)
+            print(f"WARNING: {message}", file=sys.stderr)
+
     target = ROOT / item["target"]
     if old.get(item["name"]) == digest and target.is_file() and target.stat().st_size:
         print(f"UNCHANGED {item['name']}")
@@ -106,6 +119,19 @@ outputs = build_merged_mrs(ROOT, [*SOURCES, *CUSTOM_SOURCES], merge_sets)
 for output in outputs:
     changed.append(str(output.relative_to(ROOT)))
     print(f"MERGED {output.relative_to(ROOT)} ({output.stat().st_size} bytes)")
+
+# Report dropped non-domain entries. A full URL cannot be converted into
+# a path-specific domain rule without potentially overblocking the host.
+try:
+    skipped_report = pathlib.Path("/tmp/mrs-skipped.md")
+    skipped_report.write_text(
+        "# 無法合併的非網域來源項目\n\n" +
+        ("\n".join("- " + detail for detail in skipped_details)
+         if skipped_details else "本次沒有略過非網域項目。") + "\n",
+        encoding="utf-8",
+    )
+except Exception as exc:
+    print(f"WARNING: skipped-entry report failed: {exc}", file=sys.stderr)
 
 # Analysis is strictly observational. A failure must never change a valid
 # MRS build or block its ordinary state update.

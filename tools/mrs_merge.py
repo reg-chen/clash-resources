@@ -25,13 +25,19 @@ def normalized_domain(raw: str) -> str:
     if (
         not value
         or any(ch.isspace() or ord(ch) < 32 for ch in value)
-        or any(ch in ",;/\\#<>" for ch in value)
+        or any(ch in ",;/\\#<>?=&@:%|()[]" for ch in value)
     ):
         raise ValueError(f"Invalid domain token: {raw!r}")
     return value
 
 
-def parse_domain_rules(raw: bytes, source_format: str, *, allow_empty: bool = False) -> set[str]:
+def parse_domain_rules(
+    raw: bytes,
+    source_format: str,
+    *,
+    allow_empty: bool = False,
+    skipped_invalid: list[tuple[int, str]] | None = None,
+) -> set[str]:
     """Keep exact domains and suffix/wildcard domains distinct."""
     if source_format not in ("text", "yaml"):
         raise ValueError(f"Cannot merge {source_format!r} directly")
@@ -47,21 +53,28 @@ def parse_domain_rules(raw: bytes, source_format: str, *, allow_empty: bool = Fa
                 raise ValueError(f"Unrecognized YAML rule at line {row}: {line[:100]!r}")
             line = line[2:].strip()
         line = line.strip("'\"").strip()
-        # Clash DOMAIN and DOMAIN-SUFFIX are mapped to the canonical Mihomo
-        # text representation, preserving the distinction.
-        if "," in line:
-            kind, domain, *_ = line.split(",")
-            kind = kind.strip().upper()
-            if kind == "DOMAIN":
-                line = normalized_domain(domain)
-            elif kind == "DOMAIN-SUFFIX":
-                line = "+." + normalized_domain(domain)
+        # Full URLs in third-party phishing feeds cannot be represented as
+        # path-specific rules in a domain MRS. Audit/skip unsupported entries,
+        # never silently turn a path-specific URL into a whole-host block.
+        try:
+            if "," in line:
+                kind, domain, *_ = line.split(",")
+                kind = kind.strip().upper()
+                if kind == "DOMAIN":
+                    line = normalized_domain(domain)
+                elif kind == "DOMAIN-SUFFIX":
+                    line = "+." + normalized_domain(domain)
+                else:
+                    raise ValueError(f"Unsupported domain rule at line {row}: {kind}")
+            elif line.startswith(("+.", "*.")):
+                line = line[:2] + normalized_domain(line[2:])
             else:
-                raise ValueError(f"Unsupported domain rule at line {row}: {kind}")
-        elif line.startswith(("+.", "*.")):
-            line = line[:2] + normalized_domain(line[2:])
-        else:
-            line = normalized_domain(line)
+                line = normalized_domain(line)
+        except ValueError:
+            if skipped_invalid is None or source_format != "text":
+                raise
+            skipped_invalid.append((row, original.strip()[:200]))
+            continue
         result.add(line)
     if not result and not allow_empty:
         raise ValueError("Empty parsed domain rules")

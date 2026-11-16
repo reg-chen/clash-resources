@@ -64,6 +64,34 @@ class MergeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Invalid domain"):
                 mrs_merge.parse_domain_rules(bad, "text")
 
+    def test_unsupported_phishing_urls_are_audited_not_overblocked(self):
+        skipped = []
+        source = (
+            b"valid.example.com\n"
+            b"101.0.81.153\n"
+            b"http://anhhungphat.vn/wp-content/plugins/plugin.php?token=1\n"
+            b"+.ads.example.com\n"
+        )
+        keys = mrs_merge.parse_domain_rules(
+            source, "text", skipped_invalid=skipped
+        )
+        self.assertEqual(keys, {"valid.example.com", "101.0.81.153", "+.ads.example.com"})
+        self.assertEqual(len(skipped), 1)
+        self.assertEqual(skipped[0][0], 3)
+        self.assertNotIn("anhhungphat.vn", keys)
+        with self.assertRaisesRegex(ValueError, "Invalid domain"):
+            mrs_merge.parse_domain_rules(source, "text")
+
+    def test_warp_provider_nodes_are_not_wrapped_in_selector(self):
+        yaml_text = (ROOT / "configs/desktop.yaml").read_text(encoding="utf-8")
+        self.assertNotIn("  - name: WARP\n    type: select", yaml_text)
+        self.assertIn("    default-selected: WARP\n", yaml_text)
+        for name in ("PROXY", "HLS-PROXY", "WARP-PROXY"):
+            start = yaml_text.index(f"  - name: {name}\n")
+            section = yaml_text[start:yaml_text.find("\n  - name:", start + 1)]
+            self.assertIn("    use:\n      - warp-local\n", section)
+        self.assertIn('    type: file\n    path: "P:\\\\Clash\\\\providers\\\\warp.yaml"', yaml_text)
+
     def test_category_boundaries_no_cross_merging(self):
         entries = [
             {"name": "ads-a"}, {"name": "ads-b"},
