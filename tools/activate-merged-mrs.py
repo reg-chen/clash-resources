@@ -57,62 +57,124 @@ def replacement_path(name: str, category: str, section: str) -> str:
     return quote + new_path + quote
 
 
-def rewrite_config(text: str, sources: list[dict]) -> str:
-    start = text.index("rule-providers:\n")
-    end = text.index("\nsub-rules:", start)
-    section = text[start:end]
-    by_category = {
+def _source_groups(sources: list[dict]) -> dict[str, list[str]]:
+    groups = {
         category: [item["name"] for item in sources if category_name(item["name"]) == category]
         for category in CATEGORIES
     }
-    if any(not names for names in by_category.values()):
+    if any(not names for names in groups.values()):
         raise ValueError("Incomplete MRS source categories")
-    original_paths = {
-        category: replacement_path(names[0], category, section)
-        for category, names in by_category.items()
-    }
-    # Sub-rules can contain additional bespoke entries. Replace only named
-    # third-party references, leaving security-custom / riskport untouched.
-    tail = text[end:]
-    for category, names in by_category.items():
-        anchor_found = False
-        for name in names:
-            pattern = re.compile(rf"(?m)^(\s+- RULE-SET,){re.escape(name)}(,REJECT[^\n]*)\n")
-            matches = list(pattern.finditer(tail))
-            if len(matches) != 1:
-                raise ValueError(f"Expected one sub-rule for {name}, found {len(matches)}")
-            if not anchor_found:
-                tail = pattern.sub(rf"\g<1>{category}-combined\g<2>\n", tail, count=1)
-                anchor_found = True
-            else:
-                tail = pattern.sub("", tail, count=1)
+    return groups
 
-    new_section = section
-    for category, names in by_category.items():
+
+def _flatten_sub_rules(text: str, groups: dict[str, list[str]]) -> str:
+    """Replace each SUB-RULE invocation with ordered, direct RULE-SET entries."""
+    section_headers = list(re.finditer(r"(?m)^  (SECURITY|PRIVACY-NATIVE|ADS):\s*$", text))
+    if len(section_headers) != 3:
+        raise ValueError("Expected three legacy sub-rule groups")
+    names_to_category = {
+        "SECURITY": "security", "PRIVACY-NATIVE": "privacy", "ADS": "ads"
+    }
+    replacements: dict[str, list[str]] = {}
+    for i, header in enumerate(section_headers):
+        name = header.group(1)
+        end = section_headers[i + 1].start() if i + 1 < len(section_headers) else len(text)
+        contents = text[header.end():end]
+        entries = []
+        for line in contents.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            matched = re.fullmatch(r"- RULE-SET,([\w-]+),REJECT(?:,.*)?", stripped)
+            if not matched:
+                raise ValueError(f"Unsupported legacy sub-rule: {stripped}")
+            entries.append(stripped)
+        if not entries:
+            raise ValueError(f"Empty legacy sub-rule: {name}")
+        category = names_to_category[name]
+        sources = set(groups[category])
+        found = {line.split(",")[1] for line in entries if line.split(",")[1] in sources}
+        if found != sources:
+            raise ValueError(f"Missing {category} source sub-rules: {sorted(sources - found)}")
+        flattened = []
+        inserted = False
+        for line in entries:
+            rule_name = line.split(",")[1]
+            if rule_name in sources:
+                if not inserted:
+                    flattened.append(f"- RULE-SET,{category}-combined,REJECT")
+                    inserted = True
+            else:
+                flattened.append(line)
+        replacements[name] = flattened
+
+    # Match both normal YAML list indentation and Android's indentless lists.
+    pattern = re.compile(
+        r"(?m)^(?P<indent>[ \t]*)-[ \t]+SUB-RULE,"
+        r"\(SRC-IP-CIDR,0\.0\.0\.0/0\),(?P<name>SECURITY|PRIVACY-NATIVE|ADS)\s*$"
+    )
+    occurrences: dict[str, int] = {}
+    def expand(match: re.Match[str]) -> str:
+        name = match.group("name")
+        occurrences[name] = occurrences.get(name, 0) + 1
+        indent = match.group("indent")
+        return "\n".join(indent + rule for rule in replacements[name])
+
+    rewritten = pattern.sub(expand, text)
+    if occurrences != {"SECURITY": 1, "PRIVACY-NATIVE": 1, "ADS": 1}:
+        raise ValueError(f"Unexpected SUB-RULE occurrence counts: {occurrences}")
+    if "SUB-RULE," in rewritten:
+        raise ValueError("Unknown SUB-RULE remains; refusing to remove its definition")
+    return rewritten
+
+
+def rewrite_config(text: str, sources: list[dict]) -> str:
+    groups = _source_groups(sources)
+    provider_start = text.index("rule-providers:\n")
+    sub_start = text.index("\nsub-rules:", provider_start)
+    rules_start = text.index("\nrules:", sub_start)
+    providers = text[provider_start:sub_start]
+    legacy_sub = text[sub_start + 1:rules_start]
+    tail = text[rules_start + 1:]
+
+    original_paths = {
+        category: replacement_path(names[0], category, providers)
+        for category, names in groups.items()
+    }
+
+    # Validate and flatten every sub-rule before touching any provider.
+    flattened_tail = _flatten_sub_rules(legacy_sub + "\n" + tail, groups)
+    if not flattened_tail.startswith(legacy_sub[:len("sub-rules:")]):
+        raise ValueError("Unexpected sub-rules structure")
+    flattened_tail = flattened_tail[flattened_tail.index("\nrules:\n") + 1:]
+
+    for category, names in groups.items():
         for name in names:
-            # The optional local comment header is removed together with
-            # the provider. Other custom provider blocks remain untouched.
+            # Remove only the exact named provider block; retain all bespoke
+            # providers, including security-custom and security-riskport.
             pattern = re.compile(
                 rf"(?m)(?:^  # [^\n]*\n){{0,5}}^  {re.escape(name)}:\n"
                 r"(?:^    [^\n]*\n)+"
             )
-            new_section, count = pattern.subn("", new_section)
+            providers, count = pattern.subn("", providers)
             if count != 1:
                 raise ValueError(f"Expected one provider declaration for {name}, found {count}")
-    header = ""
+
+    merged_providers = ""
     for category in CATEGORIES:
-        header += (
+        merged_providers += (
             f"  {category}-combined:\n"
             "    <<: *RULE-PROVIDER\n"
             "    type: http\n"
             "    behavior: domain\n"
             "    format: mrs\n"
             f"    url: https://rules.reginald.win/{category}/mrs/combined.mrs\n"
-            f"    path: {original_paths[category]}\n"
-            "\n"
+            f"    path: {original_paths[category]}\n\n"
         )
-    new_section = new_section.replace("rule-providers:\n", "rule-providers:\n" + header, 1)
-    return text[:start] + new_section + tail
+    providers = providers.replace(
+        "rule-providers:\n", "rule-providers:\n" + merged_providers, 1
+    )
+    return text[:provider_start] + providers + "\n" + flattened_tail
 
 
 def main() -> None:
