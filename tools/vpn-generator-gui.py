@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 import vpn_generator_core as core
 import warp_schedule
 import mihomo_doh
+import safe_paths
 
 APP_NAME = "PIA Mihomo Generator"  # keep existing QSettings namespace for migration compatibility
 ORG_NAME = "reg-chen"
@@ -469,6 +470,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.settings = QSettings(ORG_NAME, APP_NAME)
         self.worker: GenerateWorker | None = None
+        self._pending_safe_paths: str | None = None
         self._pia_wireguard_preference = True
         self._active_provider = "pia"
         self._provider_credentials: dict[str, tuple[str, str]] = {}
@@ -555,6 +557,10 @@ class MainWindow(QMainWindow):
 
         self.out_edit = QLineEdit()
         form.addRow("輸出目錄", self._path_row(self.out_edit, self.pick_output_dir))
+        self.safe_paths_checkbox = QCheckBox("加入 Provider 目錄至系統 SAFE_PATHS")
+        self.safe_paths_checkbox.setChecked(False)
+        self.safe_paths_checkbox.setToolTip("只新增 <輸出目錄>\\providers；保留現有清單，需管理員權限")
+        form.addRow("", self.safe_paths_checkbox)
 
         mode_row = QWidget()
         mode_layout = QHBoxLayout(mode_row)
@@ -851,6 +857,11 @@ class MainWindow(QMainWindow):
         self.save_settings()
         self.log_view.clear()
         self.run_button.setEnabled(False)
+        self._pending_safe_paths = (
+            safe_paths.provider_directory(self.out_edit.text().strip())
+            if self.safe_paths_checkbox.isChecked() else None
+        )
+        self.safe_paths_checkbox.setEnabled(False)
 
         provider = self.selected_provider()
         ov_enabled = self.openvpn_checkbox.isChecked()
@@ -873,8 +884,24 @@ class MainWindow(QMainWindow):
 
     def generation_finished(self, ok: bool, detail: str) -> None:
         self.run_button.setEnabled(True)
+        self.safe_paths_checkbox.setEnabled(True)
+        requested = self._pending_safe_paths
+        self._pending_safe_paths = None
+        self.safe_paths_checkbox.setChecked(False)
+
+        note = ""
+        if ok and requested is not None:
+            try:
+                changed = safe_paths.ensure_machine_safe_path(requested)
+                note = (
+                    "\nSAFE_PATHS 已加入；需完整重啟 Clash Party。"
+                    if changed else "\nSAFE_PATHS 已包含此目錄。"
+                )
+            except Exception as exc:
+                QMessageBox.warning(self, "SAFE_PATHS 未更新", str(exc))
+
         if ok:
-            QMessageBox.information(self, "完成", f"輸出完成：\n{detail}")
+            QMessageBox.information(self, "完成", f"輸出完成：\n{detail}{note}")
         else:
             QMessageBox.critical(self, "失敗", detail)
         self.worker = None
@@ -1010,8 +1037,16 @@ def run_warp_cli(argv: list[str]) -> int:
 
 
 def main() -> int:
-    # Process CLI arguments before Qt startup: scheduled runs must remain headless.
+    # Handle elevated SAFE_PATHS append and scheduled WARP calls without a GUI.
     if len(sys.argv) > 1:
+        if sys.argv[1] == "--safe-paths-append":
+            if len(sys.argv) != 3:
+                return 2
+            try:
+                safe_paths.append_machine_safe_path(sys.argv[2])
+                return 0
+            except Exception:
+                return 1
         return run_warp_cli(sys.argv[1:])
     app = QApplication(sys.argv)
     app.setOrganizationName(ORG_NAME)
