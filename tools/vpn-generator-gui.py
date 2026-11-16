@@ -395,6 +395,7 @@ class MihomoDohPanel(QWidget):
         layout.addWidget(config_group)
         layout.addStretch(1)
         self.host_input.textChanged.connect(self.update_endpoint)
+        self.output.textChanged.connect(self.update_endpoint)
         self.update_endpoint()
 
     def update_endpoint(self, *_args) -> None:
