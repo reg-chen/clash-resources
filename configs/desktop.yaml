@@ -5,6 +5,18 @@ ntp:
   port: 123
   interval: 30
 
+# =====================================================================
+# Firefox -> Mihomo localhost DoH (DISABLED until local certs are generated/trusted)
+# Generate via tools/VPN-Mihomo-Generator.exe > Mihomo 本機 DoH／TLS 憑證
+# Firefox custom DoH endpoint: https://127.0.0.1:9443/dns-query
+# Keep the existing external-controller setting; DoH needs that controller.
+# Uncomment ONLY after generating certs and trusting the CA locally.
+# external-controller-tls: 127.0.0.1:9443
+# external-doh-server: /dns-query
+# tls:
+#   certificate: "P:\\Clash\\certs\\mihomo-localhost.crt"
+#   private-key: "P:\\Clash\\certs\\mihomo-localhost.key"
+
 # 共用測速設定（YAML merge key）
 x-test: &TEST
   # Google: 部分地區可能被干擾
