@@ -9,6 +9,7 @@ import sys
 import urllib.request
 
 from mrs_overlap import parse_domain_keys, write_report
+from mrs_merge import parse_domain_rules, build_merged_mrs
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
@@ -18,6 +19,7 @@ new = dict(old)
 changed = []
 overlap_sets = {}
 overlap_notes = []
+merge_sets = {}
 
 for item in SOURCES:
     url = item["source"]
@@ -46,8 +48,8 @@ for item in SOURCES:
                     analysis_raw = res.read()
                 analysis_fmt = item.get("analysis_format", "text")
                 overlap_notes.append(
-                    f"{item['name']}: 以同專案純網域清單作代理資料，"
-                    "非直接解析二進位 MRS；可能存在版本／收錄差異。"
+                    f"{item['name']}: 使用官方編譯 MRS 的原始 YAML；"
+                    "線上 MRS 與 YAML 發布時間可能不同。"
                 )
             except Exception as exc:
                 overlap_notes.append(f"{item['name']}: 比對來源下載失敗（{type(exc).__name__}）；已略過。")
@@ -61,6 +63,9 @@ for item in SOURCES:
             overlap_sets[item["name"]] = parsed
         else:
             overlap_notes.append(f"{item['name']}: 未解析出可比較的網域鍵；已略過。")
+        # Strict parser: source formats that cannot be represented losslessly
+        # in one domain MRS stop the build before YAML is migrated.
+        merge_sets[item["name"]] = parse_domain_rules(analysis_raw, analysis_fmt)
     target = ROOT / item["target"]
     if old.get(item["name"]) == digest and target.is_file() and target.stat().st_size:
         print(f"UNCHANGED {item['name']}")
@@ -86,6 +91,13 @@ for item in SOURCES:
     finally:
         source.unlink(missing_ok=True)
         temp.unlink(missing_ok=True)
+
+# Three separate merged MRS outputs; never mix security/privacy/ads.
+# The workflow switches YAML only after all three artifacts exist.
+outputs = build_merged_mrs(ROOT, SOURCES, merge_sets)
+for output in outputs:
+    changed.append(str(output.relative_to(ROOT)))
+    print(f"MERGED {output.relative_to(ROOT)} ({output.stat().st_size} bytes)")
 
 # Analysis is strictly observational. A failure must never change a valid
 # MRS build or block its ordinary state update.
