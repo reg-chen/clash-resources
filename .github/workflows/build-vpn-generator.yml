@@ -1,6 +1,15 @@
 name: Build VPN Mihomo Generator
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/uwp_firewall.py"
+      - "tools/uwp_firewall.ps1"
+      - "tools/vpn-generator-gui.py"
+      - "tests/test_uwp_firewall.py"
+      - "tests/test_vpn_gui.py"
+      - ".github/workflows/build-vpn-generator.yml"
   workflow_dispatch:
 
 permissions:
@@ -13,7 +22,8 @@ concurrency:
 
 jobs:
   build-windows:
-    if: github.actor == github.repository_owner
+    # Push comes only from a trusted main branch; manual remains Owner-only.
+    if: github.event_name == 'push' || github.actor == github.repository_owner
     runs-on: windows-latest
 
     steps:
@@ -64,6 +74,28 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: python -m unittest discover -s tests -v
+
+      - name: Smoke-test UWP firewall backup on Windows (read-only)
+        shell: pwsh
+        run: |
+          $script = (Resolve-Path "tools/uwp_firewall.ps1").Path
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            $script, [ref]$null, [ref]$parseErrors
+          ) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            throw "PowerShell syntax errors: $($parseErrors -join '; ')"
+          }
+          $backup = Join-Path $env:RUNNER_TEMP "uwp-firewall-smoke.json"
+          $report = Join-Path $env:RUNNER_TEMP "uwp-firewall-smoke-report.json"
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -Mode backup -Path $backup -Report $report
+          if ($LASTEXITCODE -ne 0) {
+            throw "UWP firewall read-only backup failed: exit $LASTEXITCODE"
+          }
+          python -c "import sys; from pathlib import Path; sys.path.insert(0, 'tools'); import uwp_firewall; print(uwp_firewall.inspect_backup(Path(sys.argv[1])))" $backup
+          if ($LASTEXITCODE -ne 0) {
+            throw "UWP firewall backup JSON validation failed"
+          }
 
       - name: Validate runtime syntax and topology
         shell: pwsh
