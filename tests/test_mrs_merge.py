@@ -82,15 +82,32 @@ class MergeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Invalid domain"):
             mrs_merge.parse_domain_rules(source, "text")
 
-    def test_warp_provider_nodes_are_not_wrapped_in_selector(self):
+    def test_warp_fallback_wraps_local_provider_and_is_consumed_by_proxy_groups(self):
         yaml_text = (ROOT / "configs/desktop.yaml").read_text(encoding="utf-8")
-        self.assertNotIn("  - name: WARP\n    type: select", yaml_text)
-        self.assertIn("    default-selected: WARP\n", yaml_text)
-        for name in ("PROXY", "HLS-PROXY", "WARP-PROXY"):
+        self.assertIn(
+            '    type: file\n    path: "P:\\\\Clash\\\\providers\\\\warp.yaml"',
+            yaml_text,
+        )
+
+        def group(name):
             start = yaml_text.index(f"  - name: {name}\n")
-            section = yaml_text[start:yaml_text.find("\n  - name:", start + 1)]
-            self.assertIn("    use:\n      - warp-local\n", section)
-        self.assertIn('    type: file\n    path: "P:\\\\Clash\\\\providers\\\\warp.yaml"', yaml_text)
+            end = yaml_text.find("\n  - name:", start + 1)
+            return yaml_text[start:] if end < 0 else yaml_text[start:end]
+
+        warp = group("WARP")
+        self.assertIn("    type: fallback\n", warp)
+        self.assertIn("    use:\n      - warp-local\n", warp)
+        self.assertIn("    <<: *TEST\n", warp)
+        self.assertIn("    lazy: false\n", warp)
+        self.assertIn("    interval: 60\n", warp)
+        for name in ("PROXY", "HLS-PROXY", "WARP-PROXY"):
+            with self.subTest(group=name):
+                section = group(name)
+                self.assertIn("      - WARP\n", section)
+                self.assertNotIn("    use:\n      - warp-local\n", section)
+        self.assertIn("    type: select\n", group("WARP-PROXY"))
+        self.assertIn("    default-selected: WARP\n", group("WARP-PROXY"))
+        self.assertEqual(yaml_text.count("      - warp-local\n"), 1)
 
     def test_category_boundaries_no_cross_merging(self):
         entries = [
