@@ -42,6 +42,55 @@ class UwpFirewallTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "不支援"):
             uwp_firewall.inspect_backup(self.path)
 
+    def test_elevated_restore_encodes_inner_invocation(self):
+        import base64
+        from types import SimpleNamespace
+
+        self.write([rule()])
+        destination = Path(self.temp.name) / "backup's folder" / "rules.json"
+        destination.parent.mkdir()
+        destination.write_bytes(self.path.read_bytes())
+
+        def fake_run(cmd, **kwargs):
+            self.assertEqual(cmd[:3], ["powershell.exe", "-NoProfile", "-NonInteractive"])
+            self.assertEqual(cmd[3], "-EncodedCommand")
+            outer = base64.b64decode(cmd[4]).decode("utf-16-le")
+            self.assertIn("-Verb RunAs", outer)
+            self.assertIn("-EncodedCommand", outer)
+            encoded = outer.split("'-EncodedCommand','", 1)[1].split("'", 1)[0]
+            inner = base64.b64decode(encoded).decode("utf-16-le")
+            self.assertIn("backup''s folder", inner)
+            self.assertIn("-Mode 'restore'", inner)
+            # TemporaryDirectory is a real folder; the report path is in the
+            # inner command. Extract it from the quoted PowerShell argument.
+            report = inner.split(" -Report '", 1)[1].split("';", 1)[0].replace("''", "'")
+            Path(report).write_text('{"Total":1,"Added":1,"Errors":[]}', encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(uwp_firewall.sys, "platform", "win32"):
+            with mock.patch.object(uwp_firewall, "bundled_script", return_value=Path(__file__)):
+                with mock.patch.object(uwp_firewall.subprocess, "run", side_effect=fake_run):
+                    self.assertEqual(uwp_firewall.restore(destination)["Added"], 1)
+
+    def test_failed_restore_cannot_report_success(self):
+        from types import SimpleNamespace
+
+        self.write([rule()])
+
+        def fake_run(cmd, **kwargs):
+            # Capture report file from the non-elevated invocation.
+            report = Path(cmd[cmd.index("-Report") + 1])
+            report.write_text(
+                '{"Total":1,"Added":0,"Errors":["Access denied"]}', encoding="utf-8"
+            )
+            return SimpleNamespace(returncode=4, stdout="", stderr="")
+
+        with mock.patch.object(uwp_firewall.sys, "platform", "win32"):
+            with mock.patch.object(uwp_firewall, "bundled_script", return_value=Path(__file__)):
+                with mock.patch.object(uwp_firewall.subprocess, "run", side_effect=fake_run):
+                    with self.assertRaisesRegex(RuntimeError, "Access denied"):
+                        uwp_firewall._run("backup", self.path, elevated=False)
+
     def test_no_execution_without_explicit_restore(self):
         self.write([rule()])
         with mock.patch.object(uwp_firewall, "_run") as invoke:
