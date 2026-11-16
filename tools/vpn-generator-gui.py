@@ -313,12 +313,6 @@ class MihomoDohPanel(QWidget):
         layout = QVBoxLayout(content)
         layout.setSpacing(12)
 
-        self.summary_label = self._help_text(
-            "這是 Mihomo 的全域設定：每個本機實例只需建立一組 DoH 憑證，不隨 VPN Provider 切換。",
-            content,
-        )
-        layout.addWidget(self.summary_label)
-
         cert_group = QGroupBox("憑證管理", content)
         cert_layout = QVBoxLayout(cert_group)
         cert_layout.setSpacing(9)
@@ -351,23 +345,11 @@ class MihomoDohPanel(QWidget):
         actions.addStretch(1)
         cert_layout.addLayout(actions)
 
-        self.security_label = self._help_text(
-            "CA 簽章私鑰保存在目前 Windows 使用者資料夾；"
-            "Mihomo 目錄只存放伺服器憑證、私鑰及公開 CA 憑證。",
-            cert_group,
-        )
-        cert_layout.addWidget(self.security_label)
         layout.addWidget(cert_group)
 
         config_group = QGroupBox("Mihomo 設定", content)
         config_layout = QVBoxLayout(config_group)
         config_layout.setSpacing(8)
-        self.config_help_label = self._help_text(
-            "將以下片段合併至 Mihomo 生效設定，不要覆蓋原有 external-controller 或 dns 區塊。",
-            config_group,
-        )
-        config_layout.addWidget(self.config_help_label)
-
         self.snippet = QPlainTextEdit(config_group)
         self.snippet.setReadOnly(True)
         self.snippet.setFixedHeight(156)
@@ -397,13 +379,36 @@ class MihomoDohPanel(QWidget):
         endpoint_row.addWidget(self.endpoint_input, 1)
         config_layout.addLayout(endpoint_row)
 
+        layout.addWidget(config_group)
+
+        # Descriptions are deliberately below the actionable controls: wrapping
+        # or localization cannot shift controls vertically or horizontally.
+        info_group = QGroupBox("說明", content)
+        info_layout = QVBoxLayout(info_group)
+        self.summary_label = self._help_text(
+            "這是 Mihomo 的全域設定：每個本機實例只需建立一組 DoH 憑證，不隨 VPN Provider 切換。",
+            info_group,
+        )
+        self.security_label = self._help_text(
+            "CA 簽章私鑰保存在目前 Windows 使用者資料夾；"
+            "Mihomo 目錄只存放伺服器憑證、私鑰及公開 CA 憑證。",
+            info_group,
+        )
+        self.config_help_label = self._help_text(
+            "將產生的設定片段合併至 Mihomo 生效設定，不要覆蓋原有 external-controller 或 dns 區塊。",
+            info_group,
+        )
         self.firefox_help_label = self._help_text(
             "Firefox 若須禁止回退系統 DNS，可設定 about:config → network.trr.mode = 3。"
             "Mihomo 的 DoH 功能預設仍未啟用。",
-            config_group,
+            info_group,
         )
-        config_layout.addWidget(self.firefox_help_label)
-        layout.addWidget(config_group)
+        for label in (
+            self.summary_label, self.security_label,
+            self.config_help_label, self.firefox_help_label,
+        ):
+            info_layout.addWidget(label)
+        layout.addWidget(info_group)
         layout.addStretch(1)
 
     def pick_output(self) -> None:
