@@ -41,6 +41,7 @@ import vpn_generator_core as core
 import warp_schedule
 import mihomo_doh
 import safe_paths
+import uwp_firewall
 
 APP_NAME = "PIA Mihomo Generator"  # keep existing QSettings namespace for migration compatibility
 ORG_NAME = "reg-chen"
@@ -465,6 +466,104 @@ class MihomoDohPanel(QWidget):
         self.status_label.setText("CA 已信任")
 
 
+class UwpFirewallWorker(QThread):
+    completed = Signal(bool, object)
+
+    def __init__(self, mode: str, path: Path):
+        super().__init__()
+        self.mode = mode
+        self.path = path
+
+    def run(self) -> None:
+        try:
+            task = uwp_firewall.backup if self.mode == "backup" else uwp_firewall.restore
+            self.completed.emit(True, task(self.path))
+        except Exception as exc:
+            self.completed.emit(False, str(exc))
+
+
+class UwpFirewallPanel(QWidget):
+    """Backup and restore package-bound firewall rules, never all firewall rules."""
+
+    def __init__(self, parent: QWidget):
+        super().__init__(parent)
+        self.worker: UwpFirewallWorker | None = None
+        layout = QVBoxLayout(self)
+
+        group = QGroupBox("UWP 防火牆規則")
+        controls = QHBoxLayout(group)
+        self.backup_button = QPushButton("備份 JSON")
+        self.restore_button = QPushButton("套用備份")
+        self.backup_button.clicked.connect(self.backup)
+        self.restore_button.clicked.connect(self.restore)
+        controls.addWidget(self.backup_button)
+        controls.addWidget(self.restore_button)
+        controls.addStretch(1)
+        layout.addWidget(group)
+
+        self.status = QLabel("")
+        layout.addWidget(self.status)
+        layout.addStretch(1)
+
+    def backup(self) -> None:
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "備份 UWP 防火牆規則", "uwp-firewall-rules.json", "JSON (*.json)"
+        )
+        if filename:
+            self._execute("backup", Path(filename))
+
+    def restore(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "選擇 UWP 防火牆備份", "", "JSON (*.json)"
+        )
+        if not filename:
+            return
+        try:
+            count = uwp_firewall.inspect_backup(Path(filename))
+        except Exception as exc:
+            QMessageBox.critical(self, "備份無效", str(exc))
+            return
+        choice = QMessageBox.question(
+            self,
+            "確認套用 UWP 防火牆規則",
+            f"規則 {count['total']} 條（允許 {count['allow']}／封鎖 {count['block']}）。"
+            "\n只建立缺少的規則；未安裝套件或無法完整保留條件的規則會略過。"
+            "\n需要管理員授權。確定套用？",
+        )
+        if choice == QMessageBox.Yes:
+            self._execute("restore", Path(filename))
+
+    def _execute(self, mode: str, path: Path) -> None:
+        self.backup_button.setEnabled(False)
+        self.restore_button.setEnabled(False)
+        self.status.setText("處理中…")
+        self.worker = UwpFirewallWorker(mode, path)
+        self.worker.completed.connect(
+            lambda ok, result: self._finished(mode, path, ok, result)
+        )
+        self.worker.start()
+
+    def _finished(self, mode: str, path: Path, ok: bool, result: object) -> None:
+        self.backup_button.setEnabled(True)
+        self.restore_button.setEnabled(True)
+        if not ok:
+            self.status.setText("未完成")
+            QMessageBox.critical(self, "防火牆操作失敗", str(result))
+        elif mode == "backup":
+            count = result.get("Total", 0)
+            self.status.setText(f"已備份 {count} 條：{path}")
+        else:
+            self.status.setText(
+                f"新增 {result.get('Added', 0)}／已存在 {result.get('Existing', 0)}／"
+                f"未安裝 {result.get('MissingPackage', 0)}／略過 {result.get('Unsupported', 0)}"
+            )
+            if result.get("Errors"):
+                QMessageBox.warning(
+                    self, "部分套用失敗", "\n".join(result["Errors"][:8])
+                )
+        self.worker = None
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -626,6 +725,8 @@ class MainWindow(QMainWindow):
         # Mihomo-wide tools intentionally live outside the selected provider page.
         self.doh_panel = MihomoDohPanel(self.tabs, self.settings)
         self.tabs.addTab(self.doh_panel, "Mihomo DNS / TLS")
+        self.uwp_panel = UwpFirewallPanel(self.tabs)
+        self.tabs.addTab(self.uwp_panel, "Windows 防火牆")
 
         self.openvpn_checkbox.toggled.connect(self.update_protocol_controls)
         self.pia_radio.toggled.connect(self.update_provider_controls)
