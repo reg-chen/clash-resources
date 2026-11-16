@@ -330,7 +330,7 @@ class MihomoDohDialog(QDialog):
         )
         layout.addWidget(self.copy_button)
         layout.addWidget(QLabel(
-            "Firefox DoH 自訂端點：https://localhost:9443/dns-query\n"
+            "Firefox DoH 自訂端點：https://127.0.0.1:9443/dns-query\n"
             "若要求不回退系統 DNS，請在 about:config 使用 network.trr.mode = 3。"
         ))
 
