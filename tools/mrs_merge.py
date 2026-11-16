@@ -11,6 +11,10 @@ import subprocess
 from pathlib import Path
 
 CATEGORIES = ("security", "privacy", "ads")
+CUSTOM_SOURCES = tuple(
+    {"name": f"{category}-custom", "path": f"rules/{category}/custom.txt"}
+    for category in CATEGORIES
+)
 DOMAIN_RE = re.compile(
     r"(?i)^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
     r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
@@ -32,7 +36,7 @@ def normalized_domain(raw: str) -> str:
     raise ValueError(f"IP address in domain source: {raw!r}")
 
 
-def parse_domain_rules(raw: bytes, source_format: str) -> set[str]:
+def parse_domain_rules(raw: bytes, source_format: str, *, allow_empty: bool = False) -> set[str]:
     """Keep exact domains and suffix/wildcard domains distinct."""
     if source_format not in ("text", "yaml"):
         raise ValueError(f"Cannot merge {source_format!r} directly")
@@ -64,7 +68,7 @@ def parse_domain_rules(raw: bytes, source_format: str) -> set[str]:
         else:
             line = normalized_domain(line)
         result.add(line)
-    if not result:
+    if not result and not allow_empty:
         raise ValueError("Empty parsed domain rules")
     return result
 
