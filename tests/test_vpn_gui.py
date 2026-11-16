@@ -87,23 +87,50 @@ class ProviderStateTests(unittest.TestCase):
         self.window.pia_radio.setChecked(True)
         self.assertFalse(self.window.exclude_streaming.isChecked())
 
-    def test_provider_text_does_not_shift_input_alignment(self):
+    def test_all_providers_share_left_aligned_label_and_field_columns(self):
         window = self.window
         window.show()
         QApplication.processEvents()
 
-        def input_x():
-            return window.out_edit.mapTo(window, QPoint(0, 0)).x()
+        def field_x_positions():
+            origin = QPoint(0, 0)
+            return (
+                window.out_edit.mapTo(window, origin).x(),
+                window.safe_paths_checkbox.mapTo(window, origin).x(),
+                window.pia_radio.mapTo(window, origin).x(),
+            )
 
-        base_x = input_x()
+        initial = field_x_positions()
+        self.assertEqual(len(set(initial)), 1)
+        self.assertTrue(window._provider_form_labels)
+        for label in window._provider_form_labels:
+            self.assertTrue(label.alignment() & Qt.AlignmentFlag.AlignLeft)
+        self.assertEqual(
+            len({label.width() for label in window._provider_form_labels}), 1
+        )
+
+        for provider_button in (
+            window.surfshark_radio,
+            window.warp_radio,
+            window.pia_radio,
+        ):
+            provider_button.setChecked(True)
+            QApplication.processEvents()
+            self.assertEqual(
+                field_x_positions(), initial,
+                f"field position shifted for {window.selected_provider()}"
+            )
+            self.assertTrue(window.safe_paths_checkbox.isVisible())
+
+        window.warp_radio.setChecked(True)
+        QApplication.processEvents()
+        self.assertTrue(window.mode_label.isHidden())
+        self.assertTrue(window.mode_row.isHidden())
+        self.assertEqual(window.selected_provider(), "warp")
         window.surfshark_radio.setChecked(True)
         QApplication.processEvents()
-        self.assertEqual(input_x(), base_x)
+        self.assertTrue(window.mode_label.isVisible())
         self.assertEqual(window.exclude_streaming.text(), "排除 Streaming Optimized")
-        window.pia_radio.setChecked(True)
-        QApplication.processEvents()
-        self.assertEqual(input_x(), base_x)
-        self.assertEqual(window.credentials_label.width(), window.udp_label.width())
 
     def test_doh_tab_controls_stay_aligned_on_hostname_changes(self):
         window = self.window
@@ -172,6 +199,23 @@ class ProviderStateTests(unittest.TestCase):
                         self.assertFalse(window.safe_paths_checkbox.isChecked())
                         self.assertTrue(window.safe_paths_checkbox.isEnabled())
                         self.assertIn("SAFE_PATHS 已加入", info.call_args.args[2])
+
+    def test_safe_paths_opt_in_applies_to_warp_provider_too(self):
+        window = self.window
+        window.warp_radio.setChecked(True)
+        window.out_edit.setText(r"P:\Clash")
+        window.safe_paths_checkbox.setChecked(True)
+        self.assertEqual(window.selected_provider(), "warp")
+        with mock.patch.object(window, "validate_inputs", return_value=[]):
+            with mock.patch.object(gui, "GenerateWorker") as worker:
+                with mock.patch.object(gui.safe_paths, "ensure_machine_safe_path", return_value=False) as ensure:
+                    with mock.patch.object(gui.QMessageBox, "information"):
+                        window.start_generation()
+                        self.assertEqual(window._pending_safe_paths, r"P:\Clash\providers")
+                        self.assertEqual(worker.call_args.kwargs["provider"], "warp")
+                        window.generation_finished(True, "warp output")
+                        ensure.assert_called_once_with(r"P:\Clash\providers")
+        self.assertFalse(window.safe_paths_checkbox.isChecked())
 
     def test_safe_paths_not_modified_when_generation_fails(self):
         window = self.window
