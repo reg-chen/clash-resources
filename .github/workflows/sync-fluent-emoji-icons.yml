@@ -1,0 +1,90 @@
+name: Sync Fluent Emoji Flat SVG
+
+on:
+  schedule:
+    - cron: "12 4 1 * *"
+  workflow_dispatch:
+  # Verify synchronizer changes without publishing icons.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sync-fluent-emoji-icons.yml"
+      - "tools/sync-fluent-emoji-flat.mjs"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-fluent-emoji-flat
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event_name != 'workflow_dispatch' || github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Iconify dependencies without lifecycle scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix tools --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @iconify/utils@3 @iconify-json/fluent-emoji-flat@1
+          node --check tools/sync-fluent-emoji-flat.mjs
+
+      - name: Check icon changes (push never publishes)
+        if: github.event_name == 'push'
+        run: node tools/sync-fluent-emoji-flat.mjs --check
+
+      - name: Update SVGs (monthly or Owner dispatch)
+        if: github.event_name != 'push'
+        run: node tools/sync-fluent-emoji-flat.mjs --write
+
+      - name: Commit changes only if icon bytes changed
+        if: github.event_name != 'push'
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3; do
+            git fetch --quiet origin main
+            if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+              echo "::notice::main advanced; rechecking on latest revision"
+              git reset --hard origin/main
+              node tools/sync-fluent-emoji-flat.mjs --write
+            fi
+            git add -- icons/fluent-emoji-flat/
+            if git diff --cached --quiet; then
+              echo "No icon updates; skipping commit."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git commit -m "chore(icons): sync Fluent Emoji Flat from Iconify"
+            if git push origin HEAD:main; then
+              git diff --name-only HEAD^ HEAD -- icons/fluent-emoji-flat/ > /tmp/icon-paths
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::warning::Push race; refreshing and trying again ($attempt/3)"
+          done
+          echo "::error::Could not publish icon updates after 3 attempts; never force pushing"
+          exit 1
+
+      # GITHUB_TOKEN pushes do not trigger the separate jsDelivr Purge workflow.
+      - name: Purge only the updated icons and verify jsDelivr
+        if: steps.commit.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/cdn_purge_verify.py --paths-file /tmp/icon-paths
