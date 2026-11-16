@@ -82,12 +82,12 @@ rule-providers:
     format: text
     url: https://rules.reginald.win/security/custom.txt
     path: ./rules/security/custom.txt
-  security-riskport:
+  network-ports:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://rules.reginald.win/security/riskport.yaml
-    path: ./rules/security/riskport.yaml
+    url: https://rules.reginald.win/network/ports.yaml
+    path: ./rules/network/ports.yaml
   privacy-custom:
     <<: *RULE-PROVIDER
     type: http
@@ -120,7 +120,7 @@ rules:
   - RULE-SET,route-drm,DIRECT
   - RULE-SET,route-bankgov,DIRECT,no-resolve
   - RULE-SET,security-custom,REJECT
-  - RULE-SET,security-riskport,REJECT
+  - RULE-SET,network-ports,REJECT
   - RULE-SET,privacy-custom,REJECT
   - RULE-SET,ads-custom,REJECT
   - RULE-SET,ads-antiad,REJECT
