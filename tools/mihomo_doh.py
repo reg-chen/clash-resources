@@ -270,7 +270,7 @@ def mihomo_yaml(files: CertificateFiles) -> str:
     def quote(path: Path) -> str:
         return '"' + str(path).replace("\\", "\\\\").replace('"', '\\"') + '"'
     return (
-        "# 保留既有 external-controller（Mihomo TLS 控制器需要它）\n"
+        "# external-controller-tls 可獨立運作；9443 同時提供 DoH 與 HTTPS API\n"
         "external-controller-tls: 127.0.0.1:9443\n"
         "external-doh-server: /dns-query\n"
         "tls:\n"
