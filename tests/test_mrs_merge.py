@@ -161,7 +161,6 @@ sub-rules:
   SECURITY:
     - RULE-SET,security-custom,REJECT
     - RULE-SET,security-threat,REJECT
-    - RULE-SET,network-ports,REJECT
   PRIVACY-NATIVE:
     - RULE-SET,privacy-custom,REJECT
     - RULE-SET,privacy-native-apple,REJECT
@@ -172,6 +171,8 @@ sub-rules:
 rules:
   - RULE-SET,direct-dns,DIRECT
   - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),SECURITY
+  # Network port restrictions (classical)
+  - RULE-SET,network-ports,REJECT
   - RULE-SET,direct-webview2,DIRECT
   - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),PRIVACY-NATIVE
   - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),ADS
@@ -190,6 +191,7 @@ rules:
             self.assertNotIn(f"  {category}-custom:\n", new)
         self.assertIn("RULE-SET,network-ports,REJECT", new)
         self.assertIn("# Network port restrictions (classical)", new)
+        self.assertEqual(new.count("RULE-SET,network-ports,REJECT"), 1)
         self.assertEqual(new.count("RULE-SET,ads-combined,REJECT"), 1)
         self.assertNotIn("sub-rules:", new)
         self.assertNotIn("SUB-RULE,", new)
@@ -232,6 +234,7 @@ rules:
                     self.assertNotIn(f"RULE-SET,{category}-custom,REJECT", updated)
                     self.assertNotIn(f"  {category}-custom:\n", updated)
                 self.assertIn("RULE-SET,network-ports,REJECT", updated)
+                self.assertEqual(updated.count("RULE-SET,network-ports,REJECT"), 1)
 
     def test_migrated_config_cannot_keep_custom_as_second_provider(self):
         module = load_activate()
