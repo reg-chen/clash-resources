@@ -43,9 +43,9 @@ jobs:
 
           # Preserve the original push triggers for workflow/builder edits.
           if [[ "$BEFORE" =~ ^0+$ ]]; then
-            changed="$(git diff-tree --no-commit-id --name-only -r "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/migrate-third-party-mrs.py)"
+            changed="$(git diff-tree --no-commit-id --name-only -r "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/mrs_merge.py tools/activate-merged-mrs.py tools/migrate-third-party-mrs.py)"
           else
-            changed="$(git diff --name-only "$BEFORE" "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/migrate-third-party-mrs.py)"
+            changed="$(git diff --name-only "$BEFORE" "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/mrs_merge.py tools/activate-merged-mrs.py tools/migrate-third-party-mrs.py)"
           fi
           if [[ -n "$changed" ]]; then
             printf 'Build source changed:\n%s\n' "$changed"
@@ -77,6 +77,8 @@ jobs:
         run: python3 tools/build-third-party-mrs.py
       - name: Migrate providers after successful conversion
         run: python3 tools/migrate-third-party-mrs.py
+      - name: Activate merged category MRS only after validation
+        run: python3 tools/activate-merged-mrs.py
       - name: Show source overlap report
         if: always()
         shell: bash
@@ -100,6 +102,7 @@ jobs:
               git reset --hard origin/main
               python3 tools/build-third-party-mrs.py
               python3 tools/migrate-third-party-mrs.py
+              python3 tools/activate-merged-mrs.py
             fi
 
             git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml
