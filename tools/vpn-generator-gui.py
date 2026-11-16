@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -284,136 +285,137 @@ class WarpScheduleDialog(QDialog):
 
 
 class MihomoDohPanel(QWidget):
-    """Mihomo-wide TLS controls, independent of provider UI and its output path."""
+    """Local DoH / TLS tool, independent of VPN providers."""
 
     @staticmethod
-    def _help_text(message: str, parent: QWidget) -> QLabel:
-        label = QLabel(message, parent)
-        # Unbroken URLs and long explanations must never determine form width.
-        label.setWordWrap(True)
-        label.setMinimumWidth(0)
-        label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        return label
+    def _default_cert_root() -> str:
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            # Party's work directory is within Mihomo's SAFE_PATHS.
+            return str(Path(appdata) / "mihomo-party" / "work")
+        return str(Path.home() / "AppData" / "Roaming" / "mihomo-party" / "work")
 
     def __init__(self, parent, settings: QSettings):
         super().__init__(parent)
         self.settings = settings
         self.files: mihomo_doh.CertificateFiles | None = None
 
-        viewport_layout = QVBoxLayout(self)
-        viewport_layout.setContentsMargins(0, 0, 0, 0)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        viewport_layout.addWidget(scroll)
+        outer.addWidget(scroll)
 
         content = QWidget(scroll)
         scroll.setWidget(content)
         layout = QVBoxLayout(content)
         layout.setSpacing(12)
 
-        cert_group = QGroupBox("憑證管理", content)
-        cert_layout = QVBoxLayout(cert_group)
-        cert_layout.setSpacing(9)
+        cert_group = QGroupBox("TLS 憑證", content)
+        form = QFormLayout(cert_group)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
-        self.output = QLineEdit(settings.value("doh/out_dir", r"P:\Clash", str))
+        # Separate from VPN output; do not reuse the old P:\Clash path, which
+        # the Mihomo core might reject because it is outside SAFE_PATHS.
+        self.output = QLineEdit(
+            settings.value("doh/cert_root", self._default_cert_root(), str)
+        )
         self.output.setMinimumWidth(0)
-        self.output.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.output.setToolTip("預設 Clash Party work 目錄，符合 Mihomo SAFE_PATHS")
         location = QHBoxLayout()
-        location.setSpacing(8)
-        root_label = QLabel("Mihomo 根目錄", cert_group)
-        root_label.setFixedWidth(root_label.fontMetrics().horizontalAdvance("Mihomo 根目錄") + 8)
-        location.addWidget(root_label)
         location.addWidget(self.output, 1)
-        browse = QPushButton("瀏覽", cert_group)
-        browse.setFixedWidth(84)
+        browse = QPushButton("瀏覽")
         browse.clicked.connect(self.pick_output)
         location.addWidget(browse)
-        cert_layout.addLayout(location)
+        form.addRow("憑證目錄", location)
+
+        self.host_input = QLineEdit(settings.value("doh/host", "127.0.0.1", str))
+        self.host_input.setMinimumWidth(0)
+        self.host_input.setPlaceholderText("dns.mihomo.test")
+        self.host_input.setToolTip("自訂名稱需對應本機；Firefox 可用 network.trr.bootstrapAddress = 127.0.0.1")
+        form.addRow("DoH 主機", self.host_input)
 
         actions = QHBoxLayout()
-        actions.setSpacing(8)
-        self.generate_button = QPushButton("產生／檢查 TLS 憑證", cert_group)
+        self.generate_button = QPushButton("產生／更新")
         self.generate_button.clicked.connect(self.generate)
         actions.addWidget(self.generate_button)
-
-        self.trust_button = QPushButton("信任 CA（目前使用者）", cert_group)
+        self.trust_button = QPushButton("信任 CA")
         self.trust_button.setEnabled(False)
         self.trust_button.clicked.connect(self.install_trust)
         actions.addWidget(self.trust_button)
         actions.addStretch(1)
-        cert_layout.addLayout(actions)
-
+        form.addRow("", actions)
+        self.status_label = QLabel("")
+        form.addRow("", self.status_label)
         layout.addWidget(cert_group)
 
-        config_group = QGroupBox("Mihomo 設定", content)
+        config_group = QGroupBox("設定", content)
         config_layout = QVBoxLayout(config_group)
-        config_layout.setSpacing(8)
         self.snippet = QPlainTextEdit(config_group)
         self.snippet.setReadOnly(True)
-        self.snippet.setFixedHeight(156)
+        self.snippet.setFixedHeight(144)
         self.snippet.setMinimumWidth(0)
         config_layout.addWidget(self.snippet)
 
-        self.copy_button = QPushButton("複製設定片段", config_group)
+        copy = QHBoxLayout()
+        self.copy_button = QPushButton("複製 YAML")
         self.copy_button.setEnabled(False)
         self.copy_button.clicked.connect(
             lambda: QApplication.clipboard().setText(self.snippet.toPlainText())
         )
-        copy_row = QHBoxLayout()
-        copy_row.addWidget(self.copy_button)
-        copy_row.addStretch(1)
-        config_layout.addLayout(copy_row)
+        copy.addWidget(self.copy_button)
+        copy.addStretch(1)
+        config_layout.addLayout(copy)
 
-        endpoint_row = QHBoxLayout()
-        endpoint_row.setSpacing(8)
-        endpoint_label = QLabel("Firefox DoH", config_group)
-        endpoint_label.setFixedWidth(root_label.width())
-        endpoint_row.addWidget(endpoint_label)
-        self.endpoint_input = QLineEdit(
-            "https://127.0.0.1:9443/dns-query", config_group
-        )
+        url_row = QHBoxLayout()
+        url_row.addWidget(QLabel("Firefox DoH"))
+        self.endpoint_input = QLineEdit(config_group)
         self.endpoint_input.setReadOnly(True)
         self.endpoint_input.setMinimumWidth(0)
-        endpoint_row.addWidget(self.endpoint_input, 1)
-        config_layout.addLayout(endpoint_row)
+        url_row.addWidget(self.endpoint_input, 1)
+        self.copy_url_button = QPushButton("複製網址")
+        self.copy_url_button.clicked.connect(
+            lambda: QApplication.clipboard().setText(self.endpoint_input.text())
+        )
+        url_row.addWidget(self.copy_url_button)
+        config_layout.addLayout(url_row)
+
+        hosts_row = QHBoxLayout()
+        hosts_row.addWidget(QLabel("Party Hosts"))
+        self.hosts_input = QLineEdit(config_group)
+        self.hosts_input.setReadOnly(True)
+        self.hosts_input.setMinimumWidth(0)
+        self.hosts_input.setToolTip("主機名稱對應本機；Firefox 的 DoH bootstrap 仍可能需要另外設定")
+        hosts_row.addWidget(self.hosts_input, 1)
+        config_layout.addLayout(hosts_row)
 
         layout.addWidget(config_group)
-
-        # Descriptions are deliberately below the actionable controls: wrapping
-        # or localization cannot shift controls vertically or horizontally.
-        info_group = QGroupBox("說明", content)
-        info_layout = QVBoxLayout(info_group)
-        self.summary_label = self._help_text(
-            "這是 Mihomo 的全域設定：每個本機實例只需建立一組 DoH 憑證，不隨 VPN Provider 切換。",
-            info_group,
-        )
-        self.security_label = self._help_text(
-            "CA 簽章私鑰保存在目前 Windows 使用者資料夾；"
-            "Mihomo 目錄只存放伺服器憑證、私鑰及公開 CA 憑證。",
-            info_group,
-        )
-        self.config_help_label = self._help_text(
-            "將產生的設定片段合併至 Mihomo 生效設定，不要覆蓋原有 external-controller 或 dns 區塊。",
-            info_group,
-        )
-        self.firefox_help_label = self._help_text(
-            "Firefox 若須禁止回退系統 DNS，可設定 about:config → network.trr.mode = 3。"
-            "Mihomo 的 DoH 功能預設仍未啟用。",
-            info_group,
-        )
-        for label in (
-            self.summary_label, self.security_label,
-            self.config_help_label, self.firefox_help_label,
-        ):
-            info_layout.addWidget(label)
-        layout.addWidget(info_group)
         layout.addStretch(1)
+        self.host_input.textChanged.connect(self.update_endpoint)
+        self.update_endpoint()
+
+    def update_endpoint(self, *_args) -> None:
+        self.files = None
+        self.trust_button.setEnabled(False)
+        self.copy_button.setEnabled(False)
+        self.snippet.clear()
+        self.status_label.clear()
+        try:
+            host = mihomo_doh.normalize_host(self.host_input.text())
+            self.endpoint_input.setText(mihomo_doh.doh_url(host))
+            self.hosts_input.setText(mihomo_doh.party_hosts_override(host))
+            self.copy_url_button.setEnabled(True)
+        except ValueError:
+            self.endpoint_input.clear()
+            self.hosts_input.clear()
+            self.copy_url_button.setEnabled(False)
 
     def pick_output(self) -> None:
         path = QFileDialog.getExistingDirectory(
-            self, "選擇 Mihomo 根目錄", self.output.text() or str(Path.home())
+            self, "選擇憑證輸出根目錄", self.output.text() or str(Path.home())
         )
         if path:
             self.output.setText(path)
@@ -421,46 +423,36 @@ class MihomoDohPanel(QWidget):
     def generate(self) -> None:
         directory = self.output.text().strip()
         if not directory:
-            QMessageBox.warning(self, "缺少路徑", "請指定 Mihomo 根目錄。")
+            QMessageBox.warning(self, "缺少路徑", "請指定憑證目錄。")
             return
         try:
-            files = mihomo_doh.generate_certificates(Path(directory))
+            host = mihomo_doh.normalize_host(self.host_input.text())
+            files = mihomo_doh.generate_certificates(Path(directory), host)
         except Exception as exc:
-            QMessageBox.critical(self, "DoH TLS 憑證失敗", str(exc))
+            QMessageBox.critical(self, "憑證產生失敗", str(exc))
             return
         self.files = files
-        self.settings.setValue("doh/out_dir", directory)
+        self.settings.setValue("doh/cert_root", directory)
+        self.settings.setValue("doh/host", host)
         self.snippet.setPlainText(mihomo_doh.mihomo_yaml(files))
         self.trust_button.setEnabled(True)
         self.copy_button.setEnabled(True)
-        QMessageBox.information(
-            self, "TLS 憑證就緒",
-            ("已簽發新憑證" if files.renewed else "現有憑證仍有效") +
-            f"\n伺服器憑證：{files.server_certificate}\n" +
-            "請另外按『信任 CA』，Firefox 才能驗證這個 HTTPS 端點。"
-        )
+        self.status_label.setText("已更新" if files.renewed else "憑證有效")
 
     def install_trust(self) -> None:
         if self.files is None:
             return
         if QMessageBox.question(
-            self, "確認信任本機 CA",
-            "此操作將本工具產生的 CA 加入 Windows CurrentUser\\Root 信任存放區。"
-            "\n受信任的 CA 有能力簽發其他網站的憑證；請確保本機 CA 私鑰未外流。"
-            "\n確定要匯入？",
+            self, "信任 CA",
+            "將此 CA 加入目前 Windows 使用者的受信任根憑證存放區？",
         ) != QMessageBox.Yes:
             return
         try:
             mihomo_doh.trust_ca_for_current_user(self.files.ca_certificate)
         except Exception as exc:
-            QMessageBox.critical(self, "CA 信任匯入失敗", str(exc))
+            QMessageBox.critical(self, "CA 匯入失敗", str(exc))
             return
-        QMessageBox.information(
-            self, "CA 信任已匯入",
-            "已加入目前 Windows 使用者的信任根憑證。"
-            "\nFirefox 120+ 預設可使用 Windows 第三方根憑證；"
-            "若未生效，請檢查 security.enterprise_roots.enabled。"
-        )
+        self.status_label.setText("CA 已信任")
 
 
 class MainWindow(QMainWindow):
