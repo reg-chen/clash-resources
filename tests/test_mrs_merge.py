@@ -57,6 +57,39 @@ class MergeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Missing parsed"):
             mrs_merge.grouped_sources(entries, {"ads-a": {"a.com"}})
 
+    def test_local_custom_domains_are_merged_only_with_matching_category(self):
+        custom = {}
+        for item in mrs_merge.CUSTOM_SOURCES:
+            raw = (ROOT / item["path"]).read_bytes()
+            custom[item["name"]] = mrs_merge.parse_domain_rules(raw, "text")
+        self.assertIn("+.crypto-loot.org", custom["security-custom"])
+        self.assertIn("+.fingerprintjs.com", custom["privacy-custom"])
+        self.assertIn("+.ironsource.mobi", custom["ads-custom"])
+
+        entries = [
+            {"name": f"{category}-third-party"}
+            for category in mrs_merge.CATEGORIES
+        ] + list(mrs_merge.CUSTOM_SOURCES)
+        datasets = {
+            f"{category}-third-party": {"shared.example.net"}
+            for category in mrs_merge.CATEGORIES
+        }
+        datasets.update(custom)
+        groups = mrs_merge.grouped_sources(entries, datasets)
+        self.assertIn("+.crypto-loot.org", groups["security"])
+        self.assertNotIn("+.crypto-loot.org", groups["privacy"])
+        self.assertNotIn("+.crypto-loot.org", groups["ads"])
+        self.assertIn("+.fingerprintjs.com", groups["privacy"])
+        self.assertNotIn("+.fingerprintjs.com", groups["security"])
+        self.assertIn("+.ironsource.mobi", groups["ads"])
+        self.assertNotIn("+.ironsource.mobi", groups["security"])
+        self.assertTrue(all("network-ports" not in rule for part in groups.values() for rule in part))
+
+    def test_optional_empty_custom_does_not_break_union(self):
+        self.assertEqual(mrs_merge.parse_domain_rules(b"# none\n", "text", allow_empty=True), set())
+        with self.assertRaisesRegex(ValueError, "Empty parsed"):
+            mrs_merge.parse_domain_rules(b"# none\n", "text")
+
     def test_failed_conversion_never_installs_partial_output(self):
         entries = [{"name": f"{g}-a"} for g in mrs_merge.CATEGORIES]
         data = {f"{g}-a": {"example.com"} for g in mrs_merge.CATEGORIES}
