@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QRadioButton,
     QSpinBox,
+    QTabWidget,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -278,25 +279,28 @@ class WarpScheduleDialog(QDialog):
             QMessageBox.critical(self, "移除失敗", str(exc))
 
 
-class MihomoDohDialog(QDialog):
-    """Generate a localhost DoH TLS chain without modifying VPN providers."""
+class MihomoDohPanel(QWidget):
+    """Global localhost DoH TLS settings independent of the VPN provider."""
 
-    def __init__(self, parent, out_dir: str, settings: QSettings):
+    def __init__(self, parent, settings: QSettings):
         super().__init__(parent)
-        self.setWindowTitle("Mihomo 本機 DoH／TLS 憑證")
-        self.setMinimumWidth(620)
         self.settings = settings
         self.files: mihomo_doh.CertificateFiles | None = None
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(
-            "簽發 localhost 專用 TLS 憑證。CA 簽章私鑰只儲存在本機使用者資料夾；"
-            "Mihomo 設定目錄只會收到伺服器憑證、私鑰與公開 CA 憑證。"
+            "Mihomo 全域設定：每個本機 Mihomo 實例只需建立一組 DoH 憑證，"
+            "與 PIA、Surfshark、WARP 的 Provider 產生無關。"
+        ))
+        layout.addWidget(QLabel(
+            "CA 簽章私鑰只存放於目前 Windows 使用者資料夾；"
+            "Mihomo 目錄僅儲存伺服器憑證、私鑰及公開 CA 憑證。"
         ))
         self.output = QLineEdit(
-            settings.value("doh/out_dir", out_dir or r"P:\Clash", str)
+            settings.value("doh/out_dir", r"P:\Clash", str)
         )
         location = QHBoxLayout()
+        location.addWidget(QLabel("Mihomo 根目錄"))
         location.addWidget(self.output, 1)
         browse = QPushButton("瀏覽")
         browse.clicked.connect(self.pick_output)
@@ -334,9 +338,7 @@ class MihomoDohDialog(QDialog):
             "若要求不回退系統 DNS，請在 about:config 使用 network.trr.mode = 3。"
         ))
 
-        close = QDialogButtonBox(QDialogButtonBox.Close)
-        close.rejected.connect(self.reject)
-        layout.addWidget(close)
+        layout.addStretch(1)
 
     def pick_output(self) -> None:
         path = QFileDialog.getExistingDirectory(
@@ -399,12 +401,18 @@ class MainWindow(QMainWindow):
         self._active_provider = "pia"
         self._provider_credentials: dict[str, tuple[str, str]] = {}
 
-        self.setWindowTitle("VPN → Mihomo Provider Generator")
+        self.setWindowTitle("VPN / Mihomo Generator")
         self.resize(880, 690)
 
         central = QWidget(self)
         self.setCentralWidget(central)
-        root = QVBoxLayout(central)
+        window_layout = QVBoxLayout(central)
+        self.tabs = QTabWidget(central)
+        window_layout.addWidget(self.tabs)
+
+        provider_page = QWidget(self.tabs)
+        self.tabs.addTab(provider_page, "VPN Provider")
+        root = QVBoxLayout(provider_page)
 
         form = QFormLayout()
         root.addLayout(form)
@@ -507,14 +515,14 @@ class MainWindow(QMainWindow):
         self.warp_schedule_button = QPushButton("安裝／管理 WARP 排程")
         self.warp_schedule_button.clicked.connect(self.open_warp_schedule)
         root.addWidget(self.warp_schedule_button)
-        self.doh_button = QPushButton("Mihomo 本機 DoH／TLS 憑證")
-        self.doh_button.clicked.connect(self.open_doh_dialog)
-        root.addWidget(self.doh_button)
-
         root.addWidget(QLabel("Log"))
         self.log_view = QPlainTextEdit()
         self.log_view.setReadOnly(True)
         root.addWidget(self.log_view, 1)
+
+        # Mihomo-wide tools intentionally live outside the selected provider page.
+        self.doh_panel = MihomoDohPanel(self.tabs, self.settings)
+        self.tabs.addTab(self.doh_panel, "Mihomo DNS / TLS")
 
         self.openvpn_checkbox.toggled.connect(self.update_protocol_controls)
         self.pia_radio.toggled.connect(self.update_provider_controls)
@@ -740,9 +748,6 @@ class MainWindow(QMainWindow):
             problems.append("請選擇輸出目錄。")
 
         return problems
-
-    def open_doh_dialog(self) -> None:
-        MihomoDohDialog(self, self.out_edit.text().strip(), self.settings).exec()
 
     def open_warp_schedule(self) -> None:
         self.save_settings()
