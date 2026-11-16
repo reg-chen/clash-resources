@@ -489,7 +489,7 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(provider_page)
 
         form = QFormLayout()
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         root.addLayout(form)
 
@@ -582,25 +582,35 @@ class MainWindow(QMainWindow):
         mode_help.clicked.connect(self.show_output_mode_help)
         mode_layout.addWidget(mode_help)
         mode_layout.addStretch(1)
-        form.addRow("輸出模式", mode_row)
+        self.mode_row = mode_row
+        self.mode_label = QLabel("輸出模式")
+        form.addRow(self.mode_label, mode_row)
 
         self.exclude_streaming = QCheckBox("排除 PIA Streaming Optimized")
         self.exclude_streaming.setChecked(True)
         self.exclude_streaming_label = QLabel("節點過濾")
         form.addRow(self.exclude_streaming_label, self.exclude_streaming)
 
-        # Reserve a stable label column for every provider; dynamic text (PIA /
-        # Surfshark) must not shift the inputs horizontally when switched.
-        widest = max(
-            "Surfshark 帳號 / 密碼", "OpenVPN UDP ZIP", "OpenVPN TCP ZIP",
-            key=lambda value: self.credentials_label.fontMetrics().horizontalAdvance(value),
-        )
-        label_width = self.credentials_label.fontMetrics().horizontalAdvance(widest) + 12
-        for label in (
-            self.udp_label, self.tcp_label,
-            self.credentials_label, self.exclude_streaming_label,
-        ):
+        # Stable, left-aligned label column across PIA, Surfshark and WARP.
+        # Apply to QFormLayout's auto-created QLabel instances as well.
+        font = self.credentials_label.fontMetrics()
+        all_label_texts = [
+            "Provider", "輸出協定", "OpenVPN UDP ZIP", "OpenVPN TCP ZIP",
+            "Surfshark 帳號 / 密碼", "PIA 帳號 / 密碼",
+            "輸出目錄", "輸出模式", "節點過濾",
+        ]
+        label_width = max(font.horizontalAdvance(text) for text in all_label_texts) + 12
+        self._provider_form_labels = []
+        for row_index in range(form.rowCount()):
+            label_item = form.itemAt(row_index, QFormLayout.ItemRole.LabelRole)
+            if label_item is None:
+                continue
+            label = label_item.widget()
+            if not isinstance(label, QLabel):
+                continue
             label.setFixedWidth(label_width)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            self._provider_form_labels.append(label)
 
         self.run_button = QPushButton("執行")
         self.run_button.clicked.connect(self.start_generation)
@@ -680,6 +690,8 @@ class MainWindow(QMainWindow):
             self.credentials_row.hide()
             self.exclude_streaming_label.hide()
             self.exclude_streaming.hide()
+            self.mode_label.hide()
+            self.mode_row.hide()
             self.single_radio.setEnabled(False)
             self.multi_radio.setEnabled(False)
 
@@ -691,6 +703,8 @@ class MainWindow(QMainWindow):
             self.credentials_row.show()
             self.exclude_streaming_label.show()
             self.exclude_streaming.show()
+            self.mode_label.show()
+            self.mode_row.show()
             self.single_radio.setEnabled(True)
             self.multi_radio.setEnabled(True)
 
