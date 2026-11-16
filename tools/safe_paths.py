@@ -69,7 +69,7 @@ def _notify_environment_change() -> None:
             0xFFFF, 0x001A, 0, "Environment", 0x0002, 5000,
             ctypes.byref(result),
         )
-    except (AttributeError, OSError):
+    except (AttributeError, OSError, TypeError):
         pass
 
 
