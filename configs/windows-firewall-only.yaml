@@ -24,6 +24,30 @@ x-rule-provider-common: &RULE-PROVIDER
   proxy: DIRECT
 
 rule-providers:
+  security-combined:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: mrs
+    url: https://rules.reginald.win/security/mrs/combined.mrs
+    path: ./rules/security/mrs/combined.mrs
+
+  privacy-combined:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: mrs
+    url: https://rules.reginald.win/privacy/mrs/combined.mrs
+    path: ./rules/privacy/mrs/combined.mrs
+
+  ads-combined:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: mrs
+    url: https://rules.reginald.win/ads/mrs/combined.mrs
+    path: ./rules/ads/mrs/combined.mrs
+
   CONFIRMED-REJECT:
     <<: *RULE-PROVIDER
     type: http
@@ -101,37 +125,9 @@ rule-providers:
     url: https://rules.reginald.win/proxy/bankgov.yaml
     path: ./rules/proxy/bankgov.yaml
 
-  security-custom:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: text
-    url: https://rules.reginald.win/security/custom.txt
-    path: ./rules/security/custom.txt
 
-  security-threat:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/security/mrs/threat.mrs
-    path: ./rules/security/mrs/threat.mrs
 
-  security-phishing:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/security/mrs/phishing.mrs
-    path: ./rules/security/mrs/phishing.mrs
 
-  security-dyndns:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/security/mrs/dyndns.mrs
-    path: ./rules/security/mrs/dyndns.mrs
 
   network-ports:
     <<: *RULE-PROVIDER
@@ -140,160 +136,21 @@ rule-providers:
     url: https://rules.reginald.win/network/ports.yaml
     path: ./rules/network/ports.yaml
 
-  privacy-custom:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: text
-    url: https://rules.reginald.win/privacy/custom.txt
-    path: ./rules/privacy/custom.txt
 
-  privacy-native-amazon:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-amazon.mrs
-    path: ./rules/privacy/native/mrs/native-amazon.mrs
 
-  privacy-native-apple:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-apple.mrs
-    path: ./rules/privacy/native/mrs/native-apple.mrs
 
-  privacy-native-huawei:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-huawei.mrs
-    path: ./rules/privacy/native/mrs/native-huawei.mrs
 
-  privacy-native-winoffice:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-winoffice.mrs
-    path: ./rules/privacy/native/mrs/native-winoffice.mrs
 
-  privacy-native-samsung:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-samsung.mrs
-    path: ./rules/privacy/native/mrs/native-samsung.mrs
 
-  privacy-native-tiktok:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-tiktok.mrs
-    path: ./rules/privacy/native/mrs/native-tiktok.mrs
 
-  privacy-native-lgwebos:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-lgwebos.mrs
-    path: ./rules/privacy/native/mrs/native-lgwebos.mrs
 
-  privacy-native-roku:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-roku.mrs
-    path: ./rules/privacy/native/mrs/native-roku.mrs
 
-  privacy-native-vivo:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-vivo.mrs
-    path: ./rules/privacy/native/mrs/native-vivo.mrs
 
-  privacy-native-oppo-realme:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-oppo-realme.mrs
-    path: ./rules/privacy/native/mrs/native-oppo-realme.mrs
 
-  privacy-native-xiaomi:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-xiaomi.mrs
-    path: ./rules/privacy/native/mrs/native-xiaomi.mrs
 
-  ads-popup:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/ads/mrs/popup.mrs
-    path: ./rules/ads/mrs/popup.mrs
 
-  ads-loyalsoldier:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/ads/mrs/loyalsoldier.mrs
-    path: ./rules/ads/mrs/loyalsoldier.mrs
 
-  ads-antiad:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/ads/mrs/antiad.mrs
-    path: ./rules/ads/mrs/antiad.mrs
 
-  ads-custom:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: text
-    url: https://rules.reginald.win/ads/custom.txt
-    path: ./rules/ads/custom.txt
-
-sub-rules:
-  SECURITY:
-    - RULE-SET,security-custom,REJECT
-    - RULE-SET,security-threat,REJECT
-    - RULE-SET,security-phishing,REJECT
-    - RULE-SET,security-dyndns,REJECT
-
-  PRIVACY-NATIVE:
-    - RULE-SET,privacy-custom,REJECT
-    - RULE-SET,privacy-native-amazon,REJECT
-    - RULE-SET,privacy-native-apple,REJECT
-    - RULE-SET,privacy-native-huawei,REJECT
-    - RULE-SET,privacy-native-winoffice,REJECT
-    - RULE-SET,privacy-native-samsung,REJECT
-    - RULE-SET,privacy-native-tiktok,REJECT
-    - RULE-SET,privacy-native-lgwebos,REJECT
-    - RULE-SET,privacy-native-roku,REJECT
-    - RULE-SET,privacy-native-vivo,REJECT
-    - RULE-SET,privacy-native-oppo-realme,REJECT
-    - RULE-SET,privacy-native-xiaomi,REJECT
-
-  ADS:
-    - RULE-SET,ads-custom,REJECT
-    - RULE-SET,ads-popup,REJECT
-    - RULE-SET,ads-loyalsoldier,REJECT
-    - RULE-SET,ads-antiad,REJECT
 
 rules:
   - RULE-SET,CONFIRMED-REJECT,REJECT
@@ -309,17 +166,15 @@ rules:
   - RULE-SET,route-drm,DIRECT
   - RULE-SET,route-bankgov,DIRECT,no-resolve
 
-  - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),SECURITY
-
+  - RULE-SET,security-combined,REJECT
   # Network port restrictions (classical)
   - RULE-SET,network-ports,REJECT
 
   # WebView2 still passes Security, but bypasses Privacy / Ads.
   - RULE-SET,direct-webview2,DIRECT
 
-  - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),PRIVACY-NATIVE
-  - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),ADS
-
+  - RULE-SET,privacy-combined,REJECT
+  - RULE-SET,ads-combined,REJECT
   - MATCH,DIRECT-DUMMY
 
 ipv6: true

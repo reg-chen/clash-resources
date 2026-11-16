@@ -256,6 +256,30 @@ x-rule-provider-common: &RULE-PROVIDER
   proxy: DIRECT
 
 rule-providers:
+  security-combined:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: mrs
+    url: https://rules.reginald.win/security/mrs/combined.mrs
+    path: P:\\Clash\\rules\\security\\mrs\\combined.mrs
+
+  privacy-combined:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: mrs
+    url: https://rules.reginald.win/privacy/mrs/combined.mrs
+    path: P:\\Clash\\rules\\privacy\\mrs\\combined.mrs
+
+  ads-combined:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: domain
+    format: mrs
+    url: https://rules.reginald.win/ads/mrs/combined.mrs
+    path: P:\\Clash\\rules\\ads\\mrs\\combined.mrs
+
   CONFIRMED-REJECT:
     <<: *RULE-PROVIDER
     type: http
@@ -382,48 +406,8 @@ rule-providers:
     path: "P:\\Clash\\rules\\proxy\\bankgov.yaml"
 
     # =====================================================================
-  # 🟥 Security - Custom
-  # =====================================================================
-  security-custom:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: text
-    url: "https://rules.reginald.win/security/custom.txt"
-    path: P:\\Clash\\rules\\security\\custom.txt
 
-  # =====================================================================
-  # 🟥 Malware / Phishing / Scam / C2
-  # =====================================================================
-  security-threat:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/security/mrs/threat.mrs
-    path: P:\\Clash\\rules\\security\\mrs\\threat.mrs
-    
-  # =====================================================================
-  # 🟥 Phishing / 詐騙網站 (強制拒絕)
-  # =====================================================================
-  security-phishing:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/security/mrs/phishing.mrs
-    path: P:\\Clash\\rules\\security\\mrs\\phishing.mrs
 
-  # =====================================================================
-  # 🟥 Dynamic DNS / Phishing / C2 Infrastructure
-  # =====================================================================
-  security-dyndns:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/security/mrs/dyndns.mrs
-    path: P:\\Clash\\rules\\security\\mrs\\dyndns.mrs
 
   # =====================================================================
   # 🟥 Risk Ports - Encrypted DNS / Internet Egress
@@ -435,220 +419,24 @@ rule-providers:
     url: "https://rules.reginald.win/network/ports.yaml"
     path: P:\\Clash\\rules\\network\\ports.yaml
 
-  # =====================================================================
-  # 🟥 Privacy - Custom
-  # =====================================================================
-  privacy-custom:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: text
-    url: "https://rules.reginald.win/privacy/custom.txt"
-    path: P:\\Clash\\rules\\privacy\\custom.txt
 
-  # =====================================================================
-  # 🟥 Native Tracker - Amazon
-  # =====================================================================
-  privacy-native-amazon:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-amazon.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-amazon.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - Apple
-  # =====================================================================
-  privacy-native-apple:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-apple.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-apple.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - Huawei
-  # =====================================================================
-  privacy-native-huawei:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-huawei.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-huawei.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - Microsoft / Windows / Office
-  # =====================================================================
-  privacy-native-winoffice:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-winoffice.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-winoffice.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - Samsung
-  # =====================================================================
-  privacy-native-samsung:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-samsung.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-samsung.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - TikTok (Aggressive)
-  # =====================================================================
-  privacy-native-tiktok:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-tiktok.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-tiktok.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - LG webOS
-  # =====================================================================
-  privacy-native-lgwebos:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-lgwebos.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-lgwebos.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - Roku
-  # =====================================================================
-  privacy-native-roku:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-roku.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-roku.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - Vivo
-  # =====================================================================
-  privacy-native-vivo:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-vivo.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-vivo.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - OPPO / Realme
-  # =====================================================================
-  privacy-native-oppo-realme:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-oppo-realme.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-oppo-realme.mrs
 
-  # =====================================================================
-  # 🟥 Native Tracker - Xiaomi
-  # =====================================================================
-  privacy-native-xiaomi:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/privacy/mrs/native-xiaomi.mrs
-    path: P:\\Clash\\rules\\privacy\\native\\mrs\\native-xiaomi.mrs
 
-  # =====================================================================
-  # 🟥 廣告 - Custom
-  # =====================================================================
-  ads-custom:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: text
-    url: "https://rules.reginald.win/ads/custom.txt"
-    path: P:\\Clash\\rules\\ads\\custom.txt
 
-  # =====================================================================
-  # 🟥 Pop-Up Ads / Malicious Popups
-  # =====================================================================
-  ads-popup:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/ads/mrs/popup.mrs
-    path: P:\\Clash\\rules\\ads\\mrs\\popup.mrs
 
-  # =====================================================================
-  # 🟥 廣告 - Loyalsoldier
-  # =====================================================================
-  ads-loyalsoldier:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/ads/mrs/loyalsoldier.mrs
-    path: P:\\Clash\\rules\\ads\\mrs\\loyalsoldier.mrs
 
-  # =====================================================================
-  # 🟥 廣告 - Anti-AD
-  # =====================================================================
-  ads-antiad:
-    <<: *RULE-PROVIDER
-    type: http
-    behavior: domain
-    format: mrs
-    url: https://rules.reginald.win/ads/mrs/antiad.mrs
-    path: P:\\Clash\\rules\\ads\\mrs\\antiad.mrs
 
 
 # ================== 子規則 ==================
-sub-rules:
-  # =====================================================================
-  # 🟥 Security - Malware / Phishing / Scam / C2 / Dynamic DNS
-  # =====================================================================
-  SECURITY:
-    - RULE-SET,security-custom,REJECT
-    - RULE-SET,security-threat,REJECT
-    - RULE-SET,security-phishing,REJECT
-    - RULE-SET,security-dyndns,REJECT
-
-  # =====================================================================
-  # 🟥 Privacy - Native Trackers
-  # =====================================================================
-  PRIVACY-NATIVE:
-    - RULE-SET,privacy-custom,REJECT
-    - RULE-SET,privacy-native-amazon,REJECT
-    - RULE-SET,privacy-native-apple,REJECT
-    - RULE-SET,privacy-native-huawei,REJECT
-    - RULE-SET,privacy-native-winoffice,REJECT
-    - RULE-SET,privacy-native-samsung,REJECT
-    - RULE-SET,privacy-native-tiktok,REJECT
-    - RULE-SET,privacy-native-lgwebos,REJECT
-    - RULE-SET,privacy-native-roku,REJECT
-    - RULE-SET,privacy-native-vivo,REJECT
-    - RULE-SET,privacy-native-oppo-realme,REJECT
-    - RULE-SET,privacy-native-xiaomi,REJECT
-
-  # =====================================================================
-  # 🟥 Ads - Custom / Popup / Loyalsoldier / Anti-AD
-  # =====================================================================
-  ADS:
-    - RULE-SET,ads-custom,REJECT
-    - RULE-SET,ads-popup,REJECT
-    - RULE-SET,ads-loyalsoldier,REJECT
-    - RULE-SET,ads-antiad,REJECT
-
 rules:
   # =====================================================================
   # ⛔ IPv6 Kill Switch
@@ -682,8 +470,7 @@ rules:
   # =====================================================================
   # 🟥 Security
   # =====================================================================
-  - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),SECURITY
-
+  - RULE-SET,security-combined,REJECT
   # Network port restrictions (classical)
   - RULE-SET,network-ports,REJECT
 
@@ -696,13 +483,11 @@ rules:
   # =====================================================================
   # 🟥 Privacy - Native Trackers
   # =====================================================================
-  - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),PRIVACY-NATIVE
-
+  - RULE-SET,privacy-combined,REJECT
   # =====================================================================
   # 🟥 Ads
   # =====================================================================
-  - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),ADS
-
+  - RULE-SET,ads-combined,REJECT
   # =====================================================================
   # 🌐 Default
   # =====================================================================
