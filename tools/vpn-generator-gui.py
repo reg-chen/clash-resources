@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 
 import vpn_generator_core as core
 import warp_schedule
+import mihomo_doh
 
 APP_NAME = "PIA Mihomo Generator"  # keep existing QSettings namespace for migration compatibility
 ORG_NAME = "reg-chen"
@@ -277,6 +278,118 @@ class WarpScheduleDialog(QDialog):
             QMessageBox.critical(self, "移除失敗", str(exc))
 
 
+class MihomoDohDialog(QDialog):
+    """Generate a localhost DoH TLS chain without modifying VPN providers."""
+
+    def __init__(self, parent, out_dir: str, settings: QSettings):
+        super().__init__(parent)
+        self.setWindowTitle("Mihomo 本機 DoH／TLS 憑證")
+        self.setMinimumWidth(620)
+        self.settings = settings
+        self.files: mihomo_doh.CertificateFiles | None = None
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(
+            "簽發 localhost 專用 TLS 憑證。CA 簽章私鑰只儲存在本機使用者資料夾；"
+            "Mihomo 設定目錄只會收到伺服器憑證、私鑰與公開 CA 憑證。"
+        ))
+        self.output = QLineEdit(
+            settings.value("doh/out_dir", out_dir or r"P:\Clash", str)
+        )
+        location = QHBoxLayout()
+        location.addWidget(self.output, 1)
+        browse = QPushButton("瀏覽")
+        browse.clicked.connect(self.pick_output)
+        location.addWidget(browse)
+        layout.addLayout(location)
+
+        actions = QHBoxLayout()
+        self.generate_button = QPushButton("產生／檢查 TLS 憑證")
+        self.generate_button.clicked.connect(self.generate)
+        actions.addWidget(self.generate_button)
+
+        self.trust_button = QPushButton("信任 CA（目前使用者）")
+        self.trust_button.setEnabled(False)
+        self.trust_button.clicked.connect(self.install_trust)
+        actions.addWidget(self.trust_button)
+        layout.addLayout(actions)
+
+        layout.addWidget(QLabel(
+            "只供 127.0.0.1:9443 使用；請將以下片段合併進 Mihomo 生效設定，"
+            "不要取代既有 external-controller / dns 區塊。"
+        ))
+        self.snippet = QPlainTextEdit()
+        self.snippet.setReadOnly(True)
+        self.snippet.setMinimumHeight(158)
+        layout.addWidget(self.snippet)
+
+        self.copy_button = QPushButton("複製 Mihomo 設定片段")
+        self.copy_button.setEnabled(False)
+        self.copy_button.clicked.connect(
+            lambda: QApplication.clipboard().setText(self.snippet.toPlainText())
+        )
+        layout.addWidget(self.copy_button)
+        layout.addWidget(QLabel(
+            "Firefox DoH 自訂端點：https://localhost:9443/dns-query\n"
+            "若要求不回退系統 DNS，請在 about:config 使用 network.trr.mode = 3。"
+        ))
+
+        close = QDialogButtonBox(QDialogButtonBox.Close)
+        close.rejected.connect(self.reject)
+        layout.addWidget(close)
+
+    def pick_output(self) -> None:
+        path = QFileDialog.getExistingDirectory(
+            self, "選擇 Mihomo 根目錄", self.output.text() or str(Path.home())
+        )
+        if path:
+            self.output.setText(path)
+
+    def generate(self) -> None:
+        directory = self.output.text().strip()
+        if not directory:
+            QMessageBox.warning(self, "缺少路徑", "請指定 Mihomo 根目錄。")
+            return
+        try:
+            files = mihomo_doh.generate_certificates(Path(directory))
+        except Exception as exc:
+            QMessageBox.critical(self, "DoH TLS 憑證失敗", str(exc))
+            return
+        self.files = files
+        self.settings.setValue("doh/out_dir", directory)
+        self.snippet.setPlainText(mihomo_doh.mihomo_yaml(files))
+        self.trust_button.setEnabled(True)
+        self.copy_button.setEnabled(True)
+        QMessageBox.information(
+            self, "TLS 憑證就緒",
+            ("已簽發新憑證" if files.renewed else "現有憑證仍有效") +
+            f"\n伺服器憑證：{files.server_certificate}\n" +
+            "請另外按『信任 CA』，Firefox 才能驗證這個 HTTPS 端點。"
+        )
+
+    def install_trust(self) -> None:
+        if self.files is None:
+            return
+        if QMessageBox.question(
+            self, "確認信任本機 CA",
+            "此操作將本工具產生的 CA 加入 Windows CurrentUser\\Root 信任存放區。"
+            "\n受信任的 CA 有能力簽發其他網站的憑證；請確保本機 CA 私鑰未外流。"
+            "\n確定要匯入？",
+        ) != QMessageBox.Yes:
+            return
+        try:
+            mihomo_doh.trust_ca_for_current_user(self.files.ca_certificate)
+        except Exception as exc:
+            QMessageBox.critical(self, "CA 信任匯入失敗", str(exc))
+            return
+        QMessageBox.information(
+            self, "CA 信任已匯入",
+            "已加入目前 Windows 使用者的信任根憑證。"
+            "\nFirefox 120+ 預設可使用 Windows 第三方根憑證；"
+            "若未生效，請檢查 security.enterprise_roots.enabled。"
+        )
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -394,6 +507,9 @@ class MainWindow(QMainWindow):
         self.warp_schedule_button = QPushButton("安裝／管理 WARP 排程")
         self.warp_schedule_button.clicked.connect(self.open_warp_schedule)
         root.addWidget(self.warp_schedule_button)
+        self.doh_button = QPushButton("Mihomo 本機 DoH／TLS 憑證")
+        self.doh_button.clicked.connect(self.open_doh_dialog)
+        root.addWidget(self.doh_button)
 
         root.addWidget(QLabel("Log"))
         self.log_view = QPlainTextEdit()
@@ -624,6 +740,9 @@ class MainWindow(QMainWindow):
             problems.append("請選擇輸出目錄。")
 
         return problems
+
+    def open_doh_dialog(self) -> None:
+        MihomoDohDialog(self, self.out_edit.text().strip(), self.settings).exec()
 
     def open_warp_schedule(self) -> None:
         self.save_settings()
