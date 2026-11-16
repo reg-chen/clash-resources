@@ -123,10 +123,12 @@ class ProviderStateTests(unittest.TestCase):
             self.assertTrue(label.wordWrap())
             self.assertEqual(label.sizePolicy().horizontalPolicy(), QSizePolicy.Policy.Ignored)
 
-        before = panel.output.mapTo(window, QPoint(0, 0)).x()
+        before_output = panel.output.mapTo(window, QPoint(0, 0))
+        before_snippet = panel.snippet.mapTo(window, QPoint(0, 0))
         panel.summary_label.setText("Explanatory text " * 80)
         QApplication.processEvents()
-        self.assertEqual(panel.output.mapTo(window, QPoint(0, 0)).x(), before)
+        self.assertEqual(panel.output.mapTo(window, QPoint(0, 0)), before_output)
+        self.assertEqual(panel.snippet.mapTo(window, QPoint(0, 0)), before_snippet)
 
     def test_worker_passes_surfsharks_own_filter(self):
         for exclude in (True, False):
