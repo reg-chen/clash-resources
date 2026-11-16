@@ -9,7 +9,7 @@ import sys
 import urllib.request
 
 from mrs_overlap import parse_domain_keys, write_report
-from mrs_merge import parse_domain_rules, build_merged_mrs
+from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, build_merged_mrs
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
@@ -92,9 +92,17 @@ for item in SOURCES:
         source.unlink(missing_ok=True)
         temp.unlink(missing_ok=True)
 
+# Merge repository-owned custom domains with their own category. Keep
+# manually curated sources as readable TXT for review and later edits.
+for item in CUSTOM_SOURCES:
+    raw = (ROOT / item["path"]).read_bytes()
+    merge_sets[item["name"]] = parse_domain_rules(raw, "text", allow_empty=True)
+    overlap_sets[item["name"]] = parse_domain_keys(raw, "text")
+    print(f"CUSTOM {item['name']} {len(merge_sets[item['name']])} rules")
+
 # Three separate merged MRS outputs; never mix security/privacy/ads.
 # The workflow switches YAML only after all three artifacts exist.
-outputs = build_merged_mrs(ROOT, SOURCES, merge_sets)
+outputs = build_merged_mrs(ROOT, [*SOURCES, *CUSTOM_SOURCES], merge_sets)
 for output in outputs:
     changed.append(str(output.relative_to(ROOT)))
     print(f"MERGED {output.relative_to(ROOT)} ({output.stat().st_size} bytes)")
