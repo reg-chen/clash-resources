@@ -15,10 +15,9 @@ CUSTOM_SOURCES = tuple(
 )
 def normalized_domain(raw: str) -> str:
     value = raw.strip().rstrip(".").lower()
-    try:
-        value = value.encode("idna").decode("ascii")
-    except UnicodeError as exc:
-        raise ValueError(f"Invalid domain: {raw!r}") from exc
+    # Keep upstream tokens as-is apart from case and a terminal DNS root dot.
+    # The native Mihomo converter, not Python IDNA hostname checks, owns
+    # source validity (including numeric labels, underscores and IDNs).
     # Domain-behavior rulesets are not restricted to RFC hostname labels.
     # Preserve upstream IP-looking values and underscores as literal domain
     # tokens; the Mihomo converter will validate the native domain syntax.
