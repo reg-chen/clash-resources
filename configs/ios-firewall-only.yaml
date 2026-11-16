@@ -26,7 +26,7 @@ x-rule-provider-common: &RULE-PROVIDER
   proxy: DIRECT
 
 rule-providers:
-  CONFIRMED-REJECT:
+  reject-confirmed:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
@@ -111,7 +111,7 @@ rule-providers:
     path: ./rules/ads/mrs/antiad.mrs
 
 rules:
-  - RULE-SET,CONFIRMED-REJECT,REJECT
+  - RULE-SET,reject-confirmed,REJECT
   - RULE-SET,direct-dns,DIRECT
   - RULE-SET,direct-ios,DIRECT
   - RULE-SET,direct-media,DIRECT

@@ -24,7 +24,7 @@ x-rule-provider-common: &RULE-PROVIDER
   proxy: DIRECT
 
 rule-providers:
-  security-combined:
+  combined-security:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
@@ -32,7 +32,7 @@ rule-providers:
     url: https://rules.reginald.win/security/mrs/combined.mrs
     path: ./rules/security/mrs/combined.mrs
 
-  privacy-combined:
+  combined-privacy:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
@@ -40,7 +40,7 @@ rule-providers:
     url: https://rules.reginald.win/privacy/mrs/combined.mrs
     path: ./rules/privacy/mrs/combined.mrs
 
-  ads-combined:
+  combined-ads:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
@@ -48,7 +48,7 @@ rule-providers:
     url: https://rules.reginald.win/ads/mrs/combined.mrs
     path: ./rules/ads/mrs/combined.mrs
 
-  CONFIRMED-REJECT:
+  reject-confirmed:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
@@ -153,7 +153,7 @@ rule-providers:
 
 
 rules:
-  - RULE-SET,CONFIRMED-REJECT,REJECT
+  - RULE-SET,reject-confirmed,REJECT
 
   - RULE-SET,direct-dns,DIRECT
   - RULE-SET,direct-windows,DIRECT
@@ -166,15 +166,15 @@ rules:
   - RULE-SET,route-drm,DIRECT
   - RULE-SET,route-bankgov,DIRECT,no-resolve
 
-  - RULE-SET,security-combined,REJECT
+  - RULE-SET,combined-security,REJECT
   # Network port restrictions (classical)
   - RULE-SET,network-ports,REJECT
 
   # WebView2 still passes Security, but bypasses Privacy / Ads.
   - RULE-SET,direct-webview2,DIRECT
 
-  - RULE-SET,privacy-combined,REJECT
-  - RULE-SET,ads-combined,REJECT
+  - RULE-SET,combined-privacy,REJECT
+  - RULE-SET,combined-ads,REJECT
   - MATCH,DIRECT-DUMMY
 
 ipv6: true

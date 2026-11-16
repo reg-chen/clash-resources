@@ -102,7 +102,7 @@ def _flatten_sub_rules(sub_section: str, rule_section: str, groups: dict[str, li
             rule_name = line.split(",")[1]
             if rule_name in sources:
                 if not inserted:
-                    flattened.append(f"- RULE-SET,{category}-combined,REJECT")
+                    flattened.append(f"- RULE-SET,combined-{category},REJECT")
                     inserted = True
             else:
                 flattened.append(line)
@@ -160,7 +160,7 @@ def rewrite_config(text: str, sources: list[dict]) -> str:
     merged_providers = ""
     for category in CATEGORIES:
         merged_providers += (
-            f"  {category}-combined:\n"
+            f"  combined-{category}:\n"
             "    <<: *RULE-PROVIDER\n"
             "    type: http\n"
             "    behavior: domain\n"
@@ -178,7 +178,7 @@ def remove_custom_from_activated(text: str) -> str:
     """Upgrade an already combined YAML that still loads custom TXT separately."""
     if "sub-rules:" in text or "SUB-RULE," in text:
         raise ValueError("Legacy sub-rules remain in a combined profile")
-    if any(f"  {category}-combined:\n" not in text for category in CATEGORIES):
+    if any(f"  combined-{category}:\n" not in text for category in CATEGORIES):
         raise ValueError("Missing category-combined rule provider")
     if all(f"RULE-SET,{category}-custom,REJECT" not in text for category in CATEGORIES):
         return text
@@ -199,9 +199,30 @@ def remove_custom_from_activated(text: str) -> str:
         tail, count = pattern.subn("", tail)
         if count != 1:
             raise ValueError(f"Missing active custom rule {name}")
-        if tail.count(f"RULE-SET,{category}-combined,REJECT") != 1:
+        if tail.count(f"RULE-SET,combined-{category},REJECT") != 1:
             raise ValueError(f"Missing active {category} merged rule")
     return text[:providers_start] + providers + tail
+
+
+def rename_legacy_combined_providers(text: str) -> str:
+    """Upgrade old category-combined provider IDs without changing MRS paths."""
+    for category in CATEGORIES:
+        old = f"{category}-combined"
+        new = f"combined-{category}"
+        old_provider = f"  {old}:\n"
+        new_provider = f"  {new}:\n"
+        old_rule = f"RULE-SET,{old},"
+        new_rule = f"RULE-SET,{new},"
+        if old_provider in text:
+            if new_provider in text:
+                raise ValueError(f"Both old and new MRS providers exist: {category}")
+            if text.count(old_provider) != 1 or text.count(old_rule) != 1:
+                raise ValueError(f"Inconsistent old combined provider: {category}")
+            text = text.replace(old_provider, new_provider, 1)
+            text = text.replace(old_rule, new_rule, 1)
+        elif old_rule in text:
+            raise ValueError(f"Orphan old combined rule: {category}")
+    return text
 
 
 def main() -> None:
@@ -213,13 +234,15 @@ def main() -> None:
     for rel in CONFIGS:
         file = ROOT / rel
         original = file.read_text(encoding="utf-8")
-        # Skip once migrated; the source set may still update independently.
-        if all(f"  {category}-combined:\n" in original for category in CATEGORIES):
-            if "sub-rules:" in original or "SUB-RULE," in original:
+        renamed = rename_legacy_combined_providers(original)
+        # Already-combined profiles may still use legacy provider names;
+        # migrate the names without requiring the old sub-rules section.
+        if all(f"  combined-{category}:\n" in renamed for category in CATEGORIES):
+            if "sub-rules:" in renamed or "SUB-RULE," in renamed:
                 raise ValueError(f"Partially migrated configuration: {rel}")
-            updated = remove_custom_from_activated(original)
+            updated = remove_custom_from_activated(renamed)
         else:
-            updated = rewrite_config(original, SOURCES)
+            updated = rewrite_config(renamed, SOURCES)
         if updated != original:
             modified.append((file, updated))
     # Validate all configs before touching any of them.

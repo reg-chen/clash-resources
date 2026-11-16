@@ -264,7 +264,7 @@ rule-providers:
   # =====================================================================
   # 🟥 Security（Threat / Phishing / DynDNS / Custom 合併 MRS）
   # =====================================================================
-  security-combined:
+  combined-security:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
@@ -275,7 +275,7 @@ rule-providers:
   # =====================================================================
   # 🟥 Privacy（Native Trackers / Custom 合併 MRS）
   # =====================================================================
-  privacy-combined:
+  combined-privacy:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
@@ -286,7 +286,7 @@ rule-providers:
   # =====================================================================
   # 🟥 Ads（Anti-AD / Loyalsoldier / Popup / Custom 合併 MRS）
   # =====================================================================
-  ads-combined:
+  combined-ads:
     <<: *RULE-PROVIDER
     type: http
     behavior: domain
@@ -297,7 +297,7 @@ rule-providers:
   # =====================================================================
   # ⛔ Confirmed blocks（高確定性，優先於 DIRECT）
   # =====================================================================
-  CONFIRMED-REJECT:
+  reject-confirmed:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
@@ -442,7 +442,7 @@ rules:
   # =====================================================================
   # ⛔ Confirmed blocks (before DIRECT)
   # =====================================================================
-  - RULE-SET,CONFIRMED-REJECT,REJECT
+  - RULE-SET,reject-confirmed,REJECT
 
   # =====================================================================
   # 🟩 DIRECT / PROXY 可切換
@@ -466,7 +466,7 @@ rules:
   # =====================================================================
   # 🟥 Security（合併 MRS）
   # =====================================================================
-  - RULE-SET,security-combined,REJECT
+  - RULE-SET,combined-security,REJECT
 
   # 🟥 Network Ports（獨立 classical 規則）
   - RULE-SET,network-ports,REJECT
@@ -480,11 +480,11 @@ rules:
   # =====================================================================
   # 🟥 Privacy（合併 MRS：Native Trackers / Custom）
   # =====================================================================
-  - RULE-SET,privacy-combined,REJECT
+  - RULE-SET,combined-privacy,REJECT
   # =====================================================================
   # 🟥 Ads（合併 MRS）
   # =====================================================================
-  - RULE-SET,ads-combined,REJECT
+  - RULE-SET,combined-ads,REJECT
   # =====================================================================
   # 🌐 Default
   # =====================================================================

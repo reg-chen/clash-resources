@@ -262,19 +262,19 @@ rules:
         self.assertIn("RULE-SET,network-ports,REJECT", new)
         self.assertIn("# Network port restrictions (classical)", new)
         self.assertEqual(new.count("RULE-SET,network-ports,REJECT"), 1)
-        self.assertEqual(new.count("RULE-SET,ads-combined,REJECT"), 1)
+        self.assertEqual(new.count("RULE-SET,combined-ads,REJECT"), 1)
         self.assertNotIn("sub-rules:", new)
         self.assertNotIn("SUB-RULE,", new)
-        self.assertEqual(new.count("RULE-SET,security-combined,REJECT"), 1)
-        self.assertEqual(new.count("RULE-SET,privacy-combined,REJECT"), 1)
-        self.assertLess(new.index("RULE-SET,security-combined,REJECT"),
+        self.assertEqual(new.count("RULE-SET,combined-security,REJECT"), 1)
+        self.assertEqual(new.count("RULE-SET,combined-privacy,REJECT"), 1)
+        self.assertLess(new.index("RULE-SET,combined-security,REJECT"),
                         new.index("RULE-SET,network-ports,REJECT"))
         self.assertLess(new.index("RULE-SET,network-ports,REJECT"),
                         new.index("RULE-SET,direct-webview2,DIRECT"))
         self.assertLess(new.index("RULE-SET,direct-webview2,DIRECT"),
-                        new.index("RULE-SET,privacy-combined,REJECT"))
-        self.assertLess(new.index("RULE-SET,privacy-combined,REJECT"),
-                        new.index("RULE-SET,ads-combined,REJECT"))
+                        new.index("RULE-SET,combined-privacy,REJECT"))
+        self.assertLess(new.index("RULE-SET,combined-privacy,REJECT"),
+                        new.index("RULE-SET,combined-ads,REJECT"))
 
     def test_real_profiles_can_be_flattened_without_moving_critical_exceptions(self):
         module = load_activate()
@@ -293,18 +293,57 @@ rules:
                     )
                 if "RULE-SET,direct-webview2," in updated:
                     self.assertLess(
-                        updated.index("RULE-SET,security-combined,REJECT"),
+                        updated.index("RULE-SET,combined-security,REJECT"),
                         updated.index("RULE-SET,direct-webview2,")
                     )
                 self.assertLess(
                     updated.index("RULE-SET,network-ports,REJECT"),
-                    updated.index("RULE-SET,privacy-combined,REJECT")
+                    updated.index("RULE-SET,combined-privacy,REJECT")
                 )
                 for category in mrs_merge.CATEGORIES:
                     self.assertNotIn(f"RULE-SET,{category}-custom,REJECT", updated)
                     self.assertNotIn(f"  {category}-custom:\n", updated)
                 self.assertIn("RULE-SET,network-ports,REJECT", updated)
                 self.assertEqual(updated.count("RULE-SET,network-ports,REJECT"), 1)
+
+    def test_legacy_combined_names_upgrade_without_subrules(self):
+        module = load_activate()
+        expected = (ROOT / "configs/desktop.yaml").read_text(encoding="utf-8")
+        old = expected
+        for category in mrs_merge.CATEGORIES:
+            old = old.replace(
+                f"  combined-{category}:\n", f"  {category}-combined:\n", 1
+            ).replace(
+                f"RULE-SET,combined-{category},REJECT",
+                f"RULE-SET,{category}-combined,REJECT", 1
+            )
+        self.assertNotEqual(old, expected)
+        self.assertEqual(module.rename_legacy_combined_providers(old), expected)
+        self.assertEqual(module.rename_legacy_combined_providers(expected), expected)
+
+    def test_external_provider_naming_is_consistent_in_all_profiles(self):
+        profiles = (
+            "configs/desktop.yaml",
+            "configs/android-firewall-only.yaml",
+            "configs/windows-firewall-only.yaml",
+            "configs/ios-firewall-only.yaml",
+        )
+        for profile in profiles:
+            with self.subTest(profile=profile):
+                text = (ROOT / profile).read_text(encoding="utf-8")
+                self.assertIn("  reject-confirmed:\n", text)
+                self.assertIn("RULE-SET,reject-confirmed,REJECT", text)
+                self.assertNotIn("CONFIRMED-REJECT", text)
+                if "ios-" not in profile:
+                    for category in mrs_merge.CATEGORIES:
+                        self.assertIn(f"  combined-{category}:\n", text)
+                        self.assertIn(
+                            f"RULE-SET,combined-{category},REJECT", text
+                        )
+                        self.assertNotIn(f"  {category}-combined:\n", text)
+                        self.assertNotIn(
+                            f"RULE-SET,{category}-combined,REJECT", text
+                        )
 
     def test_migrated_config_cannot_keep_custom_as_second_provider(self):
         module = load_activate()
