@@ -100,7 +100,7 @@
     "source": "https://anti-ad.net/mihomo.mrs",
     "target": "rules/ads/mrs/antiad.mrs",
     "format": "mrs",
-    "analysis_source": "https://anti-ad.net/domains.txt",
-    "analysis_format": "text"
+    "analysis_source": "https://anti-ad.net/clash.yaml",
+    "analysis_format": "yaml"
   }
 ]
