@@ -43,9 +43,9 @@ jobs:
 
           # Preserve the original push triggers for workflow/builder edits.
           if [[ "$BEFORE" =~ ^0+$ ]]; then
-            changed="$(git diff-tree --no-commit-id --name-only -r "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/mrs_merge.py tools/activate-merged-mrs.py tools/migrate-third-party-mrs.py tests/test_mrs_merge.py tests/test_mrs_overlap.py)"
+            changed="$(git diff-tree --no-commit-id --name-only -r "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/mrs_merge.py tools/activate-merged-mrs.py tools/migrate-third-party-mrs.py tests/test_mrs_merge.py tests/test_mrs_overlap.py rules/security/custom.txt rules/privacy/custom.txt rules/ads/custom.txt)"
           else
-            changed="$(git diff --name-only "$BEFORE" "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/mrs_merge.py tools/activate-merged-mrs.py tools/migrate-third-party-mrs.py tests/test_mrs_merge.py tests/test_mrs_overlap.py)"
+            changed="$(git diff --name-only "$BEFORE" "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/mrs_merge.py tools/activate-merged-mrs.py tools/migrate-third-party-mrs.py tests/test_mrs_merge.py tests/test_mrs_overlap.py rules/security/custom.txt rules/privacy/custom.txt rules/ads/custom.txt)"
           fi
           if [[ -n "$changed" ]]; then
             printf 'Build source changed:\n%s\n' "$changed"
