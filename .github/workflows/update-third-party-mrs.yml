@@ -1,7 +1,9 @@
 name: Update third-party MRS
-# Temporarily manual-only: repeated failing builds must not notify hourly/on push.
-# Restore push/schedule only after a verified successful MRS build.
 on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '30 * * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -122,10 +124,12 @@ jobs:
           done
           echo "::error::Could not push MRS after 3 rebuild attempts; never force-pushing."
           exit 1
-      - name: Purge changed MRS and config paths, verify CDN
+      - name: Purge changed MRS paths, verify CDN
         if: steps.commit.outputs.changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          git diff --name-only HEAD^ HEAD -- rules/ads/mrs rules/privacy/mrs rules/security/mrs configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml > /tmp/mrs-changed
+          # Only MRS bytes need jsDelivr/Worker verification. Configs are
+          # consumed through their own config route, not rules.reginald.win.
+          git diff --name-only HEAD^ HEAD -- rules/ads/mrs rules/privacy/mrs rules/security/mrs > /tmp/mrs-changed
           python3 tools/cdn_purge_verify.py --paths-file /tmp/mrs-changed --verify-domain
