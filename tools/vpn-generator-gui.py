@@ -6,7 +6,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, QThread, Signal, QTime
+from PySide6.QtCore import QSettings, QThread, Signal, QTime, Qt
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QTimeEdit,
     QFileDialog,
     QFormLayout,
+    QFrame,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -25,6 +27,8 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QRadioButton,
+    QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QTabWidget,
     QToolButton,
@@ -280,64 +284,126 @@ class WarpScheduleDialog(QDialog):
 
 
 class MihomoDohPanel(QWidget):
-    """Global localhost DoH TLS settings independent of the VPN provider."""
+    """Mihomo-wide TLS controls, independent of provider UI and its output path."""
+
+    @staticmethod
+    def _help_text(message: str, parent: QWidget) -> QLabel:
+        label = QLabel(message, parent)
+        # Unbroken URLs and long explanations must never determine form width.
+        label.setWordWrap(True)
+        label.setMinimumWidth(0)
+        label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        return label
 
     def __init__(self, parent, settings: QSettings):
         super().__init__(parent)
         self.settings = settings
         self.files: mihomo_doh.CertificateFiles | None = None
 
-        layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(
-            "Mihomo 全域設定：每個本機 Mihomo 實例只需建立一組 DoH 憑證，"
-            "與 PIA、Surfshark、WARP 的 Provider 產生無關。"
-        ))
-        layout.addWidget(QLabel(
-            "CA 簽章私鑰只存放於目前 Windows 使用者資料夾；"
-            "Mihomo 目錄僅儲存伺服器憑證、私鑰及公開 CA 憑證。"
-        ))
-        self.output = QLineEdit(
-            settings.value("doh/out_dir", r"P:\Clash", str)
+        viewport_layout = QVBoxLayout(self)
+        viewport_layout.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        viewport_layout.addWidget(scroll)
+
+        content = QWidget(scroll)
+        scroll.setWidget(content)
+        layout = QVBoxLayout(content)
+        layout.setSpacing(12)
+
+        self.summary_label = self._help_text(
+            "這是 Mihomo 的全域設定：每個本機實例只需建立一組 DoH 憑證，不隨 VPN Provider 切換。",
+            content,
         )
+        layout.addWidget(self.summary_label)
+
+        cert_group = QGroupBox("憑證管理", content)
+        cert_layout = QVBoxLayout(cert_group)
+        cert_layout.setSpacing(9)
+
+        self.output = QLineEdit(settings.value("doh/out_dir", r"P:\Clash", str))
+        self.output.setMinimumWidth(0)
+        self.output.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         location = QHBoxLayout()
-        location.addWidget(QLabel("Mihomo 根目錄"))
+        location.setSpacing(8)
+        root_label = QLabel("Mihomo 根目錄", cert_group)
+        root_label.setFixedWidth(root_label.fontMetrics().horizontalAdvance("Mihomo 根目錄") + 8)
+        location.addWidget(root_label)
         location.addWidget(self.output, 1)
-        browse = QPushButton("瀏覽")
+        browse = QPushButton("瀏覽", cert_group)
+        browse.setFixedWidth(84)
         browse.clicked.connect(self.pick_output)
         location.addWidget(browse)
-        layout.addLayout(location)
+        cert_layout.addLayout(location)
 
         actions = QHBoxLayout()
-        self.generate_button = QPushButton("產生／檢查 TLS 憑證")
+        actions.setSpacing(8)
+        self.generate_button = QPushButton("產生／檢查 TLS 憑證", cert_group)
         self.generate_button.clicked.connect(self.generate)
         actions.addWidget(self.generate_button)
 
-        self.trust_button = QPushButton("信任 CA（目前使用者）")
+        self.trust_button = QPushButton("信任 CA（目前使用者）", cert_group)
         self.trust_button.setEnabled(False)
         self.trust_button.clicked.connect(self.install_trust)
         actions.addWidget(self.trust_button)
-        layout.addLayout(actions)
+        actions.addStretch(1)
+        cert_layout.addLayout(actions)
 
-        layout.addWidget(QLabel(
-            "只供 127.0.0.1:9443 使用；請將以下片段合併進 Mihomo 生效設定，"
-            "不要取代既有 external-controller / dns 區塊。"
-        ))
-        self.snippet = QPlainTextEdit()
+        self.security_label = self._help_text(
+            "CA 簽章私鑰保存在目前 Windows 使用者資料夾；"
+            "Mihomo 目錄只存放伺服器憑證、私鑰及公開 CA 憑證。",
+            cert_group,
+        )
+        cert_layout.addWidget(self.security_label)
+        layout.addWidget(cert_group)
+
+        config_group = QGroupBox("Mihomo 設定", content)
+        config_layout = QVBoxLayout(config_group)
+        config_layout.setSpacing(8)
+        self.config_help_label = self._help_text(
+            "將以下片段合併至 Mihomo 生效設定，不要覆蓋原有 external-controller 或 dns 區塊。",
+            config_group,
+        )
+        config_layout.addWidget(self.config_help_label)
+
+        self.snippet = QPlainTextEdit(config_group)
         self.snippet.setReadOnly(True)
-        self.snippet.setMinimumHeight(158)
-        layout.addWidget(self.snippet)
+        self.snippet.setFixedHeight(156)
+        self.snippet.setMinimumWidth(0)
+        config_layout.addWidget(self.snippet)
 
-        self.copy_button = QPushButton("複製 Mihomo 設定片段")
+        self.copy_button = QPushButton("複製設定片段", config_group)
         self.copy_button.setEnabled(False)
         self.copy_button.clicked.connect(
             lambda: QApplication.clipboard().setText(self.snippet.toPlainText())
         )
-        layout.addWidget(self.copy_button)
-        layout.addWidget(QLabel(
-            "Firefox DoH 自訂端點：https://127.0.0.1:9443/dns-query\n"
-            "若要求不回退系統 DNS，請在 about:config 使用 network.trr.mode = 3。"
-        ))
+        copy_row = QHBoxLayout()
+        copy_row.addWidget(self.copy_button)
+        copy_row.addStretch(1)
+        config_layout.addLayout(copy_row)
 
+        endpoint_row = QHBoxLayout()
+        endpoint_row.setSpacing(8)
+        endpoint_label = QLabel("Firefox DoH", config_group)
+        endpoint_label.setFixedWidth(root_label.width())
+        endpoint_row.addWidget(endpoint_label)
+        self.endpoint_input = QLineEdit(
+            "https://127.0.0.1:9443/dns-query", config_group
+        )
+        self.endpoint_input.setReadOnly(True)
+        self.endpoint_input.setMinimumWidth(0)
+        endpoint_row.addWidget(self.endpoint_input, 1)
+        config_layout.addLayout(endpoint_row)
+
+        self.firefox_help_label = self._help_text(
+            "Firefox 若須禁止回退系統 DNS，可設定 about:config → network.trr.mode = 3。"
+            "Mihomo 的 DoH 功能預設仍未啟用。",
+            config_group,
+        )
+        config_layout.addWidget(self.firefox_help_label)
+        layout.addWidget(config_group)
         layout.addStretch(1)
 
     def pick_output(self) -> None:
@@ -415,6 +481,8 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(provider_page)
 
         form = QFormLayout()
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         root.addLayout(form)
 
         provider_row = QWidget()
@@ -508,6 +576,19 @@ class MainWindow(QMainWindow):
         self.exclude_streaming.setChecked(True)
         self.exclude_streaming_label = QLabel("節點過濾")
         form.addRow(self.exclude_streaming_label, self.exclude_streaming)
+
+        # Reserve a stable label column for every provider; dynamic text (PIA /
+        # Surfshark) must not shift the inputs horizontally when switched.
+        widest = max(
+            "Surfshark 帳號 / 密碼", "OpenVPN UDP ZIP", "OpenVPN TCP ZIP",
+            key=lambda value: self.credentials_label.fontMetrics().horizontalAdvance(value),
+        )
+        label_width = self.credentials_label.fontMetrics().horizontalAdvance(widest) + 12
+        for label in (
+            self.udp_label, self.tcp_label,
+            self.credentials_label, self.exclude_streaming_label,
+        ):
+            label.setFixedWidth(label_width)
 
         self.run_button = QPushButton("執行")
         self.run_button.clicked.connect(self.start_generation)
@@ -614,7 +695,8 @@ class MainWindow(QMainWindow):
                 self.tcp_label.hide()
                 self.tcp_row.hide()
                 self.credentials_label.setText("Surfshark 帳號 / 密碼")
-                self.exclude_streaming.setText("排除 Surfshark Streaming Optimized")
+                self.exclude_streaming.setText("排除 Streaming Optimized")
+                self.exclude_streaming.setToolTip("排除 Surfshark Streaming Optimized 節點")
             else:
                 self.wireguard_checkbox.setEnabled(True)
                 self.wireguard_checkbox.setToolTip("")
@@ -626,7 +708,8 @@ class MainWindow(QMainWindow):
                 self.tcp_label.show()
                 self.tcp_row.show()
                 self.credentials_label.setText("PIA 帳號 / 密碼")
-                self.exclude_streaming.setText("排除 PIA Streaming Optimized")
+                self.exclude_streaming.setText("排除 Streaming Optimized")
+                self.exclude_streaming.setToolTip("排除 PIA Streaming Optimized 節點")
 
         self.warp_schedule_button.setVisible(warp)
         self.update_protocol_controls()
