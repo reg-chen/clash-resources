@@ -140,5 +140,26 @@ class ProviderStateTests(unittest.TestCase):
         generator.generate_warp.assert_called_once_with(out_dir=Path(self.directory.name))
 
 
+    def test_doh_dialog_does_not_depend_on_provider_inputs(self):
+        self.assertTrue(self.window.doh_button.isEnabled())
+        dialog = gui.MihomoDohDialog(self.window, self.directory.name, self.settings)
+        self.assertFalse(dialog.trust_button.isEnabled())
+        files = gui.mihomo_doh.CertificateFiles(
+            Path(self.directory.name) / "certs" / "root-ca.crt",
+            Path(self.directory.name) / "certs" / "mihomo-localhost.crt",
+            Path(self.directory.name) / "certs" / "mihomo-localhost.key",
+            True,
+        )
+        with mock.patch.object(gui.mihomo_doh, "generate_certificates", return_value=files) as generate:
+            with mock.patch.object(gui.QMessageBox, "information"):
+                dialog.generate()
+        generate.assert_called_once_with(Path(self.directory.name))
+        self.assertTrue(dialog.trust_button.isEnabled())
+        self.assertIn("external-doh-server: /dns-query", dialog.snippet.toPlainText())
+        self.assertEqual(self.settings.value("doh/out_dir"), self.directory.name)
+        dialog.close()
+
+
+
 if __name__ == "__main__":
     unittest.main()
