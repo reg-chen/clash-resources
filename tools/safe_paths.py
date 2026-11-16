@@ -18,10 +18,12 @@ def provider_directory(output_directory: str | Path) -> str:
     if sys.platform != "win32":
         # Allows deterministic tests of Windows paths on non-Windows runners.
         return ntpath.normpath(ntpath.join(text, "providers"))
-    folder = Path(text).expanduser().resolve()
+    folder = Path(text).expanduser()
     if not folder.is_absolute():
         raise ValueError("輸出目錄必須是絕對路徑。")
-    return str(folder / "providers")
+    # Preserve the drive-letter spelling used in SAFE_PATHS (e.g. P:\Clash).
+    # Resolving mapped drives/junctions can produce a different Windows path.
+    return ntpath.normpath(str(folder / "providers"))
 
 
 def _identity(path: str) -> str:
