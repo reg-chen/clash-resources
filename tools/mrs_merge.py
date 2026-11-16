@@ -73,7 +73,10 @@ def parse_domain_rules(
         except ValueError:
             if skipped_invalid is None or source_format != "text":
                 raise
-            skipped_invalid.append((row, original.strip()[:200]))
+            # Avoid writing complete phishing URLs (which can carry tokens,
+            # email addresses or other PII in query strings) to public CI logs.
+            reason = "URL/path entry" if "://" in original or "/" in original else "non-domain token"
+            skipped_invalid.append((row, reason))
             continue
         result.add(line)
     if not result and not allow_empty:
