@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from PySide6.QtCore import QPoint, QSettings, Qt
-from PySide6.QtWidgets import QApplication, QScrollArea, QSizePolicy
+from PySide6.QtWidgets import QApplication, QScrollArea
 import vpn_generator_core as core
 
 gui = core.load_sibling("vpn-generator-gui.py", "vpn_gui_under_test")
@@ -105,7 +105,7 @@ class ProviderStateTests(unittest.TestCase):
         self.assertEqual(input_x(), base_x)
         self.assertEqual(window.credentials_label.width(), window.udp_label.width())
 
-    def test_doh_long_description_cannot_force_controls_sideways(self):
+    def test_doh_tab_controls_stay_aligned_on_hostname_changes(self):
         window = self.window
         window.show()
         window.tabs.setCurrentWidget(window.doh_panel)
@@ -115,20 +115,16 @@ class ProviderStateTests(unittest.TestCase):
         self.assertIsInstance(scroll, QScrollArea)
         self.assertTrue(scroll.widgetResizable())
         self.assertEqual(scroll.horizontalScrollBarPolicy(), Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-
-        for label in (
-            panel.summary_label, panel.security_label,
-            panel.config_help_label, panel.firefox_help_label,
-        ):
-            self.assertTrue(label.wordWrap())
-            self.assertEqual(label.sizePolicy().horizontalPolicy(), QSizePolicy.Policy.Ignored)
-
         before_output = panel.output.mapTo(window, QPoint(0, 0))
         before_snippet = panel.snippet.mapTo(window, QPoint(0, 0))
-        panel.summary_label.setText("Explanatory text " * 80)
+        panel.host_input.setText("a-very-long-but-valid-localhost-doh-endpoint.test")
         QApplication.processEvents()
         self.assertEqual(panel.output.mapTo(window, QPoint(0, 0)), before_output)
         self.assertEqual(panel.snippet.mapTo(window, QPoint(0, 0)), before_snippet)
+        self.assertEqual(panel.endpoint_input.text(),
+                         "https://a-very-long-but-valid-localhost-doh-endpoint.test:9443/dns-query")
+        self.assertEqual(panel.hosts_input.text(),
+                         "'a-very-long-but-valid-localhost-doh-endpoint.test': 127.0.0.1")
 
     def test_worker_passes_surfsharks_own_filter(self):
         for exclude in (True, False):
@@ -190,11 +186,11 @@ class ProviderStateTests(unittest.TestCase):
         self.assertEqual(window.tabs.tabText(1), "Mihomo DNS / TLS")
         panel = window.doh_panel
         self.assertFalse(panel.trust_button.isEnabled())
-        self.assertEqual(panel.output.text(), r"P:\Clash")
+        self.assertEqual(panel.output.text(), panel._default_cert_root())
+        self.assertEqual(panel.host_input.text(), "127.0.0.1")
 
-        # Switching VPN providers must never change DoH's own directory or
-        # trigger CA generation; the VPN provider output path is separate.
         panel.output.setText(self.directory.name)
+        panel.host_input.setText("dns.mihomo.test")
         with mock.patch.object(gui.mihomo_doh, "generate_certificates") as generate:
             window.surfshark_radio.setChecked(True)
             window.out_edit.setText(str(Path(self.directory.name) / "surfshark"))
@@ -210,14 +206,20 @@ class ProviderStateTests(unittest.TestCase):
             True,
         )
         with mock.patch.object(gui.mihomo_doh, "generate_certificates", return_value=files) as generate:
-            with mock.patch.object(gui.QMessageBox, "information"):
-                window.tabs.setCurrentWidget(panel)
-                panel.generate()
-        generate.assert_called_once_with(Path(self.directory.name))
+            window.tabs.setCurrentWidget(panel)
+            panel.generate()
+        generate.assert_called_once_with(Path(self.directory.name), "dns.mihomo.test")
         self.assertTrue(panel.trust_button.isEnabled())
         self.assertIn("external-doh-server: /dns-query", panel.snippet.toPlainText())
-        self.assertEqual(self.settings.value("doh/out_dir"), self.directory.name)
+        self.assertEqual(self.settings.value("doh/cert_root"), self.directory.name)
+        self.assertEqual(self.settings.value("doh/host"), "dns.mihomo.test")
         self.assertEqual(window.tabs.currentWidget(), panel)
+
+        panel.host_input.setText("127.0.0.1")
+        self.assertFalse(panel.copy_button.isEnabled())
+        self.assertFalse(panel.trust_button.isEnabled())
+        self.assertEqual(panel.hosts_input.text(), "")
+
 
 
 
