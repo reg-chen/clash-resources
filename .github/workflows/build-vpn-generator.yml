@@ -52,6 +52,7 @@ jobs:
             tools/vpn_generator_core.py `
             tools/mihomo_doh.py `
             tools/safe_paths.py `
+            tools/uwp_firewall.py `
             tools/pia-openvpn-generator.py `
             tools/pia-wireguard-generator.py `
             tools/warp-wireguard-generator.py `
@@ -86,6 +87,7 @@ jobs:
             --add-data "tools/pia-wireguard-generator.py;." `
             --add-data "tools/warp-wireguard-generator.py;." `
             --add-data "tools/surfshark-openvpn-generator.py;." `
+            --add-data "tools/uwp_firewall.ps1;." `
             tools/vpn-generator-gui.py
 
       - name: Save PyInstaller build cache
