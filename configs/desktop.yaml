@@ -433,12 +433,12 @@ rule-providers:
   # =====================================================================
   # 🟥 Risk Ports - Encrypted DNS / Internet Egress
   # =====================================================================
-  security-riskport:
+  network-ports:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: "https://rules.reginald.win/security/riskport.yaml"
-    path: P:\\Clash\\rules\\security\\riskport.yaml
+    url: "https://rules.reginald.win/network/ports.yaml"
+    path: P:\\Clash\\rules\\network\\ports.yaml
 
   # =====================================================================
   # 🟥 Privacy - Custom
@@ -627,7 +627,7 @@ sub-rules:
     - RULE-SET,security-threat,REJECT
     - RULE-SET,security-phishing,REJECT
     - RULE-SET,security-dyndns,REJECT
-    - RULE-SET,security-riskport,REJECT
+    - RULE-SET,network-ports,REJECT
 
   # =====================================================================
   # 🟥 Privacy - Native Trackers
