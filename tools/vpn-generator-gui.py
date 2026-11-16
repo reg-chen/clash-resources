@@ -371,7 +371,15 @@ class MihomoDohPanel(QWidget):
         config_layout.addLayout(copy)
 
         url_row = QHBoxLayout()
-        url_row.addWidget(QLabel("Firefox DoH"))
+        url_label = QLabel("Firefox DoH", config_group)
+        hosts_label = QLabel("Party Hosts", config_group)
+        label_width = max(
+            url_label.fontMetrics().horizontalAdvance(url_label.text()),
+            hosts_label.fontMetrics().horizontalAdvance(hosts_label.text()),
+        ) + 8
+        url_label.setFixedWidth(label_width)
+        hosts_label.setFixedWidth(label_width)
+        url_row.addWidget(url_label)
         self.endpoint_input = QLineEdit(config_group)
         self.endpoint_input.setReadOnly(True)
         self.endpoint_input.setMinimumWidth(0)
@@ -384,7 +392,7 @@ class MihomoDohPanel(QWidget):
         config_layout.addLayout(url_row)
 
         hosts_row = QHBoxLayout()
-        hosts_row.addWidget(QLabel("Party Hosts"))
+        hosts_row.addWidget(hosts_label)
         self.hosts_input = QLineEdit(config_group)
         self.hosts_input.setReadOnly(True)
         self.hosts_input.setMinimumWidth(0)
