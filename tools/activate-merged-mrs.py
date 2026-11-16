@@ -15,7 +15,7 @@ CATEGORIES = ("security", "privacy", "ads")
 CONFIGS = (
     "configs/desktop.yaml",
     "configs/android-firewall-only.yaml",
-    "configs/ios-firewall-only.yaml",
+    # iOS already has no sub-rules and deliberately uses a reduced rule set.
     "configs/windows-firewall-only.yaml",
 )
 
@@ -67,9 +67,9 @@ def _source_groups(sources: list[dict]) -> dict[str, list[str]]:
     return groups
 
 
-def _flatten_sub_rules(text: str, groups: dict[str, list[str]]) -> str:
+def _flatten_sub_rules(sub_section: str, rule_section: str, groups: dict[str, list[str]]) -> str:
     """Replace each SUB-RULE invocation with ordered, direct RULE-SET entries."""
-    section_headers = list(re.finditer(r"(?m)^  (SECURITY|PRIVACY-NATIVE|ADS):\s*$", text))
+    section_headers = list(re.finditer(r"(?m)^  (SECURITY|PRIVACY-NATIVE|ADS):\s*$", sub_section))
     if len(section_headers) != 3:
         raise ValueError("Expected three legacy sub-rule groups")
     names_to_category = {
@@ -78,8 +78,8 @@ def _flatten_sub_rules(text: str, groups: dict[str, list[str]]) -> str:
     replacements: dict[str, list[str]] = {}
     for i, header in enumerate(section_headers):
         name = header.group(1)
-        end = section_headers[i + 1].start() if i + 1 < len(section_headers) else len(text)
-        contents = text[header.end():end]
+        end = section_headers[i + 1].start() if i + 1 < len(section_headers) else len(sub_section)
+        contents = sub_section[header.end():end]
         entries = []
         for line in contents.splitlines():
             stripped = line.strip()
@@ -120,7 +120,7 @@ def _flatten_sub_rules(text: str, groups: dict[str, list[str]]) -> str:
         indent = match.group("indent")
         return "\n".join(indent + rule for rule in replacements[name])
 
-    rewritten = pattern.sub(expand, text)
+    rewritten = pattern.sub(expand, rule_section)
     if occurrences != {"SECURITY": 1, "PRIVACY-NATIVE": 1, "ADS": 1}:
         raise ValueError(f"Unexpected SUB-RULE occurrence counts: {occurrences}")
     if "SUB-RULE," in rewritten:
@@ -143,10 +143,7 @@ def rewrite_config(text: str, sources: list[dict]) -> str:
     }
 
     # Validate and flatten every sub-rule before touching any provider.
-    flattened_tail = _flatten_sub_rules(legacy_sub + "\n" + tail, groups)
-    if not flattened_tail.startswith(legacy_sub[:len("sub-rules:")]):
-        raise ValueError("Unexpected sub-rules structure")
-    flattened_tail = flattened_tail[flattened_tail.index("\nrules:\n") + 1:]
+    flattened_tail = _flatten_sub_rules(legacy_sub, tail, groups)
 
     for category, names in groups.items():
         for name in names:
