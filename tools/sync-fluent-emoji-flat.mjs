@@ -74,6 +74,18 @@ const headline = "Fluent Emoji Flat: upstream " + names.length +
 console.log(headline);
 for (const item of pending.slice(0, 15)) console.log("  " + item.name);
 if (pending.length > 15) console.log("  ... and " + (pending.length - 15) + " more");
+if (mode === "--check" && updates.length > 100) {
+  // Temporary diagnostic for any unexpected mass change; never publish it.
+  for (const item of updates.slice(0, 3)) {
+    const before = canonicalSVG(readFileSync(item.dest, "utf8"));
+    const after = canonicalSVG(item.content);
+    let pos = 0;
+    while (pos < before.length && pos < after.length && before[pos] === after[pos]) pos++;
+    console.log("DIAGNOSTIC " + item.name + ": first diff " + pos +
+      ", old " + JSON.stringify(before.slice(Math.max(0, pos - 40), pos + 160)) +
+      ", upstream " + JSON.stringify(after.slice(Math.max(0, pos - 40), pos + 160)));
+  }
+}
 
 if (process.env.GITHUB_STEP_SUMMARY) {
   const summary = [
