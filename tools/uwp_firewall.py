@@ -59,14 +59,26 @@ def _run(mode: str, target: Path, *, elevated: bool) -> dict:
         ]
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         if elevated:
-            argline = subprocess.list2cmdline(args)
+            # Encode the full inner invocation, not Windows-quoted argv.
+            # Start-Process joins -ArgumentList values; passing the paths
+            # directly would break in directories containing spaces/quotes.
+            inner = (
+                f"& {_quote_ps(str(script))} -Mode {_quote_ps(mode)} "
+                f"-Path {_quote_ps(str(target))} -Report {_quote_ps(str(report))}; "
+                "exit $LASTEXITCODE"
+            )
+            inner_encoded = base64.b64encode(inner.encode("utf-16-le")).decode("ascii")
             outer = (
                 "$p = Start-Process -FilePath 'powershell.exe' "
-                f"-ArgumentList {_quote_ps(argline)} -Verb RunAs -Wait -PassThru; "
-                "exit $p.ExitCode"
+                "-ArgumentList @('-NoProfile','-NonInteractive',"
+                f"'-ExecutionPolicy','Bypass','-EncodedCommand','{inner_encoded}') "
+                "-Verb RunAs -Wait -PassThru; exit $p.ExitCode"
             )
-            encoded = base64.b64encode(outer.encode("utf-16-le")).decode("ascii")
-            command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded]
+            outer_encoded = base64.b64encode(outer.encode("utf-16-le")).decode("ascii")
+            command = [
+                "powershell.exe", "-NoProfile", "-NonInteractive",
+                "-EncodedCommand", outer_encoded,
+            ]
         else:
             command = ["powershell.exe", *args]
         result = subprocess.run(
@@ -78,7 +90,11 @@ def _run(mode: str, target: Path, *, elevated: bool) -> dict:
             raise RuntimeError(f"Windows 防火牆操作未完成：{error[-650:]}")
         summary = json.loads(report.read_text(encoding="utf-8-sig"))
         if result.returncode:
-            summary["error"] = (result.stderr or result.stdout or "部分規則套用失敗").strip()
+            errors = summary.get("Errors", [])
+            detail = "; ".join(str(x) for x in errors[:5]) if errors else (
+                result.stderr or result.stdout or "防火牆命令執行失敗"
+            ).strip()
+            raise RuntimeError(f"Windows 防火牆操作未完成（exit {result.returncode}）：{detail[-1000:]}")
         return summary
 
 

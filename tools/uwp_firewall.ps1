@@ -34,7 +34,15 @@ public static class UwpFirewallSid {
 
 function Installed-Packages {
     $lookup = @{}
-    foreach ($app in @(Get-AppxPackage -ErrorAction Stop)) {
+    # An elevated restore may run as a different admin user. Query all
+    # installed AppX packages then, so a non-admin user's Store apps are
+    # still resolvable by package family SID.
+    $packages = if ($Mode -eq "restore") {
+        @(Get-AppxPackage -AllUsers -ErrorAction Stop)
+    } else {
+        @(Get-AppxPackage -ErrorAction Stop)
+    }
+    foreach ($app in $packages) {
         $family = [string]$app.PackageFamilyName
         if (-not $family) { continue }
         $sid = [UwpFirewallSid]::ForPackage($family)

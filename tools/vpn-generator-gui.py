@@ -541,11 +541,10 @@ class UwpFirewallPanel(QWidget):
         self.worker.completed.connect(
             lambda ok, result: self._finished(mode, path, ok, result)
         )
+        self.worker.finished.connect(self._worker_finished)
         self.worker.start()
 
     def _finished(self, mode: str, path: Path, ok: bool, result: object) -> None:
-        self.backup_button.setEnabled(True)
-        self.restore_button.setEnabled(True)
         if not ok:
             self.status.setText("未完成")
             QMessageBox.critical(self, "防火牆操作失敗", str(result))
@@ -561,7 +560,13 @@ class UwpFirewallPanel(QWidget):
                 QMessageBox.warning(
                     self, "部分套用失敗", "\n".join(result["Errors"][:8])
                 )
-        self.worker = None
+    def _worker_finished(self) -> None:
+        # Do not destroy a QThread on 'completed' before run() returns.
+        self.backup_button.setEnabled(True)
+        self.restore_button.setEnabled(True)
+        if self.worker is not None:
+            self.worker.deleteLater()
+            self.worker = None
 
 
 class MainWindow(QMainWindow):
@@ -1112,6 +1117,16 @@ class MainWindow(QMainWindow):
         self.settings.setValue("provider", provider)
 
     def closeEvent(self, event) -> None:
+        # An active Windows UAC / PowerShell process must not be orphaned by
+        # destroying the QThread-owned window while it is still executing.
+        worker = self.uwp_panel.worker
+        if worker is not None and worker.isRunning():
+            event.ignore()
+            QMessageBox.information(
+                self, "防火牆操作進行中",
+                "請先完成 UWP 防火牆備份或還原，再關閉程式。",
+            )
+            return
         self.save_settings()
         super().closeEvent(event)
 
