@@ -185,6 +185,8 @@ def main() -> None:
         original = file.read_text(encoding="utf-8")
         # Skip once migrated; the source set may still update independently.
         if all(f"  {category}-combined:\n" in original for category in CATEGORIES):
+            if "sub-rules:" in original or "SUB-RULE," in original:
+                raise ValueError(f"Partially migrated configuration: {rel}")
             continue
         updated = rewrite_config(original, SOURCES)
         modified.append((file, updated))
