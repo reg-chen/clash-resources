@@ -9,6 +9,8 @@ import json
 import pathlib
 import re
 
+from mrs_merge import CUSTOM_SOURCES
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
 CATEGORIES = ("security", "privacy", "ads")
@@ -58,8 +60,9 @@ def replacement_path(name: str, category: str, section: str) -> str:
 
 
 def _source_groups(sources: list[dict]) -> dict[str, list[str]]:
+    merged_sources = [*sources, *CUSTOM_SOURCES]
     groups = {
-        category: [item["name"] for item in sources if category_name(item["name"]) == category]
+        category: [item["name"] for item in merged_sources if category_name(item["name"]) == category]
         for category in CATEGORIES
     }
     if any(not names for names in groups.values()):
@@ -105,6 +108,8 @@ def _flatten_sub_rules(sub_section: str, rule_section: str, groups: dict[str, li
                     flattened.append(f"- RULE-SET,{category}-combined,REJECT")
                     inserted = True
             else:
+                if rule_name == "network-ports":
+                    flattened.append("# Network port restrictions (classical)")
                 flattened.append(line)
         replacements[name] = flattened
 
@@ -174,6 +179,36 @@ def rewrite_config(text: str, sources: list[dict]) -> str:
     return text[:provider_start] + providers + "\n" + flattened_tail
 
 
+def remove_custom_from_activated(text: str) -> str:
+    """Upgrade an already combined YAML that still loads custom TXT separately."""
+    if "sub-rules:" in text or "SUB-RULE," in text:
+        raise ValueError("Legacy sub-rules remain in a combined profile")
+    if any(f"  {category}-combined:\n" not in text for category in CATEGORIES):
+        raise ValueError("Missing category-combined rule provider")
+    if all(f"RULE-SET,{category}-custom,REJECT" not in text for category in CATEGORIES):
+        return text
+
+    providers_start = text.index("rule-providers:\n")
+    rules_start = text.index("\nrules:", providers_start)
+    providers = text[providers_start:rules_start]
+    tail = text[rules_start:]
+    for category in CATEGORIES:
+        name = f"{category}-custom"
+        provider_match = re.compile(
+            rf"(?m)(?:^  # [^\n]*\n){{0,5}}^  {name}:\n(?:^    [^\n]*\n)+"
+        )
+        providers, count = provider_match.subn("", providers)
+        if count != 1:
+            raise ValueError(f"Missing active custom provider {name}")
+        pattern = re.compile(rf"(?m)^[ \t]*- RULE-SET,{name},REJECT[^\n]*\n")
+        tail, count = pattern.subn("", tail)
+        if count != 1:
+            raise ValueError(f"Missing active custom rule {name}")
+        if tail.count(f"RULE-SET,{category}-combined,REJECT") != 1:
+            raise ValueError(f"Missing active {category} merged rule")
+    return text[:providers_start] + providers + tail
+
+
 def main() -> None:
     for category in CATEGORIES:
         target = merged_path(category)
@@ -187,9 +222,11 @@ def main() -> None:
         if all(f"  {category}-combined:\n" in original for category in CATEGORIES):
             if "sub-rules:" in original or "SUB-RULE," in original:
                 raise ValueError(f"Partially migrated configuration: {rel}")
-            continue
-        updated = rewrite_config(original, SOURCES)
-        modified.append((file, updated))
+            updated = remove_custom_from_activated(original)
+        else:
+            updated = rewrite_config(original, SOURCES)
+        if updated != original:
+            modified.append((file, updated))
     # Validate all configs before touching any of them.
     for file, updated in modified:
         file.write_text(updated, encoding="utf-8")
