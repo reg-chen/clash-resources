@@ -140,10 +140,26 @@ class ProviderStateTests(unittest.TestCase):
         generator.generate_warp.assert_called_once_with(out_dir=Path(self.directory.name))
 
 
-    def test_doh_dialog_does_not_depend_on_provider_inputs(self):
-        self.assertTrue(self.window.doh_button.isEnabled())
-        dialog = gui.MihomoDohDialog(self.window, self.directory.name, self.settings)
-        self.assertFalse(dialog.trust_button.isEnabled())
+    def test_doh_tab_is_global_and_independent_of_selected_provider(self):
+        window = self.window
+        self.assertEqual(window.tabs.count(), 2)
+        self.assertEqual(window.tabs.tabText(0), "VPN Provider")
+        self.assertEqual(window.tabs.tabText(1), "Mihomo DNS / TLS")
+        panel = window.doh_panel
+        self.assertFalse(panel.trust_button.isEnabled())
+        self.assertEqual(panel.output.text(), r"P:\Clash")
+
+        # Switching VPN providers must never change DoH's own directory or
+        # trigger CA generation; the VPN provider output path is separate.
+        panel.output.setText(self.directory.name)
+        with mock.patch.object(gui.mihomo_doh, "generate_certificates") as generate:
+            window.surfshark_radio.setChecked(True)
+            window.out_edit.setText(str(Path(self.directory.name) / "surfshark"))
+            window.warp_radio.setChecked(True)
+            window.pia_radio.setChecked(True)
+            self.assertEqual(panel.output.text(), self.directory.name)
+            generate.assert_not_called()
+
         files = gui.mihomo_doh.CertificateFiles(
             Path(self.directory.name) / "certs" / "root-ca.crt",
             Path(self.directory.name) / "certs" / "mihomo-localhost.crt",
@@ -152,12 +168,13 @@ class ProviderStateTests(unittest.TestCase):
         )
         with mock.patch.object(gui.mihomo_doh, "generate_certificates", return_value=files) as generate:
             with mock.patch.object(gui.QMessageBox, "information"):
-                dialog.generate()
+                window.tabs.setCurrentWidget(panel)
+                panel.generate()
         generate.assert_called_once_with(Path(self.directory.name))
-        self.assertTrue(dialog.trust_button.isEnabled())
-        self.assertIn("external-doh-server: /dns-query", dialog.snippet.toPlainText())
+        self.assertTrue(panel.trust_button.isEnabled())
+        self.assertIn("external-doh-server: /dns-query", panel.snippet.toPlainText())
         self.assertEqual(self.settings.value("doh/out_dir"), self.directory.name)
-        dialog.close()
+        self.assertEqual(window.tabs.currentWidget(), panel)
 
 
 
