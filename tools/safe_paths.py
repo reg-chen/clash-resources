@@ -4,7 +4,6 @@ from __future__ import annotations
 import base64
 import ctypes
 import ntpath
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -60,6 +59,18 @@ def is_machine_safe_path_present(directory: str) -> bool:
     }
 
 
+def _notify_environment_change() -> None:
+    """Notify Explorer of machine environment changes; existing apps still need restart."""
+    try:
+        result = ctypes.c_size_t()
+        ctypes.windll.user32.SendMessageTimeoutW(
+            0xFFFF, 0x001A, 0, "Environment", 0x0002, 5000,
+            ctypes.byref(result),
+        )
+    except (AttributeError, OSError):
+        pass
+
+
 def append_machine_safe_path(directory: str) -> bool:
     """Append an allowlisted directory to HKLM, never replace existing entries."""
     if sys.platform != "win32":
@@ -80,6 +91,8 @@ def append_machine_safe_path(directory: str) -> bool:
         updated, changed = append_value(str(current), directory)
         if changed:
             winreg.SetValueEx(key, "SAFE_PATHS", 0, value_type, updated)
+    if changed:
+        _notify_environment_change()
     return changed
 
 
