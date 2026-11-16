@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Switch configs to category-combined MRS only after all merged files exist.
-
-Keeps custom rules and classical security-riskport untouched.
-"""
+"""Activate category MRS containing local custom domains; leave port rules separate."""
 from __future__ import annotations
 
 import json
@@ -152,8 +149,8 @@ def rewrite_config(text: str, sources: list[dict]) -> str:
 
     for category, names in groups.items():
         for name in names:
-            # Remove only the exact named provider block; retain all bespoke
-            # providers, including security-custom and security-riskport.
+            # Remove only sources merged into this category. Keep non-domain
+            # network-ports and other classical providers independent.
             pattern = re.compile(
                 rf"(?m)(?:^  # [^\n]*\n){{0,5}}^  {re.escape(name)}:\n"
                 r"(?:^    [^\n]*\n)+"
