@@ -108,12 +108,12 @@ rule-providers:
     format: mrs
     url: https://rules.reginald.win/security/mrs/dyndns.mrs
     path: rules/security/mrs/dyndns.mrs
-  security-riskport:
+  network-ports:
     <<: *RULE-PROVIDER
     type: http
     behavior: classical
-    url: https://rules.reginald.win/security/riskport.yaml
-    path: rules/security/riskport.yaml
+    url: https://rules.reginald.win/network/ports.yaml
+    path: rules/network/ports.yaml
   privacy-custom:
     <<: *RULE-PROVIDER
     type: http
@@ -237,7 +237,7 @@ sub-rules:
   - RULE-SET,security-threat,REJECT
   - RULE-SET,security-phishing,REJECT
   - RULE-SET,security-dyndns,REJECT
-  - RULE-SET,security-riskport,REJECT
+  - RULE-SET,network-ports,REJECT
   PRIVACY-NATIVE:
   - RULE-SET,privacy-custom,REJECT
   - RULE-SET,privacy-native-amazon,REJECT
