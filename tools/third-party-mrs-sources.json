@@ -99,6 +99,8 @@
     "name": "ads-antiad",
     "source": "https://anti-ad.net/mihomo.mrs",
     "target": "rules/ads/mrs/antiad.mrs",
-    "format": "mrs"
+    "format": "mrs",
+    "analysis_source": "https://anti-ad.net/domains.txt",
+    "analysis_format": "text"
   }
 ]
