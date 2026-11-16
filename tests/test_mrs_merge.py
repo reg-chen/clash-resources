@@ -100,15 +100,23 @@ rule-providers:
     format: mrs
     path: ./rules/security/mrs/threat.mrs
 
-  security-riskport:
+  network-ports:
     behavior: classical
-    path: ./rules/security/riskport.yaml
+    path: ./rules/network/ports.yaml
+
+  privacy-custom:
+    behavior: domain
+    path: ./rules/privacy/custom.txt
 
   privacy-native-apple:
     <<: *RULE-PROVIDER
     behavior: domain
     format: mrs
     path: ./rules/privacy/native/mrs/native-apple.mrs
+
+  ads-custom:
+    behavior: domain
+    path: ./rules/ads/custom.txt
 
   ads-popup:
     <<: *RULE-PROVIDER
@@ -120,10 +128,12 @@ sub-rules:
   SECURITY:
     - RULE-SET,security-custom,REJECT
     - RULE-SET,security-threat,REJECT
-    - RULE-SET,security-riskport,REJECT
+    - RULE-SET,network-ports,REJECT
   PRIVACY-NATIVE:
+    - RULE-SET,privacy-custom,REJECT
     - RULE-SET,privacy-native-apple,REJECT
   ADS:
+    - RULE-SET,ads-custom,REJECT
     - RULE-SET,ads-popup,REJECT
 
 rules:
@@ -142,18 +152,19 @@ rules:
         for entry in entries:
             self.assertNotIn(f"  {entry['name']}:\n", new)
             self.assertNotIn(f"RULE-SET,{entry['name']},REJECT", new)
-        self.assertIn("RULE-SET,security-custom,REJECT", new)
-        self.assertIn("RULE-SET,security-riskport,REJECT", new)
+        for category in mrs_merge.CATEGORIES:
+            self.assertNotIn(f"RULE-SET,{category}-custom,REJECT", new)
+            self.assertNotIn(f"  {category}-custom:\n", new)
+        self.assertIn("RULE-SET,network-ports,REJECT", new)
+        self.assertIn("# Network port restrictions (classical)", new)
         self.assertEqual(new.count("RULE-SET,ads-combined,REJECT"), 1)
         self.assertNotIn("sub-rules:", new)
         self.assertNotIn("SUB-RULE,", new)
         self.assertEqual(new.count("RULE-SET,security-combined,REJECT"), 1)
         self.assertEqual(new.count("RULE-SET,privacy-combined,REJECT"), 1)
-        self.assertLess(new.index("RULE-SET,security-custom,REJECT"),
-                        new.index("RULE-SET,security-combined,REJECT"))
         self.assertLess(new.index("RULE-SET,security-combined,REJECT"),
-                        new.index("RULE-SET,security-riskport,REJECT"))
-        self.assertLess(new.index("RULE-SET,security-riskport,REJECT"),
+                        new.index("RULE-SET,network-ports,REJECT"))
+        self.assertLess(new.index("RULE-SET,network-ports,REJECT"),
                         new.index("RULE-SET,direct-webview2,DIRECT"))
         self.assertLess(new.index("RULE-SET,direct-webview2,DIRECT"),
                         new.index("RULE-SET,privacy-combined,REJECT"))
@@ -181,11 +192,42 @@ rules:
                         updated.index("RULE-SET,direct-webview2,")
                     )
                 self.assertLess(
-                    updated.index("RULE-SET,security-riskport,REJECT"),
+                    updated.index("RULE-SET,network-ports,REJECT"),
                     updated.index("RULE-SET,privacy-combined,REJECT")
                 )
-                self.assertIn("RULE-SET,privacy-custom,REJECT", updated)
-                self.assertIn("RULE-SET,ads-custom,REJECT", updated)
+                for category in mrs_merge.CATEGORIES:
+                    self.assertNotIn(f"RULE-SET,{category}-custom,REJECT", updated)
+                    self.assertNotIn(f"  {category}-custom:\n", updated)
+                self.assertIn("RULE-SET,network-ports,REJECT", updated)
+
+    def test_migrated_config_cannot_keep_custom_as_second_provider(self):
+        module = load_activate()
+        source = (ROOT / "configs/desktop.yaml").read_text(encoding="utf-8")
+        combined = module.rewrite_config(source, module.SOURCES)
+        self.assertEqual(module.remove_custom_from_activated(combined), combined)
+
+        # Prior flow combined third-party sources but retained local custom;
+        # simulate that state, then ensure it is safely upgraded.
+        prior = combined
+        insert_at = prior.index("rule-providers:\n") + len("rule-providers:\n")
+        for category in mrs_merge.CATEGORIES:
+            prior = prior[:insert_at] + (
+                f"  {category}-custom:\n"
+                "    behavior: domain\n"
+                f"    path: ./rules/{category}/custom.txt\n\n"
+            ) + prior[insert_at:]
+        for category in mrs_merge.CATEGORIES:
+            needle = f"- RULE-SET,{category}-combined,REJECT"
+            prior = prior.replace(
+                needle,
+                f"- RULE-SET,{category}-custom,REJECT\n  {needle}", 1
+            )
+        result = module.remove_custom_from_activated(prior)
+        self.assertNotIn("sub-rules:", result)
+        self.assertNotIn("SUB-RULE,", result)
+        for category in mrs_merge.CATEGORIES:
+            self.assertEqual(result.count(f"RULE-SET,{category}-combined,REJECT"), 1)
+            self.assertNotIn(f"RULE-SET,{category}-custom,REJECT", result)
 
 
 if __name__ == "__main__":
