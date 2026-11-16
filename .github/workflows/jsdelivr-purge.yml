@@ -6,17 +6,18 @@ on:
       - main
     paths:
       - "rules/**"
+      - "icons/**"
   workflow_dispatch:
     inputs:
       path:
-        description: "Path under rules/ only, e.g. rules/direct/process.yaml or rules/ads/mrs/combined.mrs"
+        description: "Path under rules/ or icons/, e.g. rules/ads/mrs/combined.mrs or icons/Cloudflare.svg"
         required: true
         type: string
 
 permissions:
   contents: read
 
-# Serialize rule-file purges; other repository paths do not trigger this workflow.
+# Serialize rule and icon purges; configs and overrides use GitHub Raw.
 concurrency:
   group: jsdelivr-purge-${{ github.ref }}
   cancel-in-progress: false
@@ -44,20 +45,21 @@ jobs:
           : > /tmp/jsdelivr-paths
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            if [[ "$DISPATCH_PATH" != rules/* || "$DISPATCH_PATH" == "rules/" ]]; then
-              echo "::error::Only files under rules/ may be purged."
+            if [[ "$DISPATCH_PATH" != rules/* && "$DISPATCH_PATH" != icons/* ]] ||
+               [[ "$DISPATCH_PATH" == "rules/" || "$DISPATCH_PATH" == "icons/" ]]; then
+              echo "::error::Only files under rules/ or icons/ may be purged."
               exit 1
             fi
             printf '%s\n' "$DISPATCH_PATH" > /tmp/jsdelivr-paths
           elif [[ -n "${BEFORE:-}" && "$BEFORE" != "0000000000000000000000000000000000000000" ]]; then
-            git diff --name-only "$BEFORE" "$AFTER" -- rules/ > /tmp/jsdelivr-paths
+            git diff --name-only "$BEFORE" "$AFTER" -- rules/ icons/ > /tmp/jsdelivr-paths
           else
-            git diff-tree --no-commit-id --name-only -r "$AFTER" -- rules/ > /tmp/jsdelivr-paths
+            git diff-tree --no-commit-id --name-only -r "$AFTER" -- rules/ icons/ > /tmp/jsdelivr-paths
           fi
 
-          # This workflow serves rule files (including MRS) only.
+          # This workflow serves rule files (including MRS) and icons only.
           # The MRS builder also purges its own generated MRS when publishing.
-          grep -E '^rules/.+' /tmp/jsdelivr-paths | sort -u > /tmp/jsdelivr-filtered || true
+          grep -E '^(rules|icons)/.+' /tmp/jsdelivr-paths | sort -u > /tmp/jsdelivr-filtered || true
           mv /tmp/jsdelivr-filtered /tmp/jsdelivr-paths
           echo "Paths to purge:"
           cat /tmp/jsdelivr-paths
