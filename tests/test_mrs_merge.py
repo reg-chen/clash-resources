@@ -175,10 +175,11 @@ rules:
                     self.assertEqual(
                         updated.count(f"RULE-SET,{category}-combined,REJECT"), 1
                     )
-                self.assertLess(
-                    updated.index("RULE-SET,security-combined,REJECT"),
-                    updated.index("RULE-SET,direct-webview2,")
-                ) if "direct-webview2" in updated else None
+                if "RULE-SET,direct-webview2," in updated:
+                    self.assertLess(
+                        updated.index("RULE-SET,security-combined,REJECT"),
+                        updated.index("RULE-SET,direct-webview2,")
+                    )
                 self.assertLess(
                     updated.index("RULE-SET,security-riskport,REJECT"),
                     updated.index("RULE-SET,privacy-combined,REJECT")
