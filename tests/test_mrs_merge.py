@@ -50,6 +50,20 @@ class MergeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Invalid domain"):
             mrs_merge.parse_domain_rules(b"bad path.example.com\n", "text")
 
+    def test_numeric_ip_like_domain_token_is_not_rejected(self):
+        sample = (
+            b"101.0.81.153\\n"
+            b"10000susan_gilbert.goodluckseeker.com\\n"
+            b"+.safe.example.org\\n"
+        ).replace(b"\\\\n", b"\\n")
+        self.assertEqual(
+            mrs_merge.parse_domain_rules(sample, "text"),
+            {"101.0.81.153", "10000susan_gilbert.goodluckseeker.com", "+.safe.example.org"},
+        )
+        for bad in (b"bad domain.example\\n", b"http://example.com\\n"):
+            with self.assertRaisesRegex(ValueError, "Invalid domain"):
+                mrs_merge.parse_domain_rules(bad, "text")
+
     def test_category_boundaries_no_cross_merging(self):
         entries = [
             {"name": "ads-a"}, {"name": "ads-b"},

@@ -5,8 +5,6 @@ source rules whose semantics cannot be represented as Mihomo domain text.
 """
 from __future__ import annotations
 
-import ipaddress
-import re
 import subprocess
 from pathlib import Path
 
@@ -15,25 +13,23 @@ CUSTOM_SOURCES = tuple(
     {"name": f"{category}-custom", "path": f"rules/{category}/custom.txt"}
     for category in CATEGORIES
 )
-DOMAIN_RE = re.compile(
-    r"(?i)^(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.)+"
-    r"[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?$"
-)
-
-
 def normalized_domain(raw: str) -> str:
     value = raw.strip().rstrip(".").lower()
     try:
         value = value.encode("idna").decode("ascii")
     except UnicodeError as exc:
         raise ValueError(f"Invalid domain: {raw!r}") from exc
-    if not DOMAIN_RE.fullmatch(value):
-        raise ValueError(f"Invalid domain: {raw!r}")
-    try:
-        ipaddress.ip_address(value)
-    except ValueError:
-        return value
-    raise ValueError(f"IP address in domain source: {raw!r}")
+    # Domain-behavior rulesets are not restricted to RFC hostname labels.
+    # Preserve upstream IP-looking values and underscores as literal domain
+    # tokens; the Mihomo converter will validate the native domain syntax.
+    # These are NOT converted into IP-CIDR matches.
+    if (
+        not value
+        or any(ch.isspace() or ord(ch) < 32 for ch in value)
+        or any(ch in ",;/\\#<>" for ch in value)
+    ):
+        raise ValueError(f"Invalid domain token: {raw!r}")
+    return value
 
 
 def parse_domain_rules(raw: bytes, source_format: str, *, allow_empty: bool = False) -> set[str]:
