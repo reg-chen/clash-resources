@@ -10,7 +10,8 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Address, IPv6Address, ip_address
+import re
 from pathlib import Path
 
 from cryptography import x509
@@ -29,6 +30,51 @@ class CertificateFiles:
     server_certificate: Path
     server_private_key: Path
     renewed: bool
+
+
+def normalize_host(value: str) -> str:
+    """Normalize a local DoH endpoint identity; reject URLs and wildcards."""
+    text = value.strip()
+    if not text:
+        raise ValueError("請輸入 DoH 主機名稱。")
+    possible_ip = text[1:-1] if text.startswith("[") and text.endswith("]") else text
+    try:
+        addr = ip_address(possible_ip)
+    except ValueError:
+        addr = None
+    if addr is not None:
+        if not addr.is_loopback:
+            raise ValueError("DoH IP 必須是 loopback；自訂名稱請使用網域。")
+        return str(addr)
+    if "://" in text or "/" in text or ":" in text or "*" in text or "@" in text:
+        raise ValueError("請輸入主機名稱，不要包含通訊協定、埠號或路徑。")
+    try:
+        name = text.rstrip(".").encode("idna").decode("ascii").lower()
+    except UnicodeError as exc:
+        raise ValueError("無效的網域名稱。") from exc
+    labels = name.split(".")
+    valid = all(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels)
+    if not valid or len(name) > 253:
+        raise ValueError("無效的網域名稱。")
+    return name
+
+
+def doh_url(host: str, port: int = 9443) -> str:
+    host = normalize_host(host)
+    address = f"[{host}]" if ":" in host else host
+    return f"https://{address}:{port}/dns-query"
+
+
+def party_hosts_override(host: str) -> str:
+    """Return a hosts-entry hint for names needing local resolution."""
+    host = normalize_host(host)
+    if host == "localhost" or host.endswith(".localhost"):
+        return ""
+    try:
+        ip_address(host)
+        return ""
+    except ValueError:
+        return f"'{host}': 127.0.0.1"
 
 
 def _ca_directory() -> Path:
@@ -108,9 +154,25 @@ def _load_or_create_ca(now: datetime) -> tuple[x509.Certificate, ec.EllipticCurv
     return ca, key
 
 
-def _build_server(now: datetime, ca: x509.Certificate, ca_key: ec.EllipticCurvePrivateKey) -> tuple[bytes, bytes]:
+def _build_server(
+    now: datetime,
+    ca: x509.Certificate,
+    ca_key: ec.EllipticCurvePrivateKey,
+    host: str,
+) -> tuple[bytes, bytes]:
     key = ec.generate_private_key(ec.SECP256R1())
-    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    try:
+        identity = x509.IPAddress(ip_address(host))
+    except ValueError:
+        identity = x509.DNSName(host)
+    names = [
+        x509.DNSName("localhost"),
+        x509.IPAddress(IPv4Address("127.0.0.1")),
+        x509.IPAddress(IPv6Address("::1")),
+    ]
+    if identity not in names:
+        names.append(identity)
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, host)])
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -120,11 +182,7 @@ def _build_server(now: datetime, ca: x509.Certificate, ca_key: ec.EllipticCurveP
         .not_valid_before(now - timedelta(minutes=5))
         .not_valid_after(now + timedelta(days=365))
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
-        .add_extension(x509.SubjectAlternativeName([
-            x509.DNSName("localhost"),
-            x509.IPAddress(IPv4Address("127.0.0.1")),
-            x509.IPAddress(IPv6Address("::1")),
-        ]), critical=False)
+        .add_extension(x509.SubjectAlternativeName(names), critical=False)
         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
         .add_extension(
             x509.KeyUsage(
@@ -138,21 +196,32 @@ def _build_server(now: datetime, ca: x509.Certificate, ca_key: ec.EllipticCurveP
     return cert.public_bytes(serialization.Encoding.PEM), _pem_key(key)
 
 
-def _valid_server_identity(cert: x509.Certificate) -> bool:
+def _valid_server_identity(cert: x509.Certificate, host: str) -> bool:
     try:
         san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
         eku = cert.extensions.get_extension_for_class(x509.ExtendedKeyUsage).value
-        return "localhost" in san.get_values_for_type(x509.DNSName) and ExtendedKeyUsageOID.SERVER_AUTH in eku
+        try:
+            identity = x509.IPAddress(ip_address(host))
+        except ValueError:
+            identity = x509.DNSName(host)
+        addresses = san.get_values_for_type(x509.IPAddress)
+        dns_names = san.get_values_for_type(x509.DNSName)
+        return (
+            (identity.value in addresses if isinstance(identity, x509.IPAddress)
+             else identity.value in dns_names)
+            and ExtendedKeyUsageOID.SERVER_AUTH in eku
+        )
     except x509.ExtensionNotFound:
         return False
 
 
-def generate_certificates(mihomo_dir: Path) -> CertificateFiles:
+def generate_certificates(mihomo_dir: Path, host: str = "127.0.0.1") -> CertificateFiles:
     """Keep valid certificates stable; renew only inside 30 days of expiry."""
     if sys.platform != "win32":
         raise RuntimeError("Mihomo DoH 信任匯入功能目前僅支援 Windows。")
     if not str(mihomo_dir).strip():
         raise ValueError("請指定 Mihomo 設定檔目錄。")
+    host = normalize_host(host)
     now = datetime.now(timezone.utc)
     ca, ca_key = _load_or_create_ca(now)
     dest = mihomo_dir / "certs"
@@ -170,11 +239,11 @@ def generate_certificates(mihomo_dir: Path) -> CertificateFiles:
         if current.issuer == ca.subject and current.not_valid_after_utc > now + timedelta(days=30):
             try:
                 current.verify_directly_issued_by(ca)
-                renewed = not _valid_server_identity(current)
+                renewed = not _valid_server_identity(current, host)
             except (InvalidSignature, ValueError):
                 renewed = True
     if renewed:
-        crt_pem, key_pem = _build_server(now, ca, ca_key)
+        crt_pem, key_pem = _build_server(now, ca, ca_key, host)
         _atomic_write(key, key_pem)
         _atomic_write(cert, crt_pem)
     _atomic_write(root, ca.public_bytes(serialization.Encoding.PEM))
