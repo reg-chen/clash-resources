@@ -93,7 +93,7 @@ function Rule-Records($familyMap) {
             OverrideBlockRules = [string]$security.OverrideBlockRules
         }
     }
-    return ,$output
+    return $output
 }
 
 $identityFields = @(
