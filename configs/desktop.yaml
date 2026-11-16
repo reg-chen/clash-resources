@@ -627,7 +627,6 @@ sub-rules:
     - RULE-SET,security-threat,REJECT
     - RULE-SET,security-phishing,REJECT
     - RULE-SET,security-dyndns,REJECT
-    - RULE-SET,network-ports,REJECT
 
   # =====================================================================
   # 🟥 Privacy - Native Trackers
@@ -689,6 +688,9 @@ rules:
   # 🟥 Security
   # =====================================================================
   - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),SECURITY
+
+  # Network port restrictions (classical)
+  - RULE-SET,network-ports,REJECT
 
   # =====================================================================
   # 🟩 WebView2
