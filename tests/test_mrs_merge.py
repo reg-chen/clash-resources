@@ -309,7 +309,12 @@ rules:
     def test_migrated_config_cannot_keep_custom_as_second_provider(self):
         module = load_activate()
         source = (ROOT / "configs/desktop.yaml").read_text(encoding="utf-8")
-        combined = module.rewrite_config(source, module.SOURCES)
+        # Production desktop.yaml already uses category-combined providers;
+        # rewrite only historical configurations that still contain sub-rules.
+        combined = (
+            module.rewrite_config(source, module.SOURCES)
+            if "sub-rules:" in source else source
+        )
         self.assertEqual(module.remove_custom_from_activated(combined), combined)
 
         # Prior flow combined third-party sources but retained local custom;

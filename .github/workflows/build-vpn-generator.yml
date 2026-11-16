@@ -73,6 +73,8 @@ jobs:
         shell: pwsh
         env:
           QT_QPA_PLATFORM: offscreen
+        # All tests deliberately run, including cross-feature MRS config
+        # tests, so the packaged GUI always corresponds to a consistent repo.
         run: python -m unittest discover -s tests -v
 
       - name: Smoke-test UWP firewall backup on Windows (read-only)
