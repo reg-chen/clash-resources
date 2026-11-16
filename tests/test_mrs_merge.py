@@ -39,6 +39,17 @@ class MergeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported"):
             mrs_merge.parse_domain_rules(b"payload:\n  - DOMAIN-KEYWORD,ad\n", "yaml")
 
+    def test_real_phishing_feed_domains_with_underscores(self):
+        # Phishing.Database contains labels with underscores; legacy Mihomo
+        # compilation accepted them, but our pre-merge regex rejected them.
+        phishing = b"10000susan_gilbert.goodluckseeker.com\n_sip._tcp.example.com\n"
+        self.assertEqual(mrs_merge.parse_domain_rules(phishing, "text"), {
+            "10000susan_gilbert.goodluckseeker.com",
+            "_sip._tcp.example.com",
+        })
+        with self.assertRaisesRegex(ValueError, "Invalid domain"):
+            mrs_merge.parse_domain_rules(b"bad path.example.com\n", "text")
+
     def test_category_boundaries_no_cross_merging(self):
         entries = [
             {"name": "ads-a"}, {"name": "ads-b"},

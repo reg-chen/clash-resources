@@ -16,8 +16,8 @@ CUSTOM_SOURCES = tuple(
     for category in CATEGORIES
 )
 DOMAIN_RE = re.compile(
-    r"(?i)^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
-    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+    r"(?i)^(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.)+"
+    r"[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?$"
 )
 
 
