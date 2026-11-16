@@ -316,7 +316,7 @@ class MihomoDohPanel(QWidget):
 
         cert_group = QGroupBox("TLS 憑證", content)
         form = QFormLayout(cert_group)
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
         # Separate from VPN output; do not reuse the old P:\Clash path, which
