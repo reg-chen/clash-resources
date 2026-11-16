@@ -10,8 +10,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QPoint, QSettings, Qt
+from PySide6.QtWidgets import QApplication, QScrollArea, QSizePolicy
 import vpn_generator_core as core
 
 gui = core.load_sibling("vpn-generator-gui.py", "vpn_gui_under_test")
@@ -86,6 +86,47 @@ class ProviderStateTests(unittest.TestCase):
         self.assertTrue(self.window.exclude_streaming.isChecked())
         self.window.pia_radio.setChecked(True)
         self.assertFalse(self.window.exclude_streaming.isChecked())
+
+    def test_provider_text_does_not_shift_input_alignment(self):
+        window = self.window
+        window.show()
+        QApplication.processEvents()
+
+        def input_x():
+            return window.out_edit.mapTo(window, QPoint(0, 0)).x()
+
+        base_x = input_x()
+        window.surfshark_radio.setChecked(True)
+        QApplication.processEvents()
+        self.assertEqual(input_x(), base_x)
+        self.assertEqual(window.exclude_streaming.text(), "排除 Streaming Optimized")
+        window.pia_radio.setChecked(True)
+        QApplication.processEvents()
+        self.assertEqual(input_x(), base_x)
+        self.assertEqual(window.credentials_label.width(), window.udp_label.width())
+
+    def test_doh_long_description_cannot_force_controls_sideways(self):
+        window = self.window
+        window.show()
+        window.tabs.setCurrentWidget(window.doh_panel)
+        QApplication.processEvents()
+        panel = window.doh_panel
+        scroll = panel.layout().itemAt(0).widget()
+        self.assertIsInstance(scroll, QScrollArea)
+        self.assertTrue(scroll.widgetResizable())
+        self.assertEqual(scroll.horizontalScrollBarPolicy(), Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        for label in (
+            panel.summary_label, panel.security_label,
+            panel.config_help_label, panel.firefox_help_label,
+        ):
+            self.assertTrue(label.wordWrap())
+            self.assertEqual(label.sizePolicy().horizontalPolicy(), QSizePolicy.Policy.Ignored)
+
+        before = panel.output.mapTo(window, QPoint(0, 0)).x()
+        panel.summary_label.setText("Explanatory text " * 80)
+        QApplication.processEvents()
+        self.assertEqual(panel.output.mapTo(window, QPoint(0, 0)).x(), before)
 
     def test_worker_passes_surfsharks_own_filter(self):
         for exclude in (True, False):
