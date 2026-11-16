@@ -97,10 +97,8 @@
   },
   {
     "name": "ads-antiad",
-    "source": "https://anti-ad.net/mihomo.mrs",
+    "source": "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-clash.yaml",
     "target": "rules/ads/mrs/antiad.mrs",
-    "format": "mrs",
-    "analysis_source": "https://anti-ad.net/clash.yaml",
-    "analysis_format": "yaml"
+    "format": "yaml"
   }
 ]
