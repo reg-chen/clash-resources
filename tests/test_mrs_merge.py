@@ -125,6 +125,14 @@ sub-rules:
     - RULE-SET,privacy-native-apple,REJECT
   ADS:
     - RULE-SET,ads-popup,REJECT
+
+rules:
+  - RULE-SET,direct-dns,DIRECT
+  - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),SECURITY
+  - RULE-SET,direct-webview2,DIRECT
+  - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),PRIVACY-NATIVE
+  - SUB-RULE,(SRC-IP-CIDR,0.0.0.0/0),ADS
+  - MATCH,DIRECT
 """
         new = module.rewrite_config(original, entries)
         for category in ("security", "privacy", "ads"):
@@ -137,6 +145,46 @@ sub-rules:
         self.assertIn("RULE-SET,security-custom,REJECT", new)
         self.assertIn("RULE-SET,security-riskport,REJECT", new)
         self.assertEqual(new.count("RULE-SET,ads-combined,REJECT"), 1)
+        self.assertNotIn("sub-rules:", new)
+        self.assertNotIn("SUB-RULE,", new)
+        self.assertEqual(new.count("RULE-SET,security-combined,REJECT"), 1)
+        self.assertEqual(new.count("RULE-SET,privacy-combined,REJECT"), 1)
+        self.assertLess(new.index("RULE-SET,security-custom,REJECT"),
+                        new.index("RULE-SET,security-combined,REJECT"))
+        self.assertLess(new.index("RULE-SET,security-combined,REJECT"),
+                        new.index("RULE-SET,security-riskport,REJECT"))
+        self.assertLess(new.index("RULE-SET,security-riskport,REJECT"),
+                        new.index("RULE-SET,direct-webview2,DIRECT"))
+        self.assertLess(new.index("RULE-SET,direct-webview2,DIRECT"),
+                        new.index("RULE-SET,privacy-combined,REJECT"))
+        self.assertLess(new.index("RULE-SET,privacy-combined,REJECT"),
+                        new.index("RULE-SET,ads-combined,REJECT"))
+
+    def test_real_profiles_can_be_flattened_without_moving_critical_exceptions(self):
+        module = load_activate()
+        for relative in module.CONFIGS:
+            with self.subTest(profile=relative):
+                original = (ROOT / relative).read_text(encoding="utf-8")
+                if "sub-rules:" not in original:
+                    self.assertNotIn("SUB-RULE,", original)
+                    continue
+                updated = module.rewrite_config(original, module.SOURCES)
+                self.assertNotIn("sub-rules:", updated)
+                self.assertNotIn("SUB-RULE,", updated)
+                for category in ("security", "privacy", "ads"):
+                    self.assertEqual(
+                        updated.count(f"RULE-SET,{category}-combined,REJECT"), 1
+                    )
+                self.assertLess(
+                    updated.index("RULE-SET,security-combined,REJECT"),
+                    updated.index("RULE-SET,direct-webview2,")
+                ) if "direct-webview2" in updated else None
+                self.assertLess(
+                    updated.index("RULE-SET,security-riskport,REJECT"),
+                    updated.index("RULE-SET,privacy-combined,REJECT")
+                )
+                self.assertIn("RULE-SET,privacy-custom,REJECT", updated)
+                self.assertIn("RULE-SET,ads-custom,REJECT", updated)
 
 
 if __name__ == "__main__":
