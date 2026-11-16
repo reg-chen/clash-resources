@@ -105,8 +105,6 @@ def _flatten_sub_rules(sub_section: str, rule_section: str, groups: dict[str, li
                     flattened.append(f"- RULE-SET,{category}-combined,REJECT")
                     inserted = True
             else:
-                if rule_name == "network-ports":
-                    flattened.append("# Network port restrictions (classical)")
                 flattened.append(line)
         replacements[name] = flattened
 
