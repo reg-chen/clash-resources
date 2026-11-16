@@ -179,9 +179,12 @@ if ($Mode -eq "backup") {
             continue
         }
         # Never broaden a rule that uses conditions not restored below.
-        if (NonDefault $record.Authentication -or NonDefault $record.Encryption -or
-            NonDefault $record.LocalUser -or NonDefault $record.RemoteUser -or
-            NonDefault $record.RemoteMachine -or NonDefault $record.OverrideBlockRules) {
+        if ((NonDefault $record.Authentication) -or
+            (NonDefault $record.Encryption) -or
+            (NonDefault $record.LocalUser) -or
+            (NonDefault $record.RemoteUser) -or
+            (NonDefault $record.RemoteMachine) -or
+            (NonDefault $record.OverrideBlockRules)) {
             $reportData.Unsupported++
             continue
         }
