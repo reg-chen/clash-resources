@@ -250,8 +250,8 @@ rules:
 """
         new = module.rewrite_config(original, entries)
         for category in ("security", "privacy", "ads"):
-            self.assertIn(f"  {category}-combined:\n", new)
-            self.assertIn(f"RULE-SET,{category}-combined,REJECT", new)
+            self.assertIn(f"  combined-{category}:\n", new)
+            self.assertIn(f"RULE-SET,combined-{category},REJECT", new)
             self.assertIn(f"./rules/{category}/mrs/combined.mrs", new)
         for entry in entries:
             self.assertNotIn(f"  {entry['name']}:\n", new)
@@ -289,7 +289,7 @@ rules:
                 self.assertNotIn("SUB-RULE,", updated)
                 for category in ("security", "privacy", "ads"):
                     self.assertEqual(
-                        updated.count(f"RULE-SET,{category}-combined,REJECT"), 1
+                        updated.count(f"RULE-SET,combined-{category},REJECT"), 1
                     )
                 if "RULE-SET,direct-webview2," in updated:
                     self.assertLess(
@@ -367,7 +367,7 @@ rules:
                 f"    path: ./rules/{category}/custom.txt\n\n"
             ) + prior[insert_at:]
         for category in mrs_merge.CATEGORIES:
-            needle = f"- RULE-SET,{category}-combined,REJECT"
+            needle = f"- RULE-SET,combined-{category},REJECT"
             prior = prior.replace(
                 needle,
                 f"- RULE-SET,{category}-custom,REJECT\n  {needle}", 1
@@ -376,7 +376,7 @@ rules:
         self.assertNotIn("sub-rules:", result)
         self.assertNotIn("SUB-RULE,", result)
         for category in mrs_merge.CATEGORIES:
-            self.assertEqual(result.count(f"RULE-SET,{category}-combined,REJECT"), 1)
+            self.assertEqual(result.count(f"RULE-SET,combined-{category},REJECT"), 1)
             self.assertNotIn(f"RULE-SET,{category}-custom,REJECT", result)
 
 
