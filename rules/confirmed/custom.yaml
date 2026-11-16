@@ -1,0 +1,4 @@
+payload:
+  # High-confidence, manually verified blocks; exact hosts only.
+  - DOMAIN,a.line.me
+  - DOMAIN,ad.line-scdn.net
