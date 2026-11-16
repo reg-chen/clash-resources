@@ -153,6 +153,29 @@ class ProviderStateTests(unittest.TestCase):
         self.assertEqual(panel.hosts_input.text(),
                          "'a-very-long-but-valid-localhost-doh-endpoint.test': 127.0.0.1")
 
+    def test_uwp_firewall_tab_uses_explicit_file_selection_and_confirmation(self):
+        panel = self.window.uwp_panel
+        self.assertIsNotNone(panel.backup_button)
+        self.assertIsNotNone(panel.restore_button)
+        backup = Path(self.directory.name) / "backup.json"
+        with mock.patch.object(gui.QFileDialog, "getSaveFileName", return_value=(str(backup), "")):
+            with mock.patch.object(panel, "_execute") as execute:
+                panel.backup()
+                execute.assert_called_once_with("backup", backup)
+
+        restore = Path(self.directory.name) / "backup.json"
+        with mock.patch.object(gui.QFileDialog, "getOpenFileName", return_value=(str(restore), "")):
+            with mock.patch.object(gui.uwp_firewall, "inspect_backup",
+                                   return_value={"total": 4, "allow": 3, "block": 1}):
+                with mock.patch.object(gui.QMessageBox, "question", return_value=gui.QMessageBox.No):
+                    with mock.patch.object(panel, "_execute") as execute:
+                        panel.restore()
+                        execute.assert_not_called()
+                with mock.patch.object(gui.QMessageBox, "question", return_value=gui.QMessageBox.Yes):
+                    with mock.patch.object(panel, "_execute") as execute:
+                        panel.restore()
+                        execute.assert_called_once_with("restore", restore)
+
     def test_worker_passes_surfsharks_own_filter(self):
         for exclude in (True, False):
             with self.subTest(exclude=exclude):
@@ -263,7 +286,8 @@ class ProviderStateTests(unittest.TestCase):
 
     def test_doh_tab_is_global_and_independent_of_selected_provider(self):
         window = self.window
-        self.assertEqual(window.tabs.count(), 2)
+        self.assertEqual(window.tabs.count(), 3)
+        self.assertEqual(window.tabs.tabText(2), "Windows 防火牆")
         self.assertEqual(window.tabs.tabText(0), "VPN Provider")
         self.assertEqual(window.tabs.tabText(1), "Mihomo DNS / TLS")
         panel = window.doh_panel
