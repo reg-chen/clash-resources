@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Windows VPN/Mihomo utilities with a ttkbootstrap GUI.
+"""Windows VPN/Mihomo utilities with a CustomTkinter 6 GUI.
 
 The command-line entry points run before a Tk root is created.  In particular,
 Windows Task Scheduler uses this same executable with --warp.
@@ -17,7 +17,7 @@ import tkinter as tk
 from tkinter import filedialog
 from pathlib import Path
 
-import ttkbootstrap as ttk
+import customtkinter as ctk
 
 import vpn_generator_core as core
 import warp_schedule
@@ -231,100 +231,112 @@ def show_with_dark_titlebar(window: tk.Misc, colors) -> None:
                      if window.winfo_exists() else None)
 
 
-class DarkScrolledText(ttk.Frame):
-    """A themed Tk Text widget with a ttk scrollbar (tk.scrolledtext is white)."""
-
-    def __init__(self, parent, *, height: int, font, wrap: str, state: str):
-        super().__init__(parent)
-        colors = ttk.Style().colors
-        self.text = tk.Text(
-            self, height=height, font=font, wrap=wrap, state=state,
-            bg=colors.inputbg, fg=colors.inputfg,
-            selectbackground=colors.selectbg, selectforeground=colors.selectfg,
-            insertbackground=colors.inputfg,
-            highlightbackground=colors.border, highlightcolor=colors.primary,
-            highlightthickness=1, relief="flat", bd=0,
-            padx=8, pady=6,
-        )
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.text.yview)
-        self.text.configure(yscrollcommand=self.scrollbar.set)
-        self.scrollbar.pack(side="right", fill="y")
-        self.text.pack(side="left", fill="both", expand=True)
-
-    def configure(self, **kwargs):
-        # Preserve the Text API used by the log and DoH/YAML panes.
-        return self.text.configure(**kwargs)
-
-    def insert(self, *args):
-        return self.text.insert(*args)
-
-    def delete(self, *args):
-        return self.text.delete(*args)
-
-    def get(self, *args):
-        return self.text.get(*args)
-
-    def see(self, *args):
-        return self.text.see(*args)
-
-
-# Calm, high-contrast dark controls. Each tone stays readable in every state.
+BG = "#1E222A"
+PANEL = "#252B35"
+INPUT = "#2B333E"
+BORDER = "#3A4655"
+TEXT = "#EBF0F7"
+MUTED = "#AAB6C6"
+ACCENT = "#47749C"
+UI_COLORS = type("Colors", (), {"bg": BG, "fg": TEXT, "border": BORDER})()
 BUTTON_PALETTE = {
-    "primary": ("#355D86", "#426B94", "#294866"),
-    "secondary": ("#303D4F", "#3E4D61", "#263241"),
-    "danger": ("#68434E", "#78515C", "#523640"),
+    "primary": ("#355D86", "#416F98", "#294966"),
+    "secondary": ("#334252", "#415368", "#293544"),
+    "danger": ("#704650", "#80545F", "#523841"),
 }
-BUTTON_FOREGROUND = "#F8FAFC"
-BUTTON_STYLES = {name: f"Reg{name.title()}.TButton" for name in BUTTON_PALETTE}
-def configure_action_buttons(style) -> None:
-    """Compact native ttk styling; intentionally NO image elements or rounded bitmaps.
+BUTTON_FOREGROUND = TEXT
 
-    The prior 112x44 image element and 15x8 padding imposed oversized minimum
-    dimensions, and nine-slice transparency produced visible square backplates.
-    Inherit the current ttkbootstrap TButton layout instead of overriding it.
-    """
-    for variant, (base, hover, pressed) in BUTTON_PALETTE.items():
-        name = BUTTON_STYLES[variant]
-        style.configure(
-            name,
-            background=base,
-            foreground=BUTTON_FOREGROUND,
-            bordercolor=base,
-            darkcolor=base,
-            lightcolor=base,
-            borderwidth=1,
-            padding=(10, 4),
-            font=("Segoe UI", 9),
-            anchor="center",
-            relief="flat",
-        )
-        style.map(
-            name,
-            background=[
-                ("disabled", "#343A42"),
-                ("pressed", pressed),
-                ("active", hover),
-            ],
-            foreground=[
-                ("disabled", "#9DA8B7"),
-                ("pressed", BUTTON_FOREGROUND),
-                ("active", BUTTON_FOREGROUND),
-            ],
-            bordercolor=[
-                ("disabled", "#343A42"),
-                ("pressed", pressed),
-                ("active", hover),
-            ],
-        )
+
+def ui_frame(parent, *, padding=0, panel=False):
+    return ctk.CTkFrame(parent, width=1, height=1, corner_radius=8 if panel else 0,
+                        fg_color=PANEL if panel else "transparent",
+                        border_color=BORDER if panel else PANEL,
+                        border_width=1 if panel else 0)
+
+
+def ui_group(parent, *, text: str, padding=0):
+    card = ctk.CTkFrame(parent, width=1, height=1, corner_radius=8,
+                        fg_color=PANEL, border_color=BORDER, border_width=1)
+    ctk.CTkLabel(card, text=text, text_color=MUTED,
+                 font=("Segoe UI", 11, "bold"),
+                 fg_color="transparent", height=23).place(x=11, y=3)
+    return card
+
+
+def ui_label(parent, *, width=None, foreground=None, **kwargs):
+    if width is not None:
+        kwargs["width"] = max(1, int(width) * 8)
+    kwargs.setdefault("height", 25)
+    kwargs.setdefault("anchor", "w")
+    kwargs.setdefault("text_color", foreground or TEXT)
+    kwargs.setdefault("fg_color", "transparent")
+    return ctk.CTkLabel(parent, **kwargs)
+
+
+def ui_entry(parent, *, width=None, state="normal", **kwargs):
+    kwargs["width"] = max(70, int(width) * 8) if width is not None else 160
+    if kwargs.get("show") == "":
+        kwargs.pop("show")
+    return ctk.CTkEntry(
+        parent, height=30, corner_radius=6,
+        border_width=1, fg_color=INPUT, border_color=BORDER,
+        text_color=TEXT, state="disabled" if state == "readonly" else state,
+        **kwargs)
+
+
+def ui_radio(parent, **kwargs):
+    return ctk.CTkRadioButton(parent, width=1, height=26,
+                              radiobutton_width=18, radiobutton_height=18,
+                              border_width_unchecked=2, border_width_checked=5,
+                              fg_color=ACCENT, hover_color="#527EA4",
+                              border_color="#647386", text_color=TEXT,
+                              font=("Segoe UI", 12), **kwargs)
+
+
+def ui_check(parent, **kwargs):
+    return ctk.CTkCheckBox(parent, width=1, height=26,
+                           checkbox_width=18, checkbox_height=18,
+                           corner_radius=4, border_width=1,
+                           fg_color=ACCENT, hover_color="#527EA4",
+                           border_color="#647386", checkmark_color=TEXT,
+                           text_color=TEXT, font=("Segoe UI", 12), **kwargs)
 
 
 def styled_button(parent, *, variant: str = "secondary", **kwargs):
-    """Shared ttk Button API: keyboard, accessibility, commands and state intact."""
-    return ttk.Button(parent, style=BUTTON_STYLES[variant], **kwargs)
+    """CTk native rounded canvas: 7px corner on a 30px-high button."""
+    fill, hover, _pressed = BUTTON_PALETTE[variant]
+    label_text = kwargs.pop("text", "")
+    old_width = kwargs.pop("width", None)
+    import unicodedata
+    estimated = sum(14 if unicodedata.east_asian_width(ch) in ("F", "W") else 7
+                    for ch in str(label_text))
+    width = max(30 if label_text == "?" else 64, estimated + 24)
+    if old_width is not None:
+        width = max(width, int(old_width) * 8)
+    return ctk.CTkButton(
+        parent, text=label_text, width=width, height=30,
+        corner_radius=7, border_width=1,
+        border_color=BORDER, bg_color="transparent",
+        fg_color=fill, hover_color=hover,
+        text_color=BUTTON_FOREGROUND, text_color_disabled="#A4AEBA",
+        font=("Segoe UI", 12), **kwargs)
 
 
-class DarkAlertDialog(tk.Toplevel):
-    """Theme-consistent modal, including the Windows native title bar."""
+class DarkScrolledText(ctk.CTkTextbox):
+    """Native CTk scrollable textbox; height argument is legacy line units."""
+
+    def __init__(self, parent, *, height: int, font, wrap: str, state: str):
+        super().__init__(
+            parent, width=1, height=max(105, height * 20),
+            corner_radius=7, border_width=1,
+            border_color=BORDER, fg_color=INPUT,
+            text_color=TEXT, scrollbar_button_color="#617183",
+            scrollbar_button_hover_color="#8394A7",
+            font=font, wrap=wrap, state=state)
+
+
+class DarkAlertDialog(ctk.CTkToplevel):
+    """CustomTkinter dark modal with safe Yes/No semantics."""
 
     def __init__(self, parent, *, title: str, message: str,
                  kind: str = "info", confirm: bool = False):
@@ -335,29 +347,27 @@ class DarkAlertDialog(tk.Toplevel):
         self.resizable(False, False)
         self.result = False
         self.confirm = confirm
-        self.colors = ttk.Style().colors
-        self.configure(bg=self.colors.bg)
+        self.configure(fg_color=BG)
         self.protocol("WM_DELETE_WINDOW", lambda: self._finish(False))
         self.bind("<Escape>", lambda _event: self._finish(False))
         self.bind("<Return>", lambda _event: self._finish(True))
-
-        content = ttk.Frame(self, padding=20)
-        content.pack(fill="both", expand=True)
-        content.columnconfigure(1, weight=1)
+        content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=18, pady=16)
+        content.grid_columnconfigure(1, weight=1)
         symbol, color = {
-            "info": ("i", self.colors.info),
-            "warning": ("!", self.colors.warning),
-            "error": ("!", self.colors.danger),
-            "question": ("?", self.colors.info),
-        }.get(kind, ("i", self.colors.info))
-        ttk.Label(content, text=symbol, foreground=color,
-                  font=("Segoe UI", 20, "bold"), width=2,
-                  anchor="center").grid(row=0, column=0, sticky="n", padx=(0, 12))
-        self.message_label = ttk.Label(
-            content, text=message, justify="left",
-            wraplength=480, anchor="w")
-        self.message_label.grid(row=0, column=1, sticky="w", pady=(4, 16))
-        actions = ttk.Frame(content)
+            "info": ("i", "#82B3DF"),
+            "warning": ("!", "#C8A66E"),
+            "error": ("!", "#CC8C91"),
+            "question": ("?", "#82B3DF"),
+        }.get(kind, ("i", "#82B3DF"))
+        ctk.CTkLabel(content, text=symbol, text_color=color,
+                     width=28, height=30, font=("Segoe UI", 20, "bold")).grid(
+            row=0, column=0, sticky="n", padx=(0, 12))
+        self.message_label = ctk.CTkLabel(
+            content, text=message, text_color=TEXT, justify="left",
+            wraplength=465, anchor="w", height=30)
+        self.message_label.grid(row=0, column=1, sticky="ew", pady=(0, 16))
+        actions = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
         actions.grid(row=1, column=0, columnspan=2, sticky="e")
         if confirm:
             self.cancel_button = styled_button(
@@ -368,26 +378,26 @@ class DarkAlertDialog(tk.Toplevel):
             actions, text="確定", variant="primary",
             command=lambda: self._finish(True))
         self.ok_button.pack(side="left")
-
-        # Place the dialog relative to its parent rather than the desktop.
         self.update_idletasks()
-        width = max(300, self.winfo_reqwidth())
-        height = self.winfo_reqheight()
+        # CTkToplevel starts at 200x200 regardless of the form's children.
+        # Size explicitly from the wrapped message; keep it readable.
+        width = 540
+        height = max(168, min(520, self.message_label.winfo_reqheight() + 120))
         x = parent.winfo_rootx() + max(0, (parent.winfo_width() - width) // 2)
         y = parent.winfo_rooty() + max(0, (parent.winfo_height() - height) // 2)
-        self.geometry(f"+{x}+{y}")
+        self.geometry(f"{width}x{height}+{x}+{y}")
         self.deiconify()
-        show_with_dark_titlebar(self, self.colors)
+        self.after(80, lambda: set_dark_titlebar(self, UI_COLORS)
+                   if self.winfo_exists() else None)
         self._previous_grab = parent.grab_current()
         self.grab_set()
         self.ok_button.focus_set()
 
-    def _finish(self, result: bool) -> None:
+    def _finish(self, result: bool):
         self.result = bool(result)
         try:
             self.grab_release()
-            if (self._previous_grab is not None
-                    and self._previous_grab.winfo_exists()):
+            if self._previous_grab is not None and self._previous_grab.winfo_exists():
                 self._previous_grab.grab_set()
         finally:
             self.destroy()
@@ -430,7 +440,7 @@ class ThemedMessagebox:
 messagebox = ThemedMessagebox
 
 
-class WarpScheduleDialog(tk.Toplevel):
+class WarpScheduleDialog(ctk.CTkToplevel):
     """Restore the original two-option WARP schedule interface."""
 
     FREQUENCIES = {
@@ -441,9 +451,13 @@ class WarpScheduleDialog(tk.Toplevel):
     def __init__(self, parent, out_dir: str, config: dict):
         super().__init__(parent)
         self.title("WARP 工作排程")
-        self.configure(background=parent.style.colors.bg)
+        self.configure(fg_color=BG)
         self.transient(parent)
         self.resizable(False, False)
+        # CTkToplevel defaults to a fixed 200x200 geometry; set an explicit
+        # dialog size so the original frequency selector is not clipped.
+        self.geometry("570x330")
+        self.minsize(570, 330)
         self.out = tk.StringVar(value=out_dir or r"P:\Clash")
         selected = config.get("mode", "monthly")
         if selected not in ("monthly", "interval"):
@@ -455,36 +469,39 @@ class WarpScheduleDialog(tk.Toplevel):
         self.clock = tk.StringVar(value=config.get("time", "03:00"))
         self.config_data = config
 
-        frm = ttk.Frame(self, padding=16)
-        frm.pack(fill="both", expand=True)
+        frm = ui_frame(self, padding=16)
+        frm.pack(fill="both", expand=True, padx=18, pady=16)
         frm.columnconfigure(1, weight=1)
-        ttk.Label(frm, text="由 Windows 工作排程執行 WARP 更新，不需要開啟 GUI。").grid(
+        ui_label(frm, text="由 Windows 工作排程執行 WARP 更新，不需要開啟 GUI。").grid(
             row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
-        ttk.Label(frm, text="執行頻率").grid(row=1, column=0, sticky="w", pady=6)
-        self.frequency_combo = ttk.Combobox(
-            frm, textvariable=self.frequency_label, state="readonly",
-            values=tuple(self.FREQUENCIES), width=34)
+        ui_label(frm, text="執行頻率").grid(row=1, column=0, sticky="w", pady=6)
+        self.frequency_combo = ctk.CTkComboBox(
+            frm, variable=self.frequency_label, state="readonly",
+            values=list(self.FREQUENCIES), command=self._frequency_selected,
+            width=300, height=30, corner_radius=6,
+            fg_color=INPUT, border_color=BORDER,
+            button_color="#3E5064", button_hover_color="#506781",
+            dropdown_fg_color=PANEL, dropdown_hover_color="#405470",
+            text_color=TEXT)
         self.frequency_combo.grid(row=1, column=1, columnspan=2, sticky="ew", padx=(12, 0))
-        self.frequency_combo.bind("<<ComboboxSelected>>", self._frequency_selected)
 
-        self.interval_label = ttk.Label(frm, text="間隔天數 N")
+        self.interval_label = ui_label(frm, text="間隔天數 N")
         self.interval_label.grid(row=2, column=0, sticky="w", pady=6)
-        self.interval_spinbox = ttk.Spinbox(
-            frm, textvariable=self.interval, from_=1, to=365, width=8)
+        self.interval_spinbox = ui_entry(frm, textvariable=self.interval, width=8)
         self.interval_spinbox.grid(row=2, column=1, sticky="w", padx=(12, 0), pady=6)
-        self.interval_unit = ttk.Label(frm, text="天")
-        self.interval_unit.grid(row=2, column=2, sticky="w", pady=6)
+        self.interval_unit = ui_label(frm, text="天")
+        self.interval_unit.grid(row=2, column=1, sticky="w", padx=(108, 0), pady=6)
 
-        ttk.Label(frm, text="執行時間").grid(row=3, column=0, sticky="w", pady=6)
-        ttk.Entry(frm, textvariable=self.clock, width=12).grid(
+        ui_label(frm, text="執行時間").grid(row=3, column=0, sticky="w", pady=6)
+        ui_entry(frm, textvariable=self.clock, width=12).grid(
             row=3, column=1, sticky="w", padx=(12, 0), pady=6)
-        ttk.Label(frm, text="HH:mm").grid(row=3, column=2, sticky="w", pady=6)
-        ttk.Label(frm, text="Mihomo 目錄").grid(row=4, column=0, sticky="w", pady=6)
-        ttk.Entry(frm, textvariable=self.out, width=36).grid(
+        ui_label(frm, text="HH:mm").grid(row=3, column=1, sticky="w", padx=(128, 0), pady=6)
+        ui_label(frm, text="Mihomo 目錄").grid(row=4, column=0, sticky="w", pady=6)
+        ui_entry(frm, textvariable=self.out, width=36).grid(
             row=4, column=1, columnspan=2, sticky="ew", padx=(12, 0), pady=6)
-        ttk.Label(frm, text="注意：若使用 P: 映射磁碟，Windows 使用者必須已登入。").grid(
+        ui_label(frm, text="注意：若使用 P: 映射磁碟，Windows 使用者必須已登入。").grid(
             row=5, column=0, columnspan=3, sticky="w", pady=(8, 14))
-        actions = ttk.Frame(frm)
+        actions = ui_frame(frm)
         actions.grid(row=6, column=0, columnspan=3, sticky="e")
         styled_button(actions, text="安裝／更新排程", command=self.install,
                    variant="primary").pack(side="left", padx=3)
@@ -494,8 +511,10 @@ class WarpScheduleDialog(tk.Toplevel):
 
         self.mode.trace_add("write", self._sync_mode)
         self._update_interval_visibility()
+        self.update_idletasks()
+        self.deiconify()
         self.grab_set()
-        self.after(100, lambda: show_with_dark_titlebar(self, parent.style.colors))
+        self.after(90, lambda: set_dark_titlebar(self, UI_COLORS) if self.winfo_exists() else None)
 
     def _frequency_selected(self, _event=None):
         self.mode.set(self.FREQUENCIES[self.frequency_label.get()])
@@ -535,13 +554,14 @@ class WarpScheduleDialog(tk.Toplevel):
             messagebox.showerror("移除失敗", str(exc), parent=self)
 
 
-class MainWindow(ttk.Window):
+class MainWindow(ctk.CTk):
     def __init__(self):
-        super().__init__(theme="bootstrap-dark")
-        configure_action_buttons(self.style)
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("dark-blue")
+        super().__init__()
         self.title("VPN / Mihomo Generator")
-        self.configure(background=self.style.colors.bg)
-        self.after(100, lambda: show_with_dark_titlebar(self, self.style.colors))
+        self.configure(fg_color=BG)
+        self.after(100, lambda: set_dark_titlebar(self, UI_COLORS))
         self.geometry("900x720")
         self.minsize(740, 580)
         self.config_data = load_settings()
@@ -571,14 +591,19 @@ class MainWindow(ttk.Window):
         self.out_dir = tk.StringVar()
         self.safe_paths = tk.BooleanVar(value=False)
 
-        self.tabs = ttk.Notebook(self, padding=7)
-        self.tabs.pack(fill="both", expand=True, padx=10, pady=10)
-        self.provider_tab = ttk.Frame(self.tabs, padding=12)
-        self.doh_tab = ttk.Frame(self.tabs, padding=12)
-        self.uwp_tab = ttk.Frame(self.tabs, padding=12)
-        self.tabs.add(self.provider_tab, text="VPN Provider")
-        self.tabs.add(self.doh_tab, text="Mihomo DNS / TLS")
-        self.tabs.add(self.uwp_tab, text="Windows 防火牆")
+        self.tabs = ctk.CTkTabview(
+            self, corner_radius=8, border_width=0, fg_color=PANEL,
+            segmented_button_fg_color="#303947",
+            segmented_button_selected_color="#355D86",
+            segmented_button_selected_hover_color="#416F98",
+            segmented_button_unselected_color="#303947",
+            segmented_button_unselected_hover_color="#3B4858",
+            text_color=TEXT,
+        )
+        self.tabs.pack(fill="both", expand=True, padx=12, pady=10)
+        self.provider_tab = self.tabs.add("VPN Provider")
+        self.doh_tab = self.tabs.add("Mihomo DNS / TLS")
+        self.uwp_tab = self.tabs.add("Windows 防火牆")
         self._build_provider()
         self._build_doh()
         self._build_uwp()
@@ -593,11 +618,11 @@ class MainWindow(ttk.Window):
 
     @staticmethod
     def _row(frame, index, title, variable, *, browse=None, secret=False):
-        ttk.Label(frame, text=title, width=21, anchor="w").grid(
+        ui_label(frame, text=title, width=21, anchor="w").grid(
             row=index, column=0, sticky="w", pady=5)
-        container = ttk.Frame(frame)
+        container = ui_frame(frame)
         container.grid(row=index, column=1, sticky="ew", pady=5)
-        entry = ttk.Entry(container, textvariable=variable, show="●" if secret else "")
+        entry = ui_entry(container, textvariable=variable, show="●" if secret else "")
         entry.pack(side="left", fill="x", expand=True)
         if browse:
             styled_button(container, text="瀏覽", command=browse, width=6).pack(side="left", padx=(6, 0))
@@ -607,21 +632,21 @@ class MainWindow(ttk.Window):
         root = self.provider_tab
         root.columnconfigure(0, weight=1)
         root.rowconfigure(2, weight=1)
-        form = ttk.Frame(root)
+        form = ui_frame(root)
         form.grid(row=0, column=0, sticky="ew")
         form.columnconfigure(1, weight=1)
-        ttk.Label(form, text="Provider", width=21).grid(row=0, column=0, sticky="w", pady=5)
-        choices = ttk.Frame(form)
+        ui_label(form, text="Provider", width=21).grid(row=0, column=0, sticky="w", pady=5)
+        choices = ui_frame(form)
         choices.grid(row=0, column=1, sticky="w")
         for value, label in (("pia", "PIA"), ("surfshark", "Surfshark"), ("warp", "Cloudflare WARP")):
-            ttk.Radiobutton(choices, text=label, value=value, variable=self.provider).pack(
+            ui_radio(choices, text=label, value=value, variable=self.provider).pack(
                 side="left", padx=(0, 14))
-        ttk.Label(form, text="輸出協定", width=21).grid(row=1, column=0, sticky="w", pady=5)
-        protocols = ttk.Frame(form)
+        ui_label(form, text="輸出協定", width=21).grid(row=1, column=0, sticky="w", pady=5)
+        protocols = ui_frame(form)
         protocols.grid(row=1, column=1, sticky="w")
-        self.ov_check = ttk.Checkbutton(protocols, text="OpenVPN", variable=self.openvpn)
+        self.ov_check = ui_check(protocols, text="OpenVPN", variable=self.openvpn)
         self.ov_check.pack(side="left", padx=(0, 18))
-        self.wg_check = ttk.Checkbutton(protocols, text="WireGuard", variable=self.wireguard)
+        self.wg_check = ui_check(protocols, text="WireGuard", variable=self.wireguard)
         self.wg_check.pack(side="left")
         self.udp_row, _ = self._row(form, 2, "OpenVPN UDP ZIP", self.udp_zip,
                                     browse=lambda: self._pick_zip(self.udp_zip))
@@ -629,45 +654,45 @@ class MainWindow(ttk.Window):
                                     browse=lambda: self._pick_zip(self.tcp_zip))
         self.tcp_label = form.grid_slaves(row=3, column=0)[0]
         self.udp_label = form.grid_slaves(row=2, column=0)[0]
-        credential_row = ttk.Frame(form)
+        credential_row = ui_frame(form)
         credential_row.grid(row=4, column=1, sticky="ew", pady=5)
         credential_row.columnconfigure(0, weight=1)
         credential_row.columnconfigure(1, weight=1)
-        ttk.Label(form, text="帳號 / 密碼", width=21).grid(row=4, column=0, sticky="w")
+        ui_label(form, text="帳號 / 密碼", width=21).grid(row=4, column=0, sticky="w")
         self.credential_label = form.grid_slaves(row=4, column=0)[0]
-        ttk.Entry(credential_row, textvariable=self.username).grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        self.password_entry = ttk.Entry(credential_row, textvariable=self.password, show="●")
+        ui_entry(credential_row, textvariable=self.username).grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        self.password_entry = ui_entry(credential_row, textvariable=self.password, show="●")
         self.password_entry.grid(row=0, column=1, sticky="ew")
-        ttk.Checkbutton(credential_row, text="顯示", variable=self.show_password).grid(row=0, column=2, padx=5)
+        ui_check(credential_row, text="顯示", variable=self.show_password).grid(row=0, column=2, padx=5)
         self.credential_row = credential_row
         self.output_row, _ = self._row(form, 5, "輸出目錄", self.out_dir, browse=self._pick_output)
-        self.safe_check = ttk.Checkbutton(form, text="加入 Provider 目錄至系統 SAFE_PATHS（需管理員權限）",
+        self.safe_check = ui_check(form, text="加入 Provider 目錄至系統 SAFE_PATHS（需管理員權限）",
                                          variable=self.safe_paths)
         self.safe_check.grid(row=6, column=1, sticky="w", pady=4)
-        ttk.Label(form, text="輸出模式", width=21).grid(row=7, column=0, sticky="w", pady=5)
+        ui_label(form, text="輸出模式", width=21).grid(row=7, column=0, sticky="w", pady=5)
         self.mode_label = form.grid_slaves(row=7, column=0)[0]
-        self.mode_row = ttk.Frame(form)
+        self.mode_row = ui_frame(form)
         self.mode_row.grid(row=7, column=1, sticky="w")
-        ttk.Radiobutton(self.mode_row, text="分節點檔案", variable=self.single_file, value=False).pack(side="left", padx=(0, 12))
-        ttk.Radiobutton(self.mode_row, text="單一檔案", variable=self.single_file, value=True).pack(side="left", padx=(0, 12))
+        ui_radio(self.mode_row, text="分節點檔案", variable=self.single_file, value=False).pack(side="left", padx=(0, 12))
+        ui_radio(self.mode_row, text="單一檔案", variable=self.single_file, value=True).pack(side="left", padx=(0, 12))
         styled_button(self.mode_row, text="?", width=3, command=self._show_mode_help,
                    variant="secondary").pack(side="left")
-        self.filter_label = ttk.Label(form, text="節點過濾", width=21)
+        self.filter_label = ui_label(form, text="節點過濾", width=21)
         self.filter_label.grid(row=8, column=0, sticky="w", pady=5)
-        self.filter_check = ttk.Checkbutton(form, text="排除 Streaming Optimized", variable=self.exclude_streaming)
+        self.filter_check = ui_check(form, text="排除 Streaming Optimized", variable=self.exclude_streaming)
         self.filter_check.grid(row=8, column=1, sticky="w", pady=5)
-        buttons = ttk.Frame(root)
+        buttons = ui_frame(root)
         buttons.grid(row=1, column=0, sticky="ew", pady=(12, 6))
         self.run_button = styled_button(buttons, text="執行", command=self._start_generation, variant="primary")
         self.run_button.pack(side="left")
         self.warp_button = styled_button(buttons, text="安裝／管理 WARP 排程",
                                       command=self._open_schedule, variant="secondary")
         self.warp_button.pack(side="left", padx=12)
-        logbox = ttk.Labelframe(root, text="Log", padding=6)
+        logbox = ui_group(root, text="Log", padding=6)
         logbox.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
         self.log = DarkScrolledText(logbox, height=10, state="disabled",
                                             font=("Consolas", 10), wrap="word")
-        self.log.pack(fill="both", expand=True)
+        self.log.pack(fill="both", expand=True, padx=8, pady=(28, 8))
 
     def _restore_provider(self, provider):
         data = self.provider_data.get(provider, {})
@@ -735,7 +760,7 @@ class MainWindow(ttk.Window):
         enabled = self.openvpn.get() and self.provider.get() != "warp"
         for row in (self.udp_row, self.tcp_row):
             for widget in row.winfo_children():
-                if isinstance(widget, (ttk.Entry, ttk.Button)):
+                if isinstance(widget, (ctk.CTkEntry, ctk.CTkButton)):
                     widget.configure(state="normal" if enabled else "disabled")
 
     def _pick_zip(self, variable):
@@ -845,41 +870,43 @@ class MainWindow(ttk.Window):
         self.doh_endpoint = tk.StringVar()
         self.doh_hosts = tk.StringVar()
         self.doh_status = tk.StringVar()
-        group = ttk.Labelframe(frm, text="TLS 憑證", padding=12)
+        group = ui_group(frm, text="TLS 憑證", padding=12)
         group.grid(row=0, column=0, sticky="ew")
         group.columnconfigure(1, weight=1)
-        ttk.Label(group, text="憑證目錄", width=18).grid(row=0, column=0, sticky="w")
-        pathrow = ttk.Frame(group)
-        pathrow.grid(row=0, column=1, sticky="ew", pady=5)
-        ttk.Entry(pathrow, textvariable=self.cert_dir).pack(side="left", fill="x", expand=True)
+        group.grid_rowconfigure(0, minsize=28)
+        ui_label(group, text="憑證目錄", width=18).grid(row=1, column=0, sticky="w")
+        pathrow = ui_frame(group)
+        pathrow.grid(row=1, column=1, sticky="ew", pady=5)
+        ui_entry(pathrow, textvariable=self.cert_dir).pack(side="left", fill="x", expand=True)
         styled_button(pathrow, text="瀏覽", command=self._pick_cert_root).pack(side="left", padx=6)
-        ttk.Label(group, text="DoH 主機", width=18).grid(row=1, column=0, sticky="w")
-        ttk.Entry(group, textvariable=self.doh_host).grid(row=1, column=1, sticky="ew", pady=5)
-        actions = ttk.Frame(group)
-        actions.grid(row=2, column=1, sticky="w", pady=6)
+        ui_label(group, text="DoH 主機", width=18).grid(row=2, column=0, sticky="w")
+        ui_entry(group, textvariable=self.doh_host).grid(row=2, column=1, sticky="ew", pady=5)
+        actions = ui_frame(group)
+        actions.grid(row=3, column=1, sticky="w", pady=6)
         styled_button(actions, text="產生／更新", command=self._generate_certs,
                    variant="primary").pack(side="left")
         self.trust_button = styled_button(actions, text="信任 CA", command=self._trust_ca, state="disabled")
         self.trust_button.pack(side="left", padx=8)
-        ttk.Label(group, textvariable=self.doh_status).grid(row=3, column=1, sticky="w")
-        config = ttk.Labelframe(frm, text="Mihomo 設定", padding=12)
+        ui_label(group, textvariable=self.doh_status).grid(row=4, column=1, sticky="w")
+        config = ui_group(frm, text="Mihomo 設定", padding=12)
         config.grid(row=1, column=0, sticky="nsew", pady=12)
         config.columnconfigure(1, weight=1)
+        config.grid_rowconfigure(0, minsize=28)
         self.doh_yaml = DarkScrolledText(config, height=7, wrap="word",
                                                  font=("Consolas", 10), state="disabled")
-        self.doh_yaml.grid(row=0, column=0, columnspan=3, sticky="ew")
+        self.doh_yaml.grid(row=1, column=0, columnspan=3, sticky="ew")
         self.copy_yaml = styled_button(config, text="複製 YAML", command=lambda: self._copy(
             self.doh_yaml.get("1.0", "end-1c")), state="disabled")
-        self.copy_yaml.grid(row=1, column=2, sticky="e", pady=7)
-        ttk.Label(config, text="Firefox DoH", width=18).grid(row=2, column=0, sticky="w")
-        ttk.Entry(config, textvariable=self.doh_endpoint, state="readonly").grid(
-            row=2, column=1, sticky="ew")
+        self.copy_yaml.grid(row=2, column=2, sticky="e", pady=7)
+        ui_label(config, text="Firefox DoH", width=18).grid(row=3, column=0, sticky="w")
+        ui_entry(config, textvariable=self.doh_endpoint, state="readonly").grid(
+            row=3, column=1, sticky="ew")
         self.copy_url = styled_button(config, text="複製網址",
                                    command=lambda: self._copy(self.doh_endpoint.get()))
-        self.copy_url.grid(row=2, column=2, padx=6)
-        ttk.Label(config, text="Party Hosts", width=18).grid(row=3, column=0, sticky="w", pady=6)
-        ttk.Entry(config, textvariable=self.doh_hosts, state="readonly").grid(
-            row=3, column=1, sticky="ew", pady=6)
+        self.copy_url.grid(row=3, column=2, padx=6)
+        ui_label(config, text="Party Hosts", width=18).grid(row=4, column=0, sticky="w", pady=6)
+        ui_entry(config, textvariable=self.doh_hosts, state="readonly").grid(
+            row=4, column=1, sticky="ew", pady=6)
         frm.rowconfigure(1, weight=1)
         self.doh_host.trace_add("write", lambda *_: self._refresh_doh_endpoint())
         self.cert_dir.trace_add("write", lambda *_: self._refresh_doh_endpoint())
@@ -942,14 +969,14 @@ class MainWindow(ttk.Window):
 
     def _build_uwp(self):
         frm = self.uwp_tab
-        buttons = ttk.Labelframe(frm, text="UWP 防火牆規則", padding=14)
+        buttons = ui_group(frm, text="UWP 防火牆規則", padding=14)
         buttons.pack(fill="x")
         self.uwp_backup = styled_button(buttons, text="備份 JSON", command=self._uwp_backup)
-        self.uwp_backup.pack(side="left", padx=5)
+        self.uwp_backup.pack(side="left", padx=8, pady=(27, 10))
         self.uwp_restore = styled_button(buttons, text="套用備份", command=self._uwp_restore)
-        self.uwp_restore.pack(side="left", padx=5)
+        self.uwp_restore.pack(side="left", padx=8, pady=(27, 10))
         self.uwp_status = tk.StringVar()
-        ttk.Label(frm, textvariable=self.uwp_status).pack(anchor="w", pady=12)
+        ui_label(frm, textvariable=self.uwp_status).pack(anchor="w", pady=12)
 
     def _uwp_backup(self):
         path = filedialog.asksaveasfilename(parent=self, title="備份 UWP 防火牆規則",
