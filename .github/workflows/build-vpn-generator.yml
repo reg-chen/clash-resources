@@ -57,9 +57,9 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: build/VPN-Mihomo-Generator
-          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-ttk2-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
+          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-ttk2-ttk2-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
           restore-keys: |
-            vpn-generator-pyinstaller-${{ runner.os }}-py314-
+            vpn-generator-pyinstaller-${{ runner.os }}-py314-ttk2-
 
       - name: Validate Python sources
         shell: pwsh
@@ -143,7 +143,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: build/VPN-Mihomo-Generator
-          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
+          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-ttk2-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
 
       - name: Upload executable
         if: github.event_name != 'pull_request'
