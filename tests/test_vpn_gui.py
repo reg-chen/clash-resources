@@ -90,6 +90,26 @@ class ConfigAndValidationTests(unittest.TestCase):
                 self.assertEqual(gui.load_settings(), data)
                 self.assertEqual(json.loads(old_path.read_text(encoding="utf-8")), data)
 
+    def test_toplevels_disable_customtkinter_hidden_remap(self):
+        # CTk 6.0.0 withdraws+updates the entire Tk window while styling
+        # titlebars, and resizable(False, False) repeats that operation.
+        self.assertTrue(gui.StableDarkToplevel._deactivate_windows_window_header_manipulation)
+        self.assertTrue(gui.MainWindow._deactivate_windows_window_header_manipulation)
+        for cls in (gui.DarkAlertDialog, gui.WarpScheduleDialog,
+                    gui.UwpLoopbackRestoreDialog):
+            self.assertTrue(issubclass(cls, gui.StableDarkToplevel))
+
+    def test_main_window_center_uses_scaled_pixels_without_resizing(self):
+        from types import SimpleNamespace
+        window = SimpleNamespace(
+            _apply_window_scaling=lambda size: size * 1.25,
+            winfo_screenwidth=lambda: 1920,
+            winfo_screenheight=lambda: 1200,
+        )
+        with mock.patch.object(gui.tk.Wm, "geometry") as geometry:
+            gui.center_main_window(window, 900, 720)
+        geometry.assert_called_once_with(window, "+397+150")
+
     def test_dwm_color_does_not_force_window_remapping(self):
         import inspect
         self.assertNotIn("window.withdraw()", inspect.getsource(gui.show_with_dark_titlebar))

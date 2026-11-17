@@ -232,6 +232,20 @@ def show_with_dark_titlebar(window: tk.Misc, colors) -> None:
     set_dark_titlebar(window, colors)
 
 
+def center_main_window(window: ctk.CTk, width: int, height: int) -> None:
+    """Center the initial window on the primary display before first mapping.
+
+    Tk screen dimensions use physical window coordinates. CTk applies its own
+    window scaling to logical geometry dimensions; use the matching pixel
+    sizes for centering and native wm positioning to avoid double scaling.
+    """
+    pixel_width = round(window._apply_window_scaling(width))
+    pixel_height = round(window._apply_window_scaling(height))
+    x = max(0, (window.winfo_screenwidth() - pixel_width) // 2)
+    y = max(0, (window.winfo_screenheight() - pixel_height) // 2)
+    tk.Wm.geometry(window, f"+{x}+{y}")
+
+
 BG = "#1E222A"
 PANEL = "#252B35"
 INPUT = "#2B333E"
@@ -336,7 +350,18 @@ class DarkScrolledText(ctk.CTkTextbox):
             font=font, wrap=wrap, state=state)
 
 
-class DarkAlertDialog(ctk.CTkToplevel):
+class StableDarkToplevel(ctk.CTkToplevel):
+    """Keep CTk widgets but avoid CustomTkinter's Windows withdraw/update/remap.
+
+    CustomTkinter 6.0.0 applies dark captions with an internal withdraw() and
+    update() sequence on construction and again after resizable(). On Windows
+    this can flash the desktop. The existing set_dark_titlebar() handles the
+    caption for these dialogs without unmapping them.
+    """
+    _deactivate_windows_window_header_manipulation = True
+
+
+class DarkAlertDialog(StableDarkToplevel):
     """CustomTkinter dark modal with safe Yes/No semantics."""
 
     def __init__(self, parent, *, title: str, message: str,
@@ -457,7 +482,7 @@ def center_dialog(dialog: tk.Misc, parent: tk.Misc, width: int, height: int) -> 
 
 
 
-class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
+class UwpLoopbackRestoreDialog(StableDarkToplevel):
     """Preview the checked UWP Loopback exemptions before any UAC prompt."""
 
     def __init__(self, parent, entries: list[dict]):
@@ -567,7 +592,7 @@ class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
         return self.selected
 
 
-class WarpScheduleDialog(ctk.CTkToplevel):
+class WarpScheduleDialog(StableDarkToplevel):
     """Restore the original two-option WARP schedule interface."""
 
     FREQUENCIES = {
@@ -683,10 +708,15 @@ class WarpScheduleDialog(ctk.CTkToplevel):
 
 
 class MainWindow(ctk.CTk):
+    # Prevent CTk's own withdraw/update cycle on startup; manual DWM styling
+    # still runs after the first display, without forcibly remapping it.
+    _deactivate_windows_window_header_manipulation = True
+
     def __init__(self):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
         super().__init__()
+        self.withdraw()
         self.title("VPN Network Toolkit")
         self.configure(fg_color=BG)
         self.after(100, lambda: set_dark_titlebar(self, UI_COLORS))
@@ -744,6 +774,8 @@ class MainWindow(ctk.CTk):
         self.show_password.trace_add("write", lambda *_: self.password_entry.configure(
             show="" if self.show_password.get() else "●"))
         self.protocol("WM_DELETE_WINDOW", self._close)
+        center_main_window(self, 900, 720)
+        self.deiconify()
         self.after(100, self._pump)
 
     def _build_licenses(self):
