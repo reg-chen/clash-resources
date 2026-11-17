@@ -60,7 +60,7 @@ def require_windows() -> None:
         raise RuntimeError("UWP Loopback 僅支援 Windows。")
 
 
-def current_user_context() -> tuple[str, bool]:
+def current_user_context(process_handle=None) -> tuple[str, bool]:
     """Return the running Windows account SID and whether it can self-elevate.
 
     A split-token administrator is accepted even before UAC consent. A standard
@@ -88,7 +88,8 @@ def current_user_context() -> tuple[str, bool]:
     shell.IsUserAnAdmin.restype = wintypes.BOOL
 
     token = wintypes.HANDLE()
-    if not advapi.OpenProcessToken(kernel.GetCurrentProcess(), 0x0008, ctypes.byref(token)):
+    process = kernel.GetCurrentProcess() if process_handle is None else process_handle
+    if not advapi.OpenProcessToken(process, 0x0008, ctypes.byref(token)):
         raise ctypes.WinError(ctypes.get_last_error())
     try:
         required = wintypes.DWORD()
@@ -115,10 +116,45 @@ def current_user_context() -> tuple[str, bool]:
             raise ctypes.WinError(ctypes.get_last_error())
         # Default=1, Full=2, Limited=3. Limited is the same admin's
         # filtered token and can elevate with consent rather than credentials.
-        is_admin = elevation_type.value in (2, 3) or bool(shell.IsUserAnAdmin())
+        is_admin = elevation_type.value in (2, 3) or (
+            process_handle is None and bool(shell.IsUserAnAdmin()))
         return sid, is_admin
     finally:
         kernel.CloseHandle(token)
+
+
+def current_process_matches_login_shell() -> bool:
+    """Reject GUI launched with an alternate administrator's RunAs identity.
+
+    GetShellWindow identifies the Explorer shell on this interactive desktop,
+    rather than choosing an arbitrary explorer.exe process from another session.
+    """
+    require_windows()
+    user32 = ctypes.WinDLL("user32.dll", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32.dll", use_last_error=True)
+    user32.GetShellWindow.restype = wintypes.HWND
+    user32.GetWindowThreadProcessId.argtypes = [
+        wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    shell_window = user32.GetShellWindow()
+    if not shell_window:
+        raise RuntimeError("無法確認目前桌面登入帳號（找不到 Windows Shell）。")
+    pid = wintypes.DWORD()
+    if not user32.GetWindowThreadProcessId(shell_window, ctypes.byref(pid)) or not pid.value:
+        raise RuntimeError("無法確認 Windows Shell 的程序身分。")
+    process = kernel.OpenProcess(0x1000, False, pid.value)
+    if not process:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        shell_sid, _ = current_user_context(process_handle=process)
+    finally:
+        kernel.CloseHandle(process)
+    active_sid, _ = current_user_context()
+    return shell_sid.casefold() == active_sid.casefold()
 
 
 def _winapi():
