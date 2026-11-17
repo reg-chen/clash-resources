@@ -157,46 +157,78 @@ def colorref(value: str) -> int:
 
 
 def set_dark_titlebar(window: tk.Misc, colors) -> bool:
-    """Darken the *native Windows frame*, not just ttk widgets.
-
-    Tk's winfo_id() is its inner HWND. GetParent resolves the top-level
-    decorated window that owns the DWM non-client/title-bar region.
-    Other platforms and unsupported Windows builds keep their native frame.
-    """
+    """Apply DWM colors to Tk's decorated outer Win32 window."""
     if sys.platform != "win32":
         return False
     try:
         import ctypes
         from ctypes import wintypes
 
+        window.update_idletasks()
         user32 = ctypes.WinDLL("user32", use_last_error=True)
         dwmapi = ctypes.WinDLL("dwmapi", use_last_error=True)
         user32.GetParent.argtypes = [wintypes.HWND]
         user32.GetParent.restype = wintypes.HWND
-        handle = window.winfo_id()
-        hwnd = user32.GetParent(handle) or handle
+        user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+        user32.GetWindowLongW.restype = ctypes.c_long
+        user32.SetWindowPos.argtypes = [
+            wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+            ctypes.c_int, ctypes.c_int, wintypes.UINT,
+        ]
+        user32.SetWindowPos.restype = wintypes.BOOL
         dwmapi.DwmSetWindowAttribute.argtypes = [
             wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
         ]
         dwmapi.DwmSetWindowAttribute.restype = ctypes.c_long
+        # Python/Tk exposes the native top-level frame directly.  The earlier
+        # implementation used GetParent(winfo_id) before the frame was mapped.
+        frame = str(window.wm_frame()).strip()
+        outer = int(frame, 16) if frame.lower().startswith("0x") else int(frame) if frame else 0
+        child = window.winfo_id()
+        candidates = (outer, user32.GetParent(child))
+        target = colorref(colors.bg)
+        for hwnd in dict.fromkeys(int(v) for v in candidates if v):
+            # WS_CAPTION identifies the window that actually draws the titlebar.
+            if not (user32.GetWindowLongW(hwnd, -16) & 0x00C00000):
+                continue
 
-        def set_attribute(attribute: int, value: int) -> bool:
-            data = ctypes.c_uint32(value)
-            return dwmapi.DwmSetWindowAttribute(
-                hwnd, attribute, ctypes.byref(data), ctypes.sizeof(data)
-            ) == 0
+            def set_attr(attribute: int, value: int) -> bool:
+                data = ctypes.c_uint32(value)
+                return dwmapi.DwmSetWindowAttribute(
+                    hwnd, attribute, ctypes.byref(data), ctypes.sizeof(data)) == 0
 
-        # DWMWA_USE_IMMERSIVE_DARK_MODE (20), available on Windows 11.
-        success = set_attribute(20, 1)
-        # Explicit dark caption, border and text even if the OS app theme is light.
-        # Windows 11: DWMWA_CAPTION_COLOR=35, BORDER_COLOR=34, TEXT_COLOR=36.
-        set_attribute(35, colorref(colors.bg))
-        set_attribute(34, colorref(colors.border))
-        set_attribute(36, colorref(colors.fg))
-        return success
-    except (AttributeError, OSError, ValueError):
-        # A non-critical cosmetic feature must not prevent GUI launch.
+            if not set_attr(20, 1):
+                set_attr(19, 1)  # legacy immersive dark mode attribute
+            if not set_attr(35, target):
+                continue
+            set_attr(34, colorref(colors.border))
+            set_attr(36, colorref(colors.fg))
+            # Caption color is a set-only DWM attribute: requesting it with
+            # DwmGetWindowAttribute returns E_INVALIDARG even after a
+            # successful DwmSetWindowAttribute call (confirmed on Win CI).
+            # SWP_FRAMECHANGED | NOACTIVATE | NOZORDER | NOMOVE | NOSIZE
+            user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x0037)
+            return True
         return False
+    except (AttributeError, OSError, ValueError, tk.TclError):
+        return False
+
+
+def show_with_dark_titlebar(window: tk.Misc, colors) -> None:
+    """Force DWM to repaint after mapping a Tk top-level window."""
+    if sys.platform != "win32" or not window.winfo_exists():
+        return
+    window.update_idletasks()
+    if not window.winfo_ismapped():
+        window.deiconify()
+        window.update_idletasks()
+    if set_dark_titlebar(window, colors):
+        # Tk draws its original light frame on first map. Recomposition is
+        # necessary even if DwmSetWindowAttribute returned S_OK.
+        window.withdraw()
+        window.deiconify()
+        window.after(80, lambda: set_dark_titlebar(window, colors)
+                     if window.winfo_exists() else None)
 
 
 class DarkScrolledText(ttk.Frame):
@@ -237,53 +269,97 @@ class DarkScrolledText(ttk.Frame):
 
 
 class WarpScheduleDialog(tk.Toplevel):
-    """Register/overwrite the same Windows task; do not inspect old settings."""
+    """Restore the original two-option WARP schedule interface."""
+
+    FREQUENCIES = {
+        "每月 5、10、15、20、25、30 日（預設）": "monthly",
+        "每 N 天": "interval",
+    }
 
     def __init__(self, parent, out_dir: str, config: dict):
         super().__init__(parent)
         self.title("WARP 工作排程")
         self.configure(background=parent.style.colors.bg)
-        self.after(0, lambda: set_dark_titlebar(self, parent.style.colors))
         self.transient(parent)
         self.resizable(False, False)
         self.out = tk.StringVar(value=out_dir or r"P:\Clash")
-        self.mode = tk.StringVar(value=config.get("mode", "monthly"))
+        selected = config.get("mode", "monthly")
+        if selected not in ("monthly", "interval"):
+            selected = "monthly"
+        self.mode = tk.StringVar(value=selected)
+        self.frequency_label = tk.StringVar(
+            value=next(label for label, mode in self.FREQUENCIES.items() if mode == selected))
         self.interval = tk.StringVar(value=str(config.get("interval", 5)))
         self.clock = tk.StringVar(value=config.get("time", "03:00"))
-        self.config = config
+        self.config_data = config
+
         frm = ttk.Frame(self, padding=16)
         frm.pack(fill="both", expand=True)
-        ttk.Label(frm, text="同名工作排程會直接覆寫；不讀取舊排程內容。").grid(
+        frm.columnconfigure(1, weight=1)
+        ttk.Label(frm, text="由 Windows 工作排程執行 WARP 更新，不需要開啟 GUI。").grid(
             row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
-        ttk.Label(frm, text="執行頻率").grid(row=1, column=0, sticky="w")
-        ttk.Combobox(frm, textvariable=self.mode, state="readonly",
-                     values=("monthly", "interval", "daily"), width=18).grid(row=1, column=1, sticky="ew")
-        ttk.Label(frm, text="monthly／interval／daily").grid(row=1, column=2, sticky="w", padx=8)
-        ttk.Label(frm, text="間隔天數").grid(row=2, column=0, sticky="w", pady=6)
-        ttk.Entry(frm, textvariable=self.interval, width=18).grid(row=2, column=1, sticky="ew")
+        ttk.Label(frm, text="執行頻率").grid(row=1, column=0, sticky="w", pady=6)
+        self.frequency_combo = ttk.Combobox(
+            frm, textvariable=self.frequency_label, state="readonly",
+            values=tuple(self.FREQUENCIES), width=34)
+        self.frequency_combo.grid(row=1, column=1, columnspan=2, sticky="ew", padx=(12, 0))
+        self.frequency_combo.bind("<<ComboboxSelected>>", self._frequency_selected)
+
+        self.interval_label = ttk.Label(frm, text="間隔天數 N")
+        self.interval_label.grid(row=2, column=0, sticky="w", pady=6)
+        self.interval_spinbox = ttk.Spinbox(
+            frm, textvariable=self.interval, from_=1, to=365, width=8)
+        self.interval_spinbox.grid(row=2, column=1, sticky="w", padx=(12, 0), pady=6)
+        self.interval_unit = ttk.Label(frm, text="天")
+        self.interval_unit.grid(row=2, column=2, sticky="w", pady=6)
+
         ttk.Label(frm, text="執行時間").grid(row=3, column=0, sticky="w", pady=6)
-        ttk.Entry(frm, textvariable=self.clock, width=18).grid(row=3, column=1, sticky="ew")
-        ttk.Label(frm, text="HH:mm").grid(row=3, column=2, sticky="w", padx=8)
+        ttk.Entry(frm, textvariable=self.clock, width=12).grid(
+            row=3, column=1, sticky="w", padx=(12, 0), pady=6)
+        ttk.Label(frm, text="HH:mm").grid(row=3, column=2, sticky="w", pady=6)
         ttk.Label(frm, text="Mihomo 目錄").grid(row=4, column=0, sticky="w", pady=6)
-        ttk.Entry(frm, textvariable=self.out, width=32).grid(row=4, column=1, columnspan=2, sticky="ew")
-        ttk.Label(frm, text="預設每月 5、10、15、20、25、30 日；P: 磁碟需保持使用者登入。",
-                  wraplength=470).grid(row=5, column=0, columnspan=3, sticky="w", pady=(6, 14))
+        ttk.Entry(frm, textvariable=self.out, width=36).grid(
+            row=4, column=1, columnspan=2, sticky="ew", padx=(12, 0), pady=6)
+        ttk.Label(frm, text="注意：若使用 P: 映射磁碟，Windows 使用者必須已登入。").grid(
+            row=5, column=0, columnspan=3, sticky="w", pady=(8, 14))
         actions = ttk.Frame(frm)
         actions.grid(row=6, column=0, columnspan=3, sticky="e")
-        ttk.Button(actions, text="安裝／覆寫", command=self.install, bootstyle="success").pack(side="left", padx=3)
-        ttk.Button(actions, text="移除", command=self.remove, bootstyle="warning-outline").pack(side="left", padx=3)
+        ttk.Button(actions, text="安裝／更新排程", command=self.install,
+                   bootstyle="success").pack(side="left", padx=3)
+        ttk.Button(actions, text="移除排程", command=self.remove,
+                   bootstyle="warning-outline").pack(side="left", padx=3)
         ttk.Button(actions, text="關閉", command=self.destroy).pack(side="left", padx=3)
+
+        self.mode.trace_add("write", self._sync_mode)
+        self._update_interval_visibility()
         self.grab_set()
+        self.after(100, lambda: show_with_dark_titlebar(self, parent.style.colors))
+
+    def _frequency_selected(self, _event=None):
+        self.mode.set(self.FREQUENCIES[self.frequency_label.get()])
+
+    def _sync_mode(self, *_args):
+        self.frequency_label.set(next(
+            label for label, mode in self.FREQUENCIES.items() if mode == self.mode.get()))
+        self._update_interval_visibility()
+
+    def _update_interval_visibility(self):
+        action = "grid" if self.mode.get() == "interval" else "grid_remove"
+        for widget in (self.interval_label, self.interval_spinbox, self.interval_unit):
+            getattr(widget, action)()
 
     def install(self):
         try:
-            days = int(self.interval.get())
+            mode = self.mode.get()
+            days = int(self.interval.get()) if mode == "interval" else 5
+            directory = self.out.get().strip()
+            if not directory:
+                raise ValueError("請設定 Mihomo 輸出目錄。")
             result = warp_schedule.configure_schedule(
-                action="install", out_dir=Path(self.out.get().strip()),
-                mode=self.mode.get(), interval_days=days, time=self.clock.get().strip(),
-            )
-            self.config.update({"mode": self.mode.get(), "interval": days, "time": self.clock.get()})
-            messagebox.showinfo("WARP 排程", f"已安裝／覆寫：{TASK_NAME}\n{result}", parent=self)
+                action="install", out_dir=Path(directory), mode=mode,
+                interval_days=days, time=self.clock.get().strip())
+            self.config_data.update({"mode": mode, "interval": days, "time": self.clock.get()})
+            messagebox.showinfo("WARP 排程", f"已安裝／更新：{TASK_NAME}\n{result}", parent=self)
         except Exception as exc:
             messagebox.showerror("排程失敗", str(exc), parent=self)
 
@@ -302,7 +378,7 @@ class MainWindow(ttk.Window):
         super().__init__(themename="darkly")
         self.title("VPN / Mihomo Generator")
         self.configure(background=self.style.colors.bg)
-        self.after(0, lambda: set_dark_titlebar(self, self.style.colors))
+        self.after(100, lambda: show_with_dark_titlebar(self, self.style.colors))
         self.geometry("900x720")
         self.minsize(740, 580)
         self.config_data = load_settings()

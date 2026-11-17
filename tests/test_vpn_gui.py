@@ -226,6 +226,75 @@ class WindowsGuiTests(unittest.TestCase):
         self.window.provider.set("warp")
         self.assertTrue(self.window.doh_endpoint.get())
 
+    def test_schedule_shows_exact_original_two_frequency_choices(self):
+        dlg = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
+        try:
+            values = tuple(dlg.frequency_combo["values"])
+            self.assertEqual(values, (
+                "每月 5、10、15、20、25、30 日（預設）",
+                "每 N 天",
+            ))
+            self.assertEqual(dlg.mode.get(), "monthly")
+            self.assertFalse(bool(dlg.interval_spinbox.grid_info()))
+            dlg.frequency_label.set("每 N 天")
+            dlg._frequency_selected()
+            self.assertEqual(dlg.mode.get(), "interval")
+            self.assertTrue(bool(dlg.interval_spinbox.grid_info()))
+            dlg.mode.set("monthly")
+            self.assertFalse(bool(dlg.interval_spinbox.grid_info()))
+            self.assertNotIn("daily", values)
+        finally:
+            dlg.destroy()
+
+    def test_windows_dwm_sets_outer_caption_and_recomposes(self):
+        import ctypes
+        from ctypes import wintypes
+
+        self.window.deiconify()
+        try:
+            self.window.update()
+            inner = self.window.winfo_id()
+            frame = str(self.window.wm_frame())
+            outer = int(frame, 16) if frame.lower().startswith("0x") else int(frame)
+            self.assertNotEqual(inner, outer, "Expected the decorated Tk wrapper HWND")
+            self.assertTrue(
+                gui.set_dark_titlebar(self.window, self.window.style.colors),
+                "DWM refused to set the color on Tk's outer HWND")
+            gui.show_with_dark_titlebar(self.window, self.window.style.colors)
+            self.window.update()
+            self.assertTrue(self.window.winfo_ismapped())
+
+            # Screenshot is a diagnostic of the *rendered* caption, unlike
+            # DwmGetWindowAttribute(35), which returns E_INVALIDARG for a
+            # successfully written caption color.
+            from PIL import ImageGrab
+            user32 = ctypes.WinDLL("user32")
+            class Rect(ctypes.Structure):
+                _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                            ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+            rect = Rect()
+            user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(Rect)]
+            user32.GetWindowRect.restype = wintypes.BOOL
+            self.assertTrue(user32.GetWindowRect(outer, ctypes.byref(rect)))
+            center_x = (rect.left + rect.right) // 2
+            if rect.top < 0:
+                self.skipTest("Window titlebar outside capture area")
+            box = (center_x - 32, rect.top + 10, center_x + 32, rect.top + 26)
+            try:
+                image = ImageGrab.grab(bbox=box).convert("RGB")
+                rgb = image.getpixel((image.width // 2, image.height // 2))
+                print(f"WINDOW_TITLEBAR_CAPTURE outer={outer:#x} rect={tuple((rect.left, rect.top, rect.right, rect.bottom))} center_rgb={rgb} expected={self.window.style.colors.bg}", flush=True)
+                expected = self.window.style.colors.bg.lstrip("#")
+                expected_rgb = tuple(int(expected[i:i+2], 16) for i in (0, 2, 4))
+                self.assertTrue(
+                    all(abs(actual - desired) <= 24 for actual, desired in zip(rgb, expected_rgb)),
+                    f"Windows titlebar rendered {rgb}, expected near {expected_rgb}",
+                )
+            except OSError as exc:
+                print(f"WINDOW_TITLEBAR_CAPTURE unavailable: {exc}", flush=True)
+        finally:
+            self.window.withdraw()
+
     def test_schedule_dialog_uses_same_task_and_updates(self):
         dlg = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
         dlg.mode.set("interval")
