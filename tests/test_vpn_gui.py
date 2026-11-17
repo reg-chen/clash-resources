@@ -243,7 +243,7 @@ class WindowsGuiTests(unittest.TestCase):
                     self.assertIsInstance(widget, gui.ctk.CTkButton)
                     self.assertEqual(widget.cget("height"), 30)
                     self.assertEqual(widget.cget("corner_radius"), 7)
-                    self.assertEqual(widget.cget("bg_color"), "transparent")
+                    self.assertEqual(widget.cget("bg_color"), gui.PANEL)
                     self.assertLessEqual(widget.winfo_reqheight(), int(entry_height * 1.5))
                     self.assertLess(widget.cget("width"), 250)
             self.assertLess(self.window.run_button.cget("width"), 100)
