@@ -250,6 +250,40 @@ class WindowsGuiTests(unittest.TestCase):
         finally:
             self.window.withdraw()
 
+    def test_rendered_ctk_corners_do_not_have_rectangular_backplates(self):
+        from PIL import ImageGrab
+
+        self.window.provider.set("warp")
+        self.window.deiconify()
+        try:
+            self.window.update()
+            button = self.window.run_button
+            x, y = button.winfo_rootx(), button.winfo_rooty()
+            w, h = button.winfo_width(), button.winfo_height()
+            self.assertGreaterEqual(w, 45)
+            self.assertGreaterEqual(h, 26)
+            self.assertLessEqual(h, 42)
+            image = ImageGrab.grab(bbox=(x, y, x + w, y + h)).convert("RGB")
+            expected_background = tuple(int(gui.PANEL[i:i + 2], 16)
+                                        for i in (1, 3, 5))
+            corner = image.getpixel((1, 1))
+            inside = image.getpixel((min(15, w - 2), h // 2))
+            print(
+                f"CTK_BUTTON_CAPTURE rect={x,y,w,h} "
+                f"corner={corner} inside={inside} expected_background={expected_background}",
+                flush=True,
+            )
+            self.assertTrue(
+                all(abs(a - b) <= 26 for a, b in zip(corner, expected_background)),
+                "Outer button corner has a rectangular backplate",
+            )
+            self.assertGreater(
+                sum(abs(a - b) for a, b in zip(corner, inside)), 40,
+                "Rounded corner cannot be distinguished from button fill",
+            )
+        finally:
+            self.window.withdraw()
+
     def test_muted_button_palettes_remain_consistent(self):
         self.assertEqual(self.window.run_button.cget("fg_color"),
                          gui.BUTTON_PALETTE["primary"][0])
