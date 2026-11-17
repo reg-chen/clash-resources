@@ -238,7 +238,7 @@ class WindowsGuiTests(unittest.TestCase):
         self.assertEqual(self.window.cget("fg_color"), gui.BG)
         self.assertIsInstance(self.window.tabs, gui.ctk.CTkTabview)
         self.assertEqual(set(self.window.tabs._tab_dict),
-                         {"VPN Provider", "Mihomo DNS / TLS", "Windows 防火牆"})
+                         {"VPN Provider", "Mihomo DNS / TLS", "Windows 防火牆", "授權聲明"})
         self.assertIsInstance(self.window.ov_check, gui.ctk.CTkCheckBox)
         self.assertIsInstance(self.window.wg_check, gui.ctk.CTkCheckBox)
         self.assertIsInstance(self.window.password_entry, gui.ctk.CTkEntry)
@@ -344,8 +344,9 @@ class WindowsGuiTests(unittest.TestCase):
         finally:
             self.window.withdraw()
 
-    def test_three_tabs_and_function_buttons_exist(self):
-        self.assertEqual(len(self.window.tabs._tab_dict), 3)
+    def test_four_tabs_and_function_buttons_exist(self):
+        self.assertEqual(len(self.window.tabs._tab_dict), 4)
+        self.assertIsInstance(self.window.license_notice, gui.ctk.CTkTextbox)
         self.assertTrue(self.window.uwp_backup.winfo_exists())
         self.assertTrue(self.window.trust_button.winfo_exists())
         self.assertTrue(self.window.warp_button.winfo_exists())
