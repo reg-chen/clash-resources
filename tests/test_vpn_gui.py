@@ -345,23 +345,26 @@ class WindowsGuiTests(unittest.TestCase):
         self.window.deiconify()
         self.window.update()
         rows = [
-            {"SID": "S-1-15-2-1-2-3-4-5-6-7", "AppContainerName": "Example.A_abc",
+            {"Key": "example.a_abc", "AppContainerName": "Example.A_abc",
+             "PackageFamilyName": "Example.A_abc",
              "DisplayName": "Example A", "Status": "available"},
-            {"SID": "S-1-15-2-2-3-4-5-6-7-8", "AppContainerName": "Example.B_xyz",
+            {"Key": "example.b_xyz", "AppContainerName": "Example.B_xyz",
+             "PackageFamilyName": "Example.B_xyz",
              "DisplayName": "Old App", "Status": "missing"},
-            {"SID": "S-1-15-2-3-4-5-6-7-8-9", "AppContainerName": "Example.C_z",
+            {"Key": "example.c_z", "AppContainerName": "Example.C_z",
+             "PackageFamilyName": "Example.C_z",
              "DisplayName": "Already Applied", "Status": "existing"},
         ]
         dialog = gui.UwpLoopbackRestoreDialog(self.window, rows)
         try:
-            self.assertTrue(dialog.variables[rows[0]["SID"]].get())
-            self.assertFalse(dialog.variables[rows[1]["SID"]].get())
-            self.assertFalse(dialog.variables[rows[2]["SID"]].get())
+            self.assertTrue(dialog.variables[rows[0]["Key"]].get())
+            self.assertFalse(dialog.variables[rows[1]["Key"]].get())
+            self.assertFalse(dialog.variables[rows[2]["Key"]].get())
             self.assertGreaterEqual(dialog.winfo_width(), 660)
             dialog._select_all()
-            self.assertFalse(dialog.variables[rows[1]["SID"]].get())
+            self.assertFalse(dialog.variables[rows[1]["Key"]].get())
             dialog._accept()
-            self.assertEqual(dialog.selected, [rows[0]["SID"]])
+            self.assertEqual(dialog.selected, [rows[0]["Key"]])
         finally:
             if dialog.winfo_exists():
                 dialog.destroy()

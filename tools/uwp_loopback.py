@@ -22,7 +22,7 @@ import sys
 import tempfile
 
 TYPE = "UWP-LoopbackExemptions"
-SCHEMA = 1
+SCHEMA = 2
 SID_RE = re.compile(r"^S-1-15-(?:2|7)-(?:\d+-)*\d+$", re.I)
 MAX_ITEMS = 10000
 
@@ -130,18 +130,19 @@ def enabled_sids() -> set[str]:
             kernel.HeapFree(heap, 0, ctypes.cast(entries, ctypes.c_void_p))
 
 
-def _installed_package_ids() -> tuple[set[str], set[str]]:
-    """Query actually installed AppX packages, not merely created containers.
+def _installed_package_ids() -> tuple[dict[str, str], set[str]]:
+    """Map full package versions to stable Package Family Names (PFN).
 
-    Stale AppContainer profiles can persist after an app is uninstalled.
-    Requiring a matching Get-AppxPackage record prevents restoring to ghosts.
+    Full names include version and architecture; PFNs do not. Never derive a
+    package family from a machine/user SID or by splitting package names.
     """
     require_windows()
-    elevated = bool(ctypes.windll.shell32.IsUserAnAdmin())
-    scope = "-AllUsers " if elevated else ""
+    # Scope to the *current account*, not -AllUsers. Under an alternate
+    # administrator's UAC account, an absent app must be skipped instead of
+    # accidentally applying an exemption on behalf of another Windows user.
     script = (
         "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); "
-        f"@(Get-AppxPackage {scope}-ErrorAction Stop | "
+        "@(Get-AppxPackage -ErrorAction Stop | "
         "Select-Object PackageFullName,PackageFamilyName) | ConvertTo-Json -Compress"
     )
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
@@ -160,22 +161,22 @@ def _installed_package_ids() -> tuple[set[str], set[str]]:
         payload = [payload]
     if not isinstance(payload, list):
         raise RuntimeError("Windows 的 AppX 套件清單格式異常。")
-    fullnames: set[str] = set()
+    full_to_family: dict[str, str] = {}
     families: set[str] = set()
     for item in payload:
         if not isinstance(item, dict):
             continue
         full = item.get("PackageFullName")
         family = item.get("PackageFamilyName")
-        if isinstance(full, str) and full:
-            fullnames.add(full.casefold())
         if isinstance(family, str) and family:
             families.add(family.casefold())
-    return fullnames, families
+            if isinstance(full, str) and full:
+                full_to_family[full.casefold()] = family
+    return full_to_family, families
 
 
 def installed_containers() -> dict[str, dict[str, str]]:
-    """Verify both native AppContainer presence and an installed AppX package."""
+    """Resolve actual local SIDs with stable monikers and installed PFNs."""
     firewall, advapi, kernel = _winapi()
     installed_full, installed_family = _installed_package_ids()
     count = wintypes.DWORD()
@@ -193,18 +194,21 @@ def installed_containers() -> dict[str, dict[str, str]]:
             entry = entries[i]
             if not entry.sid:
                 continue
-            package_full_name = entry.package_full_name or ""
-            container_name = entry.name or ""
-            if (package_full_name.casefold() not in installed_full
-                    and container_name.casefold() not in installed_family):
-                # A registered container is not proof that the app still exists.
+            full = entry.package_full_name or ""
+            moniker = entry.name or ""
+            family = installed_full.get(full.casefold(), "")
+            if not family and moniker.casefold() in installed_family:
+                family = moniker
+            if not family:
+                # A stale AppContainer is not evidence that the App is installed.
                 continue
             sid = _sid_string(entry.sid, advapi, kernel)
             result[sid] = {
                 "SID": sid,
-                "AppContainerName": container_name,
+                "PackageFamilyName": family,
+                "AppContainerName": moniker,
                 "DisplayName": entry.display_name or "",
-                "PackageFullName": package_full_name,
+                "PackageFullName": full,
             }
     finally:
         if entries:
@@ -212,50 +216,116 @@ def installed_containers() -> dict[str, dict[str, str]]:
     return result
 
 
-def read_backup(path: Path) -> list[dict[str, str]]:
-    payload = json.loads(path.read_text(encoding="utf-8-sig"))
-    if (not isinstance(payload, dict) or payload.get("Schema") != SCHEMA
-            or payload.get("Type") != TYPE):
-        raise ValueError("這不是 UWP Loopback 勾選項目的備份。舊防火牆規則 JSON 不適用。")
-    items = payload.get("Exemptions")
+def identity_key(record: dict) -> str:
+    """Stable across reinstalls. Source SID is intentionally never a key."""
+    moniker = record.get("AppContainerName", "")
+    if not isinstance(moniker, str) or not moniker.strip():
+        # Cannot safely identify an unlabelled legacy or orphaned container.
+        # Make it unselectable; never silently fall back to SourceSID.
+        return ""
+    return moniker.casefold()
+
+
+def _local_match(original: dict, installed: dict[str, dict]) -> dict | None:
+    """Resolve the current machine's SID, checking PFN when available.
+
+    Reject ambiguous and mismatched identities rather than applying a rule to
+    the wrong app. Legacy v1 has only AppContainerName; it must match exactly.
+    """
+    key = identity_key(original)
+    if not key:
+        return None
+    expected_family = original.get("PackageFamilyName", "").casefold()
+    matches = []
+    for item in installed.values():
+        if identity_key(item) != key:
+            continue
+        if expected_family and item.get("PackageFamilyName", "").casefold() != expected_family:
+            continue
+        matches.append(item)
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
+def _validate_rows(items: object, schema: int) -> list[dict[str, str]]:
     if not isinstance(items, list) or len(items) > MAX_ITEMS:
         raise ValueError("UWP Loopback 備份清單格式無效。")
     results: list[dict[str, str]] = []
-    visited: set[str] = set()
+    seen: set[str] = set()
     for item in items:
         if not isinstance(item, dict):
             raise ValueError("UWP Loopback 清單包含無效項目。")
-        sid = item.get("SID")
-        if not isinstance(sid, str) or not SID_RE.fullmatch(sid):
-            raise ValueError("UWP Loopback 清單包含無效 SID。")
-        sid = sid.upper()
-        if sid in visited:
-            raise ValueError("UWP Loopback 備份含重複 SID。")
-        visited.add(sid)
-        parsed = {"SID": sid}
-        for field in ("AppContainerName", "DisplayName", "PackageFullName"):
+        parsed: dict[str, str] = {}
+        for field in ("PackageFamilyName", "AppContainerName",
+                      "DisplayName", "PackageFullName"):
             value = item.get(field, "")
             if not isinstance(value, str) or len(value) > 2048:
-                raise ValueError("UWP Loopback 備份含無效 App 名稱。")
+                raise ValueError("UWP Loopback 備份包含無效 App 身分。")
             parsed[field] = value
+        if schema == 1:
+            # Prior version backed up machine-local SIDs. Accept its JSON,
+            # but NEVER use this SID to match or restore on another machine.
+            sid = item.get("SID")
+            if not isinstance(sid, str) or not SID_RE.fullmatch(sid):
+                raise ValueError("舊版 Loopback 備份包含無效 SID。")
+        elif schema == 2:
+            if not parsed["PackageFamilyName"] or not parsed["AppContainerName"]:
+                raise ValueError("可攜式 Loopback 備份缺少 Package Family Name 或 AppContainer 名稱。")
+        elif schema == 0:
+            # Elevated selection payload: legacy backups can lack PFN, but
+            # must still supply an exact stable AppContainer moniker.
+            if not parsed["AppContainerName"]:
+                raise ValueError("無法辨識的舊版 AppContainer 不可進行還原。")
+        else:
+            raise ValueError("不支援的 Loopback 備份版本。")
+        key = identity_key(parsed)
+        if key:
+            if key in seen:
+                raise ValueError("UWP Loopback 備份包含重複 AppContainer 身分。")
+            seen.add(key)
         results.append(parsed)
     return results
 
 
+def read_backup(path: Path) -> list[dict[str, str]]:
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(payload, dict) or payload.get("Type") != TYPE:
+        raise ValueError("這不是 UWP Loopback 勾選項目的備份。舊防火牆規則 JSON 不適用。")
+    schema = payload.get("Schema")
+    if schema not in (1, 2):
+        raise ValueError("不支援的 UWP Loopback JSON Schema。")
+    return _validate_rows(payload.get("Exemptions"), schema)
+
+
 def backup(path: Path) -> dict:
-    """Export only currently enabled loopback exemptions; zero is valid."""
+    """Save checked App identities, NEVER machine-local SIDs in new backups."""
     require_windows()
     if path.suffix.lower() != ".json":
         raise ValueError("請選擇 .json 備份檔。")
     active = enabled_sids()
     apps = installed_containers()
-    items = [apps.get(sid, {
-        "SID": sid, "AppContainerName": "", "DisplayName": "",
-        "PackageFullName": "",
-    }) for sid in sorted(active)]
+    portable: dict[str, dict[str, str]] = {}
+    unresolved = 0
+    for sid in sorted(active):
+        record = apps.get(sid)
+        if not record or not identity_key(record) or not record.get("PackageFamilyName"):
+            unresolved += 1
+            continue
+        key = identity_key(record)
+        if key not in portable:
+            portable[key] = {
+                field: record.get(field, "") for field in (
+                    "PackageFamilyName", "AppContainerName",
+                    "DisplayName", "PackageFullName",
+                )
+            }
+    # Different user SIDs do not imply distinct application identities.
+    items = list(portable.values())
     payload = {
-        "Schema": SCHEMA, "Type": TYPE,
+        "Schema": 2, "Type": TYPE,
         "ExportedAt": datetime.now(timezone.utc).isoformat(),
+        "UnresolvedCount": unresolved,
         "Exemptions": items,
     }
     path = path.expanduser().absolute()
@@ -270,67 +340,81 @@ def backup(path: Path) -> dict:
         temporary.replace(path)
     finally:
         temporary.unlink(missing_ok=True)
-    return {"Total": len(items),
-            "Recognized": sum(item["SID"] in apps for item in items),
-            "Unresolved": sum(item["SID"] not in apps for item in items)}
+    return {
+        "Total": len(active),
+        "Recognized": len(items),
+        "Unresolved": unresolved,
+        "Duplicates": max(0, len(active) - len(items) - unresolved),
+    }
 
 
 def restore_preview(path: Path) -> list[dict[str, str]]:
-    """Read-only preview and exact SID match against installed containers."""
+    """Match by stable moniker and PFN; get target SID from target Windows."""
     items = read_backup(path)
     installed = installed_containers()
     active = enabled_sids()
     preview = []
-    for original in items:
-        sid = original["SID"]
-        current = installed.get(sid)
-        status = ("missing" if current is None
+    for index, original in enumerate(items):
+        key = identity_key(original)
+        current = _local_match(original, installed)
+        sid = (current or {}).get("SID", "")
+        status = ("missing" if not current
                   else "existing" if sid in active else "available")
         preview.append({
             **original,
+            "Key": key if key else f"unresolved:{index}",
             "DisplayName": (current or {}).get("DisplayName") or original["DisplayName"],
             "AppContainerName": (current or {}).get("AppContainerName")
                                 or original["AppContainerName"],
+            "PackageFamilyName": (current or {}).get("PackageFamilyName")
+                                  or original["PackageFamilyName"],
+            "TargetSID": sid,
             "Status": status,
         })
     return preview
 
 
-def apply_selected_sids(sids: list[str]) -> dict:
-    """Elevated child process: merge only selected, still-installed SIDs."""
+def apply_selected_entries(entries: list[dict[str, str]]) -> dict:
+    """Elevated child: resolve target SID at apply time and merge exemptions."""
     require_windows()
-    if len(sids) > MAX_ITEMS or len(sids) != len(set(sids)):
-        raise ValueError("還原清單長度或重複項目異常。")
-    if any(not isinstance(s, str) or not SID_RE.fullmatch(s) for s in sids):
-        raise ValueError("還原清單包含無效 SID。")
+    if not isinstance(entries, list) or len(entries) > MAX_ITEMS:
+        raise ValueError("還原清單長度異常。")
+    # Selection always carries stable app identity; no source SID can reach
+    # CheckNetIsolation even if a user supplied a legacy v1 backup.
+    originals = _validate_rows(entries, 0) if entries else []
     installed = installed_containers()
     active = enabled_sids()
     outcome = {
-        "Total": len(sids), "Added": 0, "Existing": 0,
+        "Total": len(originals), "Added": 0, "Existing": 0,
         "MissingPackage": 0, "Errors": [],
     }
     exe = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "CheckNetIsolation.exe"
-    for sid in sids:
-        if sid not in installed:
+    for original in originals:
+        current = _local_match(original, installed)
+        if current is None:
             outcome["MissingPackage"] += 1
             continue
-        if sid in active:
+        target_sid = current["SID"]
+        if target_sid in active:
             outcome["Existing"] += 1
             continue
         process = subprocess.run(
-            [str(exe), "LoopbackExempt", "-a", f"-p={sid}"],
+            [str(exe), "LoopbackExempt", "-a", f"-p={target_sid}"],
             capture_output=True, text=True, errors="replace", timeout=30,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         if process.returncode:
             outcome["Errors"].append(
-                f"{sid}: {(process.stderr or process.stdout or str(process.returncode)).strip()[:300]}"
+                f"{original['AppContainerName']}: "
+                f"{(process.stderr or process.stdout or str(process.returncode)).strip()[:300]}"
             )
             continue
-        if sid not in enabled_sids():
-            outcome["Errors"].append(f"{sid}: Windows did not retain the exemption.")
+        if target_sid not in enabled_sids():
+            outcome["Errors"].append(
+                f"{original['AppContainerName']}: Windows did not retain the exemption."
+            )
             continue
-        active.add(sid)
+        active.add(target_sid)
         outcome["Added"] += 1
     return outcome
 
@@ -340,9 +424,9 @@ def elevated_child(selection_file: Path, report_file: Path) -> int:
     try:
         data = json.loads(selection_file.read_text(encoding="utf-8"))
         if (not isinstance(data, dict) or data.get("Type") != TYPE
-                or not isinstance(data.get("SelectedSids"), list)):
+                or not isinstance(data.get("SelectedEntries"), list)):
             raise ValueError("無效的 Loopback 勾選項目。")
-        outcome = apply_selected_sids(data["SelectedSids"])
+        outcome = apply_selected_entries(data["SelectedEntries"])
     except Exception as exc:
         outcome = {"Total": 0, "Added": 0, "Existing": 0,
                    "MissingPackage": 0, "Errors": [str(exc)]}
@@ -358,16 +442,20 @@ def _ps_literal(value: str) -> str:
 def restore_selected(path: Path, selected: list[str]) -> dict:
     """Invoke exactly one UAC prompt after the user confirms the checked list."""
     require_windows()
-    saved = {item["SID"] for item in read_backup(path)}
-    if len(selected) != len(set(selected)) or any(s not in saved for s in selected):
-        raise ValueError("選取的豁免項目不屬於這份備份。")
+    saved = {identity_key(item): item for item in read_backup(path)
+             if identity_key(item)}
+    if len(selected) != len(set(selected)) or any(key not in saved for key in selected):
+        raise ValueError("選取的 App 身分不屬於這份備份。")
     if not selected:
         return {"Total": 0, "Added": 0, "Existing": 0,
                 "MissingPackage": 0, "Errors": []}
+    # The elevated child will independently resolve these portable identities
+    # against Windows' current AppContainers; no source SID crosses UAC.
+    selected_entries = [saved[key] for key in selected]
     with tempfile.TemporaryDirectory(prefix="regchen-uwp-loopback-") as directory:
         pick = Path(directory) / "selection.json"
         report = Path(directory) / "report.json"
-        pick.write_text(json.dumps({"Type": TYPE, "SelectedSids": selected}),
+        pick.write_text(json.dumps({"Type": TYPE, "SelectedEntries": selected_entries}),
                         encoding="utf-8")
         if getattr(sys, "frozen", False):
             exec_args = [sys.executable]
