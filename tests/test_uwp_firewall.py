@@ -34,6 +34,79 @@ class UwpFirewallTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Package SID"):
             uwp_firewall.inspect_backup(self.path)
 
+    def test_v2_appiso_snapshot_counts_and_preserves_source_breakdown(self):
+        data = {
+            "Schema": 2,
+            "Type": "UWP-PackageFirewallRules",
+            "Rules": [
+                {**rule(), "PolicyStore": "PersistentStore"},
+                {**rule(action="Block"), "PolicyStore": "ConfigurableServiceStore"},
+            ],
+            "AppIsoRules": [
+                {
+                    "Name": "{11111111-2222-3333-4444-555555555555}",
+                    "Kind": "String",
+                    "Data": "v2.30|Action=Allow|Active=TRUE|Dir=In|"
+                            "AppPkgId=S-1-15-2-1-2-3-4-5-6-7|",
+                },
+                {
+                    "Name": "{AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE}",
+                    "Kind": "String",
+                    "Data": "v2.30|Action=Block|Active=TRUE|Dir=Out|"
+                            "AppPkgId=S-1-15-2-1-2-3-4-5-6-7|",
+                },
+            ],
+        }
+        self.path.write_text(json.dumps(data), encoding="utf-8")
+        self.assertEqual(
+            uwp_firewall.inspect_backup(self.path),
+            {"total": 4, "allow": 2, "block": 2,
+             "appiso": 2, "netsecurity": 2},
+        )
+
+    def test_v2_requires_appiso_field_and_supported_raw_value_types(self):
+        payload = {
+            "Schema": 2, "Type": "UWP-PackageFirewallRules",
+            "Rules": [], "AppIsoRules": None,
+        }
+        self.path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "AppIso"):
+            uwp_firewall.inspect_backup(self.path)
+        payload["AppIsoRules"] = [{"Name": "bogus", "Kind": "Binary", "Data": "invalid"}]
+        self.path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "AppIso"):
+            uwp_firewall.inspect_backup(self.path)
+
+    def test_zero_rule_backup_is_error_even_if_powershell_reports_success(self):
+        from types import SimpleNamespace
+
+        def fake_run(cmd, **kwargs):
+            report = Path(cmd[cmd.index("-Report") + 1])
+            output = Path(cmd[cmd.index("-Path") + 1])
+            output.write_text(
+                json.dumps({"Schema": 2, "Type": "UWP-PackageFirewallRules",
+                            "Rules": [], "AppIsoRules": []}), encoding="utf-8")
+            report.write_text('{"Total":0,"Errors":[]}', encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(uwp_firewall.sys, "platform", "win32"):
+            with mock.patch.object(uwp_firewall, "bundled_script",
+                                   return_value=Path(__file__)):
+                with mock.patch.object(uwp_firewall.subprocess, "run",
+                                       side_effect=fake_run):
+                    with self.assertRaisesRegex(RuntimeError, "空白檔案"):
+                        uwp_firewall.backup(self.path)
+
+    def test_export_uses_appiso_registry_not_only_get_netfirewallrule(self):
+        script = (Path(__file__).resolve().parents[1] / "tools" / "uwp_firewall.ps1").read_text(
+            encoding="utf-8")
+        self.assertIn("AppIso\\\\FirewallRules", script)
+        self.assertIn("ConfigurableServiceStore", script)
+        self.assertIn("AppIsoRules = $appIsoRules", script)
+        self.assertIn("Schema = 2", script)
+        self.assertIn("if ($reportData.Total -eq 0 -and -not $AllowEmpty)", script)
+        self.assertIn("尚不支援安全自動還原", script)
+
     def test_reject_unknown_schema_or_action(self):
         self.write([rule()], schema=2)
         with self.assertRaisesRegex(ValueError, "不是支援"):
