@@ -432,6 +432,35 @@ class WindowsGuiTests(unittest.TestCase):
         finally:
             self.window.withdraw()
 
+    def test_schedule_dialog_actual_geometry_and_visuals(self):
+        import base64
+        import io
+        from PIL import ImageGrab
+
+        self.window.deiconify()
+        self.window.update()
+        dialog = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
+        try:
+            dialog.mode.set("interval")
+            dialog.update()
+            width, height = dialog.winfo_width(), dialog.winfo_height()
+            print(f"CTK_SCHEDULE_GEOMETRY={width}x{height}", flush=True)
+            self.assertGreaterEqual(width, 470, "Schedule dialog too narrow for the selector")
+            self.assertGreaterEqual(height, 225, "Schedule dialog clipped its fields")
+            self.assertTrue(dialog.interval_spinbox.winfo_ismapped())
+            image = ImageGrab.grab(bbox=(
+                dialog.winfo_rootx(), dialog.winfo_rooty(),
+                dialog.winfo_rootx() + width, dialog.winfo_rooty() + height,
+            )).convert("RGB")
+            image.thumbnail((680, 470))
+            encoded = io.BytesIO()
+            image.save(encoded, format="PNG", optimize=True)
+            print("CTK_SCHEDULE_QA_PNG=" + base64.b64encode(encoded.getvalue()).decode(),
+                  flush=True)
+        finally:
+            dialog.destroy()
+            self.window.withdraw()
+
     def test_schedule_dialog_uses_same_task_and_updates(self):
         dlg = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
         dlg.mode.set("interval")
