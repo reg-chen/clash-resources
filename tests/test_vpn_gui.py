@@ -341,6 +341,24 @@ class WindowsGuiTests(unittest.TestCase):
         self.assertTrue(self.window.trust_button.winfo_exists())
         self.assertTrue(self.window.warp_button.winfo_exists())
 
+    def test_loopback_standard_account_is_blocked_before_file_dialog(self):
+        with mock.patch.object(gui.uwp_loopback, "current_user_context",
+                               return_value=("S-1-5-21-1-2-3-1001", False)):
+            with mock.patch.object(gui.messagebox, "showwarning") as warning:
+                with mock.patch.object(gui.filedialog, "asksaveasfilename") as save:
+                    with mock.patch.object(gui.filedialog, "askopenfilename") as open_file:
+                        self.window._uwp_backup()
+                        self.window._uwp_restore()
+                        save.assert_not_called()
+                        open_file.assert_not_called()
+                        self.assertEqual(warning.call_count, 2)
+        self.assertIn("不是管理員", self.window.uwp_status.get())
+
+    def test_loopback_same_account_split_token_admin_can_use_uac(self):
+        with mock.patch.object(gui.uwp_loopback, "current_user_context",
+                               return_value=("S-1-5-21-1-2-3-1001", True)):
+            self.assertTrue(self.window._uwp_require_own_admin())
+
     def test_loopback_restore_preview_defaults_and_missing_app_skip(self):
         self.window.deiconify()
         self.window.update()
