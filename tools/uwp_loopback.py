@@ -76,9 +76,9 @@ def _winapi():
     ]
     firewall.NetworkIsolationEnumAppContainers.restype = wintypes.DWORD
     firewall.NetworkIsolationFreeAppContainers.argtypes = [
-        wintypes.DWORD, ctypes.POINTER(NativeAppContainer),
+        ctypes.POINTER(NativeAppContainer),
     ]
-    firewall.NetworkIsolationFreeAppContainers.restype = None
+    firewall.NetworkIsolationFreeAppContainers.restype = wintypes.DWORD
     advapi.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
     advapi.ConvertSidToStringSidW.restype = wintypes.BOOL
     kernel.LocalFree.argtypes = [ctypes.c_void_p]
@@ -208,7 +208,7 @@ def installed_containers() -> dict[str, dict[str, str]]:
             }
     finally:
         if entries:
-            firewall.NetworkIsolationFreeAppContainers(count, entries)
+            firewall.NetworkIsolationFreeAppContainers(entries)
     return result
 
 
