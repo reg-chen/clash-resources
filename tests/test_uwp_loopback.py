@@ -17,6 +17,8 @@ EXISTING_SID = "S-1-15-2-8-9-10-11-12-13-14"
 MISSING_SID = "S-1-15-7-8-9-10-11-12-13-14-15"
 PFN_A = "Example.App_abcde12345"
 PFN_B = "Example.Other_abcde12345"
+USER_SID = "S-1-5-21-101-202-303-1001"
+OTHER_USER_SID = "S-1-5-21-101-202-303-1002"
 
 
 def app(sid, moniker=PFN_A, family=PFN_A, name="Example App"):
@@ -227,6 +229,7 @@ class LoopbackPortableBackupTests(unittest.TestCase):
             selection = inner.split(" '--uwp-loopback-apply' '", 1)[1].split("'", 1)[0]
             payload = json.loads(Path(selection).read_text(encoding="utf-8"))
             self.assertNotIn("SelectedSids", payload)
+            self.assertEqual(payload["RequestingUserSID"], USER_SID)
             self.assertEqual(payload["SelectedEntries"], [portable(app(OLD_SID))])
             self.assertNotIn(OLD_SID, json.dumps(payload))
             captured.append(payload)
@@ -236,14 +239,49 @@ class LoopbackPortableBackupTests(unittest.TestCase):
             }), encoding="utf-8")
             return SimpleNamespace(returncode=0, stdout="", stderr="")
         with mock.patch.object(loopback, "require_windows"):
-            with mock.patch.object(loopback.subprocess, "run",
-                                   side_effect=fake_process) as call:
-                self.assertEqual(loopback.restore_selected(self.target, [])["Added"], 0)
-                call.assert_not_called()
-                result = loopback.restore_selected(self.target, [PFN_A.casefold()])
+            with mock.patch.object(loopback, "current_user_context",
+                                   return_value=(USER_SID, True)):
+                with mock.patch.object(loopback.subprocess, "run",
+                                       side_effect=fake_process) as call:
+                    self.assertEqual(loopback.restore_selected(self.target, [])["Added"], 0)
+                    call.assert_not_called()
+                    result = loopback.restore_selected(self.target, [PFN_A.casefold()])
         self.assertEqual(result["Added"], 1)
         self.assertEqual(len(captured), 1)
         self.assertEqual(call.call_count, 1)
+
+    def test_elevated_child_rejects_different_uac_account(self):
+        selection = Path(self.folder.name) / "selected.json"
+        report = Path(self.folder.name) / "report.json"
+        selection.write_text(json.dumps({
+            "Type": loopback.TYPE, "RequestingUserSID": USER_SID,
+            "SelectedEntries": [portable(app(OLD_SID))],
+        }), encoding="utf-8")
+        with mock.patch.object(loopback, "current_user_context",
+                               return_value=(OTHER_USER_SID, True)):
+            with mock.patch.object(loopback, "apply_selected_entries") as apply:
+                exit_code = loopback.elevated_child(selection, report)
+                apply.assert_not_called()
+        self.assertEqual(exit_code, 4)
+        self.assertIn("切換了 Windows 使用者帳號",
+                      json.loads(report.read_text(encoding="utf-8"))["Errors"][0])
+
+    def test_elevated_child_accepts_same_user_after_consent(self):
+        selection = Path(self.folder.name) / "selected.json"
+        report = Path(self.folder.name) / "report.json"
+        selection.write_text(json.dumps({
+            "Type": loopback.TYPE, "RequestingUserSID": USER_SID,
+            "SelectedEntries": [portable(app(OLD_SID))],
+        }), encoding="utf-8")
+        outcome = {"Total": 1, "Added": 1, "Existing": 0,
+                   "MissingPackage": 0, "Errors": []}
+        with mock.patch.object(loopback, "current_user_context",
+                               return_value=(USER_SID, True)):
+            with mock.patch.object(loopback, "apply_selected_entries",
+                                   return_value=outcome) as apply:
+                self.assertEqual(loopback.elevated_child(selection, report), 0)
+                apply.assert_called_once()
+        self.assertEqual(json.loads(report.read_text(encoding="utf-8")), outcome)
 
     def test_non_windows_is_unsupported(self):
         with mock.patch.object(loopback.sys, "platform", "linux"):
