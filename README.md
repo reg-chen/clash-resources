@@ -10,6 +10,8 @@
 - **Fluent Emoji Flat**：`icons/fluent-emoji-flat/` 來自 [Microsoft Fluent UI Emoji](https://github.com/microsoft/fluentui-emoji)，透過 [Iconify](https://icon-sets.iconify.design/fluent-emoji-flat/) 取得；採 **MIT License**。原作者及完整授權條款見 [Fluent Emoji 聲明](docs/FLUENT_EMOJI_ATTRIBUTION.md)。
 - **第三方規則**：自動整合來源包含 **GPL-3.0** 的 HaGeZi、Loyalsoldier，以及 **MIT** 的 Phishing.Database、anti-AD。規則經轉換、分類或合併後發布，請見[規則來源與授權說明](docs/THIRD_PARTY_NOTICES.md#third-party-rule-sources)。
 - **品牌圖示／商標**：GitHub、Cloudflare／WARP、Private Internet Access、Surfshark、OpenVPN 等名稱及相關標誌權利歸各自權利人；使用並不表示其對本儲存庫有任何贊助、合作或認可，也**不表示**這些品牌圖示獲得 MIT 授權。
-- **執行及建置工具**：如 Mihomo、PySide6／Qt、PyInstaller、cryptography、Iconify 工具及各服務的下載設定檔，保留各自授權及服務條款；尤其對已發布的 Windows 執行檔，須另行確認 Qt／LGPL 的二進位散布要求。
+- **執行及建置工具**：如 Mihomo、PySide6／Qt、PyInstaller、cryptography、Iconify 工具及各服務的下載設定檔，保留各自授權及服務條款；GitHub Actions Artifact 中可供下載的 Windows EXE，也須評估 Qt／LGPL 的二進位散布要求，即使沒有建立 Release。
 
 **僅使用本儲存庫的程式碼，與重新散布第三方規則、圖示或包含第三方函式庫的執行檔，授權義務並不相同。**
+
+**下載範圍**：`rules/**/mrs/` 透過公開 GitHub／CDN 供 Mihomo 更新，不設 Owner-only；Windows EXE 僅保存於 Actions Artifact（未建立 Release），但本 Repo 為公開，因此 Artifact **不是 Owner-only**。限制 `workflow_dispatch` 的執行者，只限制誰能觸發建置，不限制其他具有 Repo 讀取權限的人下載成果。詳見[存取與散布說明](docs/THIRD_PARTY_NOTICES.md#distribution-access)。
