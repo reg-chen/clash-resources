@@ -53,6 +53,28 @@ class ButtonContrastTests(unittest.TestCase):
         a, b = sorted((lightness(foreground), lightness(background)), reverse=True)
         return (a + .05) / (b + .05)
 
+    def test_high_resolution_rounded_surfaces_are_not_flat_bitmaps(self):
+        from PIL import Image
+        for variant, (base, _hover, _pressed) in gui.BUTTON_PALETTE.items():
+            with self.subTest(variant=variant):
+                image = gui.render_button_surface(
+                    base, gui.BUTTON_BORDERS[variant],
+                    size=(112, 44), radius=17)
+                self.assertIsInstance(image, Image.Image)
+                self.assertEqual(image.size, (112, 44))
+                self.assertEqual(image.getpixel((0, 0))[3], 0)
+                self.assertEqual(image.getpixel((111, 0))[3], 0)
+                self.assertEqual(image.getpixel((56, 20))[3], 255)
+                self.assertNotEqual(image.getpixel((56, 8)), image.getpixel((56, 32)))
+                # Antialiased edge: intermediate alpha values prove supersampling.
+                alphas = image.getchannel("A").tobytes()
+                self.assertTrue(any(0 < alpha < 255 for alpha in alphas))
+
+    def test_surface_geometry_validation(self):
+        with self.assertRaises(ValueError):
+            gui.render_button_surface("#355D86", "#6583A1",
+                                      size=(20, 18), radius=17)
+
     def test_white_label_contrast_at_normal_and_hover_is_wcag_aa(self):
         for variant, (base, hover, pressed) in gui.BUTTON_PALETTE.items():
             with self.subTest(variant=variant):
@@ -205,6 +227,10 @@ class WindowsGuiTests(unittest.TestCase):
         cls.patch.stop()
         cls.temp.cleanup()
 
+    def test_uses_current_ttkbootstrap_dark_theme(self):
+        self.assertEqual(self.window.style.theme_use(), "bootstrap-dark")
+        self.assertEqual(self.window.style.theme_mode, "dark")
+
     def test_native_text_panes_use_dark_palette_and_ttk_scrollbars(self):
         colors = self.window.style.colors
         for widget in (self.window.log, self.window.doh_yaml):
@@ -214,6 +240,23 @@ class WindowsGuiTests(unittest.TestCase):
             self.assertEqual(widget.text.cget("insertbackground").lower(), colors.inputfg.lower())
             self.assertEqual(widget.scrollbar.winfo_class(), "TScrollbar")
         self.assertEqual(self.window.cget("background").lower(), colors.bg.lower())
+
+    def test_button_assets_scale_to_display_and_keep_state_images_alive(self):
+        cache = self.window.style._reg_button_assets
+        expected_size = tuple(gui.ttk.scale_size(self.window, value)
+                              for value in (112, 44))
+        self.assertEqual(set(cache), set(gui.BUTTON_PALETTE))
+        for variant, assets in cache.items():
+            with self.subTest(variant=variant):
+                self.assertEqual(assets["images"]["normal"].size, expected_size)
+                self.assertEqual(set(assets["photos"]),
+                                 {"normal", "hover", "pressed", "focus", "disabled"})
+                self.assertNotEqual(assets["images"]["normal"].tobytes(),
+                                    assets["images"]["hover"].tobytes())
+                self.assertNotEqual(assets["images"]["focus"].tobytes(),
+                                    assets["images"]["normal"].tobytes())
+                for image in assets["photos"].values():
+                    self.assertTrue(self.window.tk.call("image", "type", str(image)))
 
     def test_actions_use_rounded_muted_styles(self):
         style = self.window.style
