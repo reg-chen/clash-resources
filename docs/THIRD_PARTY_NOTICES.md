@@ -48,7 +48,9 @@
 | --- | --- | --- |
 | [Mihomo](https://github.com/MetaCubeX/mihomo) | MRS Action 於建置時下載 Linux release，使用 `convert-ruleset`；**此工作流程不把 Linux Mihomo binary 加入 Repo** | 上游 **MIT**；若另行重新散布 binary 須留意其實際套件所含授權及告知 |
 | [Iconify Utils](https://www.npmjs.com/package/@iconify/utils)／[@iconify-json/fluent-emoji-flat](https://www.npmjs.com/package/@iconify-json/fluent-emoji-flat) | SVG Action 的 `npm install` 安裝於 Runner，轉換並提交 SVG；**不提交 node_modules** | 工具及圖示資料為 **MIT**；產出圖示另見 Microsoft 授權 |
-| [PySide6 / Qt for Python](https://pypi.org/project/PySide6/) | [Windows EXE workflow](../.github/workflows/build-vpn-generator.yml) 會安裝並透過 PyInstaller 打包至 `VPN-Mihomo-Generator.exe` | 開源選項為 **LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only**（依使用元件與適用選項）；參考 [Qt LGPL Obligations](https://www.qt.io/development/open-source-lgpl-obligations) |
+| [ttkbootstrap](https://pypi.org/project/ttkbootstrap/2.2.7/) | 新版 Windows GUI 使用 `ttkbootstrap==2.2.7`，PyInstaller 打包於 EXE | **MIT AND (Apache-2.0 OR BSD-2-Clause)**（PyPI 2026-11-05 發布版本的 SPDX 表達式）；須依套件及其打包資源保留相應 notices／授權 |
+| [Tkinter／Tcl/Tk](https://www.tcl-lang.org/software/tcltk/license.html) | Python GUI 介面與 Windows 上的 Tcl/Tk runtime | Tcl/Tk 寬鬆自由軟體授權，請核對打包版本包含的原始授權及歸屬 |
+| [Pillow](https://pypi.org/project/pillow/) | ttkbootstrap 的圖像依賴，可能打包於 Windows EXE | **HPND／MIT-CMU 類型**，依當次實際發行套件 LICENSE 為準，保留必要歸屬 |
 | [PyInstaller](https://pyinstaller.org/en/stable/license.html) | 將 Python GUI 與其函式庫打包成 EXE | **GPL-2.0 with special exception**，部分檔案 Apache-2.0；官方例外允許產物採不同授權，不要求單為 PyInstaller 加入其授權檔，但其**相依函式庫**授權仍須遵守 |
 | [Python cryptography](https://pypi.org/project/cryptography/) | 本地 DoH 憑證及相關 GUI 功能，並打包至 EXE | **Apache-2.0 OR BSD-3-Clause**；發行 EXE 時應核對打包相依套件所需的授權、歸屬／NOTICE |
 | [PIA manual-connections](https://github.com/pia-foss/manual-connections) | `pia-wireguard-generator.py` 下載其 CA certificate 並呼叫 PIA API；另有 PIA OpenVPN profiles 作為產生設定的輸入 | 上游手動連線專案 **MIT**；PIA 的服務、API、帳號及連線設定不因此全面取得 MIT 授權，仍受服務條款約束 |
@@ -56,7 +58,7 @@
 | [Cloudflare WARP](https://one.one.one.one/) | `warp-wireguard-generator.py` 透過 Cloudflare API 註冊並產生本機 WireGuard 設定 | 屬第三方服務/API，**不因呼叫 API 而取得程式或服務的 MIT 再散布授權** |
 | [GitHub Actions](https://github.com/actions)、[jsDelivr](https://www.jsdelivr.com/) | CI 工作流程／CDN 清除和驗證 | 工作流程中引用第三方 CI 元件與線上服務，不代表將其完整程式碼重新散布於 Repo；各元件仍適用自己的授權／服務條款 |
 
-**Windows EXE／Qt LGPL 特別注意：** [LGPL-3.0 全文](licenses/LGPL-3.0.txt)與其引用的 [GPL-3.0 全文](licenses/GPL-3.0.txt)已收錄於 Repo，供核對條款；但 Repo 中的授權說明只能提供歸屬，**不等於 EXE 已滿足 LGPL**。若將包含 PySide6／Qt 的 EXE 提供下載，仍須依實際打包版本與模式評估：附上必要授權條款及告知、提供對應 Qt 原始碼或合格的書面提供方式，以及讓使用者能替換／重新連結 LGPL 函式庫並運行修改後程式的能力。特別是 PyInstaller `--onefile` 的實際部署方式，不能僅靠「附上連結」認定符合要求。參見 [Qt 官方義務說明](https://www.qt.io/development/open-source-lgpl-obligations)。
+**Windows EXE GUI 遷移：** 2026-11 起，新的 Windows EXE 建置腳本使用 ttkbootstrap＋Tkinter／Tcl/Tk，不包含 PySide6／Qt。Qt 既有的 [LGPL-3.0 條款](licenses/LGPL-3.0.txt)保留供舊版已建立的 EXE 參照；不能把新建置不含 Qt 的事實追溯套用至歷史 Artifact。PyInstaller 的特別例外仍僅涵蓋 PyInstaller 自身；打包依賴（包含 Pillow、Tcl/Tk、cryptography）需按建置版本核對授權／歸屬。
 
 <a id="distribution-access"></a>
 ## Distribution surfaces and access control
@@ -64,7 +66,7 @@
 - **MRS：公開散布。** `rules/**/mrs/` 的輸出會提交到此公開儲存庫，並供 GitHub Raw／jsDelivr 或其他 CDN 下載；不能因為未建立 GitHub Release，就視為私下自用的資料。MRS 應保持公開，否則 Mihomo 的遠端更新／無認證下載流程將無法正常使用。相關上游的授權、歸屬及對應來源義務仍需履行。
 - **Windows EXE：GitHub Actions Artifact，不是 GitHub Release。** [目前的建置 Workflow](../.github/workflows/build-vpn-generator.yml) 將 EXE 以 Artifact 保存 30 天，並刪除較舊版本。但這是公開 Repo，**Artifact 的下載不是 Owner-only**：GitHub 允許已登入且具有儲存庫讀取權限的使用者下載 Workflow Artifact。詳見 [GitHub 官方下載文件](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)。
 - Workflow 的 `github.actor == github.repository_owner` 判斷只限制手動觸發者，不是 Artifact 的存取控制；刪除過期或舊版 Artifact 也不能追回已被下載的副本。若必須只有 Owner 能取得 EXE，需把**建置成果儲存在私人儲存庫或真正具授權控管的私人位置**，或不將可執行成果上傳公開 Repo；不需要因此將 MRS 設為私人。
-- **不應把此聲明視為授權義務已全部完成。** Repo 內的告知與 license 文字有助於溯源，但對實際可下載的 EXE，仍須按打包版本交付相應第三方 notices／授權及處理 LGPL 的函式庫替換與對應來源要求。對 MRS，則須確保使用者可依適用授權取得相應、可追溯的原始規則資料。
+- **不應把此聲明視為授權義務已全部完成。** Repo 內的告知與 license 文字有助於溯源，但對實際可下載的 EXE，仍須按打包版本交付相應第三方 notices／授權；新版本不含 Qt／PySide6，舊版仍須依其實際打包內容處理 LGPL。對 MRS，則須確保使用者可依適用授權取得相應、可追溯的原始規則資料。
 
 ## Scope and non-endorsement
 

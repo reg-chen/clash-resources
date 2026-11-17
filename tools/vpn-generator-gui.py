@@ -1,41 +1,23 @@
 #!/usr/bin/env python3
+"""Windows VPN/Mihomo utilities with a ttkbootstrap GUI.
+
+The command-line entry points run before a Tk root is created.  In particular,
+Windows Task Scheduler uses this same executable with --warp.
+"""
 from __future__ import annotations
 
 import contextlib
+import json
 import os
+import queue
 import sys
+import threading
 import traceback
+import tkinter as tk
+from tkinter import filedialog, messagebox, scrolledtext
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, QThread, Signal, QTime, Qt
-from PySide6.QtWidgets import (
-    QApplication,
-    QButtonGroup,
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QTimeEdit,
-    QFileDialog,
-    QFormLayout,
-    QFrame,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMainWindow,
-    QMessageBox,
-    QPlainTextEdit,
-    QPushButton,
-    QRadioButton,
-    QScrollArea,
-    QSizePolicy,
-    QSpinBox,
-    QTabWidget,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-)
+import ttkbootstrap as ttk
 
 import vpn_generator_core as core
 import warp_schedule
@@ -43,1106 +25,697 @@ import mihomo_doh
 import safe_paths
 import uwp_firewall
 
-APP_NAME = "PIA Mihomo Generator"  # keep existing QSettings namespace for migration compatibility
-ORG_NAME = "reg-chen"
+APP_NAME = "VPN-Mihomo-Generator"
+TASK_NAME = warp_schedule.TASK_NAME
+PROVIDERS = ("pia", "surfshark", "warp")
+
+
+def settings_path() -> Path:
+    base = Path(os.environ.get("APPDATA") or (Path.home() / "AppData" / "Roaming"))
+    return base / "reg-chen" / APP_NAME / "settings.json"
+
+
+def load_settings(path: Path | None = None) -> dict:
+    """The new JSON store intentionally does not migrate Qt QSettings."""
+    path = path or settings_path()
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(data: dict, path: Path | None = None) -> None:
+    path = path or settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def default_cert_root() -> str:
+    return str(Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+               / "mihomo-party" / "work")
+
+
+def validate_generation(options: dict) -> list[str]:
+    errors: list[str] = []
+    provider = options["provider"]
+    ov, wg = bool(options["openvpn"]), bool(options["wireguard"])
+    if provider not in PROVIDERS:
+        return ["未知 VPN 供應商。"]
+    if provider == "warp":
+        ov, wg = False, True
+    elif provider == "surfshark":
+        wg = False
+    if not ov and not wg:
+        errors.append("請至少選擇一個目前支援的協定。")
+    if ov:
+        udp = Path(options.get("udp_zip") or "")
+        if not udp.is_file() or udp.suffix.lower() != ".zip":
+            errors.append("請選擇有效的 OpenVPN ZIP。")
+        if provider == "pia":
+            tcp = Path(options.get("tcp_zip") or "")
+            if not tcp.is_file() or tcp.suffix.lower() != ".zip":
+                errors.append("請選擇有效的 OpenVPN TCP ZIP。")
+    if (provider == "pia" and wg) or (provider == "surfshark" and ov):
+        if not options.get("username", "").strip() or not options.get("password", ""):
+            errors.append("請輸入 VPN 帳號與密碼。")
+    if not options.get("out_dir", "").strip():
+        errors.append("請選擇輸出目錄。")
+    return errors
+
+
+def generate_provider(options: dict) -> Path:
+    """Keep provider behavior independent of the GUI toolkit."""
+    provider = options["provider"]
+    out_dir = Path(options["out_dir"])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    single = bool(options["single_file"])
+    exclude = bool(options["exclude_streaming"])
+    username = options["username"]
+    password = options["password"]
+    if provider == "pia":
+        if options["openvpn"]:
+            ov = core.load_sibling("pia-openvpn-generator.py", "pia_openvpn_generator_gui")
+            ov.generate_openvpn(
+                udp_zip=Path(options["udp_zip"]), tcp_zip=Path(options["tcp_zip"]),
+                username=username, password=password, out_dir=out_dir,
+                single_file=single, exclude_streaming=exclude,
+            )
+            print("[OK] PIA OpenVPN 完成。")
+        if options["wireguard"]:
+            wg = core.load_sibling("pia-wireguard-generator.py", "pia_wireguard_generator_gui")
+            wg.generate_wireguard(
+                username=username, password=password, out_dir=out_dir,
+                single_file=single, exclude_streaming=exclude,
+            )
+            print("[OK] PIA WireGuard 完成。")
+    elif provider == "surfshark":
+        if options["wireguard"]:
+            raise RuntimeError("Surfshark WireGuard generator 尚未實作。")
+        ov = core.load_sibling("surfshark-openvpn-generator.py", "surfshark_openvpn_generator_gui")
+        ov.generate_openvpn(
+            bundle_zip=Path(options["udp_zip"]), username=username, password=password,
+            out_dir=out_dir, single_file=single, exclude_streaming=exclude,
+        )
+        print("[OK] Surfshark OpenVPN 完成。")
+    elif provider == "warp":
+        wg = core.load_sibling("warp-wireguard-generator.py", "warp_wireguard_generator_gui")
+        target = wg.generate_warp(out_dir=out_dir)
+        print(f"[OK] Cloudflare WARP 完成：{target}")
+    else:
+        raise ValueError(f"未知 provider：{provider}")
+    return out_dir
 
 
 class LogStream:
-    def __init__(self, emit_line):
-        self._emit_line = emit_line
-        self._buffer = ""
+    def __init__(self, notify):
+        self.notify = notify
+        self.buffer = ""
 
-    def write(self, text: str) -> int:
-        if not text:
-            return 0
-        self._buffer += text
-        while "\n" in self._buffer:
-            line, self._buffer = self._buffer.split("\n", 1)
+    def write(self, value):
+        self.buffer += value or ""
+        while "\n" in self.buffer:
+            line, self.buffer = self.buffer.split("\n", 1)
             if line:
-                self._emit_line(line)
-        return len(text)
+                self.notify(line)
+        return len(value or "")
 
-    def flush(self) -> None:
-        if self._buffer:
-            self._emit_line(self._buffer)
-            self._buffer = ""
-
-
-class GenerateWorker(QThread):
-    log = Signal(str)
-    completed = Signal(bool, str)
-
-    def __init__(
-        self,
-        *,
-        provider: str,
-        generate_openvpn: bool,
-        generate_wireguard: bool,
-        udp_zip: Path | None,
-        tcp_zip: Path | None,
-        username: str,
-        password: str,
-        out_dir: Path,
-        single_file: bool,
-        exclude_streaming: bool,
-    ) -> None:
-        super().__init__()
-        self.provider = provider
-        self.generate_openvpn = generate_openvpn
-        self.generate_wireguard = generate_wireguard
-        self.udp_zip = udp_zip
-        self.tcp_zip = tcp_zip
-        self.username = username
-        self.password = password
-        self.out_dir = out_dir
-        self.single_file = single_file
-        self.exclude_streaming = exclude_streaming
-
-    def run(self) -> None:
-        stream = LogStream(self.log.emit)
-        try:
-            with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
-                selected = []
-                if self.generate_openvpn:
-                    selected.append("OpenVPN")
-                if self.generate_wireguard:
-                    selected.append("WireGuard")
-
-                provider_name = {
-                    "pia": "PIA",
-                    "surfshark": "Surfshark",
-                    "warp": "Cloudflare WARP",
-                }.get(self.provider, self.provider)
-                print(f"[INFO] Provider: {provider_name}")
-                print(f"[INFO] Protocol: {' + '.join(selected)}")
-                print(f"[INFO] 輸出目錄: {self.out_dir}")
-                if self.provider != "warp":
-                    print(f"[INFO] 輸出模式: {'單一檔案' if self.single_file else '分節點檔案'}")
-                    print(f"[INFO] 排除 Streaming Optimized: {'是' if self.exclude_streaming else '否'}")
-
-                self.out_dir.mkdir(parents=True, exist_ok=True)
-
-                if self.provider == "pia":
-                    # OpenVPN runs first when both are selected. WireGuard can then use
-                    # pia-ov.yaml endpoint markers to mirror the exact endpoint tree.
-                    if self.generate_openvpn:
-                        assert self.udp_zip is not None
-                        assert self.tcp_zip is not None
-                        print("\n===== PIA OpenVPN =====")
-                        print(f"[INFO] UDP ZIP: {self.udp_zip}")
-                        print(f"[INFO] TCP ZIP: {self.tcp_zip}")
-                        ov = core.load_sibling(
-                            "pia-openvpn-generator.py",
-                            "pia_openvpn_generator_gui",
-                        )
-                        ov.generate_openvpn(
-                            udp_zip=self.udp_zip,
-                            tcp_zip=self.tcp_zip,
-                            username=self.username,
-                            password=self.password,
-                            out_dir=self.out_dir,
-                            single_file=self.single_file,
-                            exclude_streaming=self.exclude_streaming,
-                        )
-                        print("[OK] PIA OpenVPN 完成。")
-
-                    if self.generate_wireguard:
-                        print("\n===== PIA WireGuard =====")
-                        wg = core.load_sibling(
-                            "pia-wireguard-generator.py",
-                            "pia_wireguard_generator_gui",
-                        )
-                        wg.generate_wireguard(
-                            username=self.username,
-                            password=self.password,
-                            out_dir=self.out_dir,
-                            single_file=self.single_file,
-                            exclude_streaming=self.exclude_streaming,
-                        )
-                        print("[OK] PIA WireGuard 完成。")
-
-                elif self.provider == "surfshark":
-                    if self.generate_wireguard:
-                        raise RuntimeError("Surfshark WireGuard generator 尚未實作。")
-                    if self.generate_openvpn:
-                        assert self.udp_zip is not None
-                        print("\n===== Surfshark OpenVPN =====")
-                        print(f"[INFO] OpenVPN ZIP: {self.udp_zip}")
-                        ov = core.load_sibling(
-                            "surfshark-openvpn-generator.py",
-                            "surfshark_openvpn_generator_gui",
-                        )
-                        ov.generate_openvpn(
-                            bundle_zip=self.udp_zip,
-                            username=self.username,
-                            password=self.password,
-                            out_dir=self.out_dir,
-                            single_file=self.single_file,
-                            exclude_streaming=self.exclude_streaming,
-                        )
-                        print("[OK] Surfshark OpenVPN 完成。")
-
-                elif self.provider == "warp":
-                    print("\n===== Cloudflare WARP WireGuard =====")
-                    warp = core.load_sibling(
-                        "warp-wireguard-generator.py",
-                        "warp_wireguard_generator_gui",
-                    )
-                    target = warp.generate_warp(out_dir=self.out_dir)
-                    print(f"[OK] Cloudflare WARP 完成：{target}")
-                else:
-                    raise RuntimeError(f"未知 provider：{self.provider}")
-
-                print("\n[OK] 全部完成。")
-                stream.flush()
-
-            self.completed.emit(True, str(self.out_dir))
-        except Exception as exc:
-            stream.flush()
-            self.log.emit(f"[ERROR] {exc}")
-            self.log.emit(traceback.format_exc().rstrip())
-            self.completed.emit(False, str(exc))
+    def flush(self):
+        if self.buffer:
+            self.notify(self.buffer)
+            self.buffer = ""
 
 
-class WarpScheduleDialog(QDialog):
-    def __init__(self, parent, out_dir: str, settings: QSettings):
+class WarpScheduleDialog(tk.Toplevel):
+    """Register/overwrite the same Windows task; do not inspect old settings."""
+
+    def __init__(self, parent, out_dir: str, config: dict):
         super().__init__(parent)
-        self.setWindowTitle("WARP 工作排程")
-        self.setMinimumWidth(380)
-        self.settings = settings
-        layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("由 Windows 工作排程執行 WARP 更新，不需要開啟 GUI。"))
-        form = QFormLayout()
-        layout.addLayout(form)
-        self.frequency = QComboBox()
-        self.frequency.addItem("每月 5、10、15、20、25、30 日（預設）", "monthly")
-        self.frequency.addItem("每 N 天", "interval")
-        saved_mode = settings.value("warp/schedule_frequency", "monthly", str)
-        if saved_mode in ("every5", "weekly", "daily"):
-            migrated = {"every5": 5, "weekly": 7, "daily": 1}[saved_mode]
-            settings.setValue("warp/schedule_interval", migrated)
-            saved_mode = "interval"
-        self.frequency.setCurrentIndex(max(0, self.frequency.findData(saved_mode)))
-        form.addRow("執行頻率", self.frequency)
-        self.interval = QSpinBox()
-        self.interval.setRange(1, 365)
-        self.interval.setSuffix(" 天")
-        self.interval.setValue(max(1, min(365, int(settings.value("warp/schedule_interval", 5)))))
-        self.interval_label = QLabel("間隔天數 N")
-        form.addRow(self.interval_label, self.interval)
-        self.frequency.currentIndexChanged.connect(self.update_interval_visibility)
-        self.update_interval_visibility()
-        self.time_edit = QTimeEdit()
-        self.time_edit.setDisplayFormat("HH:mm")
-        saved_time = settings.value("warp/schedule_time", "03:00", str)
-        self.time_edit.setTime(QTime.fromString(saved_time, "HH:mm") if QTime.fromString(saved_time, "HH:mm").isValid() else QTime(3, 0))
-        form.addRow("執行時間", self.time_edit)
-        self.output = QLineEdit(out_dir or r"P:\Clash")
-        form.addRow("Mihomo 目錄", self.output)
-        layout.addWidget(QLabel("注意：若使用 P: 映射磁碟，Windows 使用者必須已登入。"))
-        actions = QHBoxLayout()
-        install = QPushButton("安裝／更新排程")
-        install.clicked.connect(self.install)
-        remove = QPushButton("移除排程")
-        remove.clicked.connect(self.remove)
-        actions.addWidget(install)
-        actions.addWidget(remove)
-        layout.addLayout(actions)
-        close = QDialogButtonBox(QDialogButtonBox.Close)
-        close.rejected.connect(self.reject)
-        layout.addWidget(close)
-
-    def update_interval_visibility(self):
-        visible = self.frequency.currentData() == "interval"
-        self.interval_label.setVisible(visible)
-        self.interval.setVisible(visible)
+        self.title("WARP 工作排程")
+        self.transient(parent)
+        self.resizable(False, False)
+        self.out = tk.StringVar(value=out_dir or r"P:\Clash")
+        self.mode = tk.StringVar(value=config.get("mode", "monthly"))
+        self.interval = tk.StringVar(value=str(config.get("interval", 5)))
+        self.clock = tk.StringVar(value=config.get("time", "03:00"))
+        self.config = config
+        frm = ttk.Frame(self, padding=16)
+        frm.pack(fill="both", expand=True)
+        ttk.Label(frm, text="同名工作排程會直接覆寫；不讀取舊排程內容。").grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
+        ttk.Label(frm, text="執行頻率").grid(row=1, column=0, sticky="w")
+        ttk.Combobox(frm, textvariable=self.mode, state="readonly",
+                     values=("monthly", "interval", "daily"), width=18).grid(row=1, column=1, sticky="ew")
+        ttk.Label(frm, text="monthly／interval／daily").grid(row=1, column=2, sticky="w", padx=8)
+        ttk.Label(frm, text="間隔天數").grid(row=2, column=0, sticky="w", pady=6)
+        ttk.Entry(frm, textvariable=self.interval, width=18).grid(row=2, column=1, sticky="ew")
+        ttk.Label(frm, text="執行時間").grid(row=3, column=0, sticky="w", pady=6)
+        ttk.Entry(frm, textvariable=self.clock, width=18).grid(row=3, column=1, sticky="ew")
+        ttk.Label(frm, text="HH:mm").grid(row=3, column=2, sticky="w", padx=8)
+        ttk.Label(frm, text="Mihomo 目錄").grid(row=4, column=0, sticky="w", pady=6)
+        ttk.Entry(frm, textvariable=self.out, width=32).grid(row=4, column=1, columnspan=2, sticky="ew")
+        ttk.Label(frm, text="預設每月 5、10、15、20、25、30 日；P: 磁碟需保持使用者登入。",
+                  wraplength=470).grid(row=5, column=0, columnspan=3, sticky="w", pady=(6, 14))
+        actions = ttk.Frame(frm)
+        actions.grid(row=6, column=0, columnspan=3, sticky="e")
+        ttk.Button(actions, text="安裝／覆寫", command=self.install, bootstyle="success").pack(side="left", padx=3)
+        ttk.Button(actions, text="移除", command=self.remove, bootstyle="warning-outline").pack(side="left", padx=3)
+        ttk.Button(actions, text="關閉", command=self.destroy).pack(side="left", padx=3)
+        self.grab_set()
 
     def install(self):
-        directory = self.output.text().strip()
-        if not directory:
-            QMessageBox.warning(self, "缺少目錄", "請設定 Mihomo 輸出目錄。")
-            return
         try:
+            days = int(self.interval.get())
             result = warp_schedule.configure_schedule(
-                action="install", out_dir=Path(directory),
-                mode=self.frequency.currentData(), interval_days=self.interval.value(),
-                time=self.time_edit.time().toString("HH:mm"),
+                action="install", out_dir=Path(self.out.get().strip()),
+                mode=self.mode.get(), interval_days=days, time=self.clock.get().strip(),
             )
-            self.settings.setValue("warp/schedule_frequency", self.frequency.currentData())
-            self.settings.setValue("warp/schedule_interval", self.interval.value())
-            self.settings.setValue("warp/schedule_time", self.time_edit.time().toString("HH:mm"))
-            self.settings.setValue("warp/out_dir", directory)
-            QMessageBox.information(self, "排程已設定", "Windows 工作排程已建立／更新。\\n" + result)
+            self.config.update({"mode": self.mode.get(), "interval": days, "time": self.clock.get()})
+            messagebox.showinfo("WARP 排程", f"已安裝／覆寫：{TASK_NAME}\n{result}", parent=self)
         except Exception as exc:
-            QMessageBox.critical(self, "排程失敗", str(exc))
+            messagebox.showerror("排程失敗", str(exc), parent=self)
 
     def remove(self):
-        if QMessageBox.question(self, "確認移除", "要移除 Clash WARP Refresh 工作排程嗎？") != QMessageBox.Yes:
+        if not messagebox.askyesno("移除排程", f"確定移除 {TASK_NAME}？", parent=self):
             return
         try:
-            warp_schedule.configure_schedule(action="remove")
-            QMessageBox.information(self, "完成", "排程已移除。")
+            result = warp_schedule.configure_schedule(action="remove")
+            messagebox.showinfo("完成", result, parent=self)
         except Exception as exc:
-            QMessageBox.critical(self, "移除失敗", str(exc))
+            messagebox.showerror("移除失敗", str(exc), parent=self)
 
 
-class MihomoDohPanel(QWidget):
-    """Local DoH / TLS tool, independent of VPN providers."""
+class MainWindow(ttk.Window):
+    def __init__(self):
+        super().__init__(themename="darkly")
+        self.title("VPN / Mihomo Generator")
+        self.geometry("900x720")
+        self.minsize(740, 580)
+        self.config_data = load_settings()
+        self.provider_data = self.config_data.setdefault("providers", {})
+        self.schedule_data = self.config_data.setdefault("warp_schedule", {})
+        self.credentials = {}  # Never persisted to disk.
+        self._active_provider = self.config_data.get("provider", "pia")
+        if self._active_provider not in PROVIDERS:
+            self._active_provider = "pia"
+        self.events = queue.Queue()
+        self.running = False
+        self.uwp_running = False
+        self.pending_safe_path = None
+        self.cert_files = None
+        self._closing = False
+
+        self.provider = tk.StringVar(value=self._active_provider)
+        self.openvpn = tk.BooleanVar(value=True)
+        self.wireguard = tk.BooleanVar(value=True)
+        self.single_file = tk.BooleanVar(value=False)
+        self.exclude_streaming = tk.BooleanVar(value=True)
+        self.username = tk.StringVar()
+        self.password = tk.StringVar()
+        self.show_password = tk.BooleanVar()
+        self.udp_zip = tk.StringVar()
+        self.tcp_zip = tk.StringVar()
+        self.out_dir = tk.StringVar()
+        self.safe_paths = tk.BooleanVar(value=False)
+
+        self.tabs = ttk.Notebook(self, padding=7)
+        self.tabs.pack(fill="both", expand=True, padx=10, pady=10)
+        self.provider_tab = ttk.Frame(self.tabs, padding=12)
+        self.doh_tab = ttk.Frame(self.tabs, padding=12)
+        self.uwp_tab = ttk.Frame(self.tabs, padding=12)
+        self.tabs.add(self.provider_tab, text="VPN Provider")
+        self.tabs.add(self.doh_tab, text="Mihomo DNS / TLS")
+        self.tabs.add(self.uwp_tab, text="Windows 防火牆")
+        self._build_provider()
+        self._build_doh()
+        self._build_uwp()
+        self._restore_provider(self._active_provider)
+        self._refresh_provider()
+        self.provider.trace_add("write", lambda *_: self._change_provider())
+        self.openvpn.trace_add("write", lambda *_: self._refresh_protocols())
+        self.show_password.trace_add("write", lambda *_: self.password_entry.configure(
+            show="" if self.show_password.get() else "●"))
+        self.protocol("WM_DELETE_WINDOW", self._close)
+        self.after(100, self._pump)
 
     @staticmethod
-    def _default_cert_root() -> str:
-        appdata = os.environ.get("APPDATA")
-        if appdata:
-            # Party's work directory is within Mihomo's SAFE_PATHS.
-            return str(Path(appdata) / "mihomo-party" / "work")
-        return str(Path.home() / "AppData" / "Roaming" / "mihomo-party" / "work")
+    def _row(frame, index, title, variable, *, browse=None, secret=False):
+        ttk.Label(frame, text=title, width=21, anchor="w").grid(
+            row=index, column=0, sticky="w", pady=5)
+        container = ttk.Frame(frame)
+        container.grid(row=index, column=1, sticky="ew", pady=5)
+        entry = ttk.Entry(container, textvariable=variable, show="●" if secret else "")
+        entry.pack(side="left", fill="x", expand=True)
+        if browse:
+            ttk.Button(container, text="瀏覽", command=browse, width=6).pack(side="left", padx=(6, 0))
+        return container, entry
 
-    def __init__(self, parent, settings: QSettings):
-        super().__init__(parent)
-        self.settings = settings
-        self.files: mihomo_doh.CertificateFiles | None = None
+    def _build_provider(self):
+        root = self.provider_tab
+        root.columnconfigure(0, weight=1)
+        root.rowconfigure(2, weight=1)
+        form = ttk.Frame(root)
+        form.grid(row=0, column=0, sticky="ew")
+        form.columnconfigure(1, weight=1)
+        ttk.Label(form, text="Provider", width=21).grid(row=0, column=0, sticky="w", pady=5)
+        choices = ttk.Frame(form)
+        choices.grid(row=0, column=1, sticky="w")
+        for value, label in (("pia", "PIA"), ("surfshark", "Surfshark"), ("warp", "Cloudflare WARP")):
+            ttk.Radiobutton(choices, text=label, value=value, variable=self.provider).pack(
+                side="left", padx=(0, 14))
+        ttk.Label(form, text="輸出協定", width=21).grid(row=1, column=0, sticky="w", pady=5)
+        protocols = ttk.Frame(form)
+        protocols.grid(row=1, column=1, sticky="w")
+        self.ov_check = ttk.Checkbutton(protocols, text="OpenVPN", variable=self.openvpn)
+        self.ov_check.pack(side="left", padx=(0, 18))
+        self.wg_check = ttk.Checkbutton(protocols, text="WireGuard", variable=self.wireguard)
+        self.wg_check.pack(side="left")
+        self.udp_row, _ = self._row(form, 2, "OpenVPN UDP ZIP", self.udp_zip,
+                                    browse=lambda: self._pick_zip(self.udp_zip))
+        self.tcp_row, _ = self._row(form, 3, "OpenVPN TCP ZIP", self.tcp_zip,
+                                    browse=lambda: self._pick_zip(self.tcp_zip))
+        self.tcp_label = form.grid_slaves(row=3, column=0)[0]
+        self.udp_label = form.grid_slaves(row=2, column=0)[0]
+        credential_row = ttk.Frame(form)
+        credential_row.grid(row=4, column=1, sticky="ew", pady=5)
+        credential_row.columnconfigure(0, weight=1)
+        credential_row.columnconfigure(1, weight=1)
+        ttk.Label(form, text="帳號 / 密碼", width=21).grid(row=4, column=0, sticky="w")
+        self.credential_label = form.grid_slaves(row=4, column=0)[0]
+        ttk.Entry(credential_row, textvariable=self.username).grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        self.password_entry = ttk.Entry(credential_row, textvariable=self.password, show="●")
+        self.password_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Checkbutton(credential_row, text="顯示", variable=self.show_password).grid(row=0, column=2, padx=5)
+        self.credential_row = credential_row
+        self.output_row, _ = self._row(form, 5, "輸出目錄", self.out_dir, browse=self._pick_output)
+        self.safe_check = ttk.Checkbutton(form, text="加入 Provider 目錄至系統 SAFE_PATHS（需管理員權限）",
+                                         variable=self.safe_paths)
+        self.safe_check.grid(row=6, column=1, sticky="w", pady=4)
+        ttk.Label(form, text="輸出模式", width=21).grid(row=7, column=0, sticky="w", pady=5)
+        self.mode_label = form.grid_slaves(row=7, column=0)[0]
+        self.mode_row = ttk.Frame(form)
+        self.mode_row.grid(row=7, column=1, sticky="w")
+        ttk.Radiobutton(self.mode_row, text="分節點檔案", variable=self.single_file, value=False).pack(side="left", padx=(0, 12))
+        ttk.Radiobutton(self.mode_row, text="單一檔案", variable=self.single_file, value=True).pack(side="left", padx=(0, 12))
+        ttk.Button(self.mode_row, text="?", width=3, command=self._show_mode_help,
+                   bootstyle="secondary-outline").pack(side="left")
+        self.filter_label = ttk.Label(form, text="節點過濾", width=21)
+        self.filter_label.grid(row=8, column=0, sticky="w", pady=5)
+        self.filter_check = ttk.Checkbutton(form, text="排除 Streaming Optimized", variable=self.exclude_streaming)
+        self.filter_check.grid(row=8, column=1, sticky="w", pady=5)
+        buttons = ttk.Frame(root)
+        buttons.grid(row=1, column=0, sticky="ew", pady=(12, 6))
+        self.run_button = ttk.Button(buttons, text="執行", command=self._start_generation, bootstyle="success")
+        self.run_button.pack(side="left")
+        self.warp_button = ttk.Button(buttons, text="安裝／管理 WARP 排程",
+                                      command=self._open_schedule, bootstyle="secondary-outline")
+        self.warp_button.pack(side="left", padx=12)
+        logbox = ttk.Labelframe(root, text="Log", padding=6)
+        logbox.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        self.log = scrolledtext.ScrolledText(logbox, height=10, state="disabled",
+                                            font=("Consolas", 10), wrap="word")
+        self.log.pack(fill="both", expand=True)
 
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        scroll = QScrollArea(self)
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        outer.addWidget(scroll)
+    def _restore_provider(self, provider):
+        data = self.provider_data.get(provider, {})
+        self.udp_zip.set(data.get("udp_zip", ""))
+        self.tcp_zip.set(data.get("tcp_zip", ""))
+        self.out_dir.set(data.get("out_dir", ""))
+        self.openvpn.set(data.get("openvpn", provider != "warp"))
+        self.wireguard.set(data.get("wireguard", provider != "surfshark"))
+        self.single_file.set(data.get("single_file", False))
+        self.exclude_streaming.set(data.get("exclude_streaming", True))
+        username, password = self.credentials.get(provider, ("", ""))
+        self.username.set(username)
+        self.password.set(password)
 
-        content = QWidget(scroll)
-        scroll.setWidget(content)
-        layout = QVBoxLayout(content)
-        layout.setSpacing(12)
+    def _store_provider(self, provider):
+        self.credentials[provider] = (self.username.get(), self.password.get())
+        self.provider_data[provider] = {
+            "udp_zip": self.udp_zip.get().strip(), "tcp_zip": self.tcp_zip.get().strip(),
+            "out_dir": self.out_dir.get().strip(), "openvpn": self.openvpn.get(),
+            "wireguard": self.wireguard.get(), "single_file": self.single_file.get(),
+            "exclude_streaming": self.exclude_streaming.get(),
+        }
 
-        cert_group = QGroupBox("TLS 憑證", content)
-        form = QFormLayout(cert_group)
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-
-        # Separate from VPN output; do not reuse the old P:\Clash path, which
-        # the Mihomo core might reject because it is outside SAFE_PATHS.
-        self.output = QLineEdit(
-            settings.value("doh/cert_root", self._default_cert_root(), str)
-        )
-        self.output.setMinimumWidth(0)
-        self.output.setToolTip("預設 Clash Party work 目錄，符合 Mihomo SAFE_PATHS")
-        location = QHBoxLayout()
-        location.addWidget(self.output, 1)
-        browse = QPushButton("瀏覽")
-        browse.clicked.connect(self.pick_output)
-        location.addWidget(browse)
-        form.addRow("憑證目錄", location)
-
-        self.host_input = QLineEdit(settings.value("doh/host", "127.0.0.1", str))
-        self.host_input.setMinimumWidth(0)
-        self.host_input.setPlaceholderText("dns.mihomo.test")
-        self.host_input.setToolTip("自訂名稱需對應本機；Firefox 可用 network.trr.bootstrapAddress = 127.0.0.1")
-        form.addRow("DoH 主機", self.host_input)
-
-        actions = QHBoxLayout()
-        self.generate_button = QPushButton("產生／更新")
-        self.generate_button.clicked.connect(self.generate)
-        actions.addWidget(self.generate_button)
-        self.trust_button = QPushButton("信任 CA")
-        self.trust_button.setEnabled(False)
-        self.trust_button.clicked.connect(self.install_trust)
-        actions.addWidget(self.trust_button)
-        actions.addStretch(1)
-        form.addRow("", actions)
-        self.status_label = QLabel("")
-        form.addRow("", self.status_label)
-        layout.addWidget(cert_group)
-
-        config_group = QGroupBox("設定", content)
-        config_layout = QVBoxLayout(config_group)
-        self.snippet = QPlainTextEdit(config_group)
-        self.snippet.setReadOnly(True)
-        self.snippet.setFixedHeight(144)
-        self.snippet.setMinimumWidth(0)
-        config_layout.addWidget(self.snippet)
-
-        copy = QHBoxLayout()
-        self.copy_button = QPushButton("複製 YAML")
-        self.copy_button.setEnabled(False)
-        self.copy_button.clicked.connect(
-            lambda: QApplication.clipboard().setText(self.snippet.toPlainText())
-        )
-        copy.addWidget(self.copy_button)
-        copy.addStretch(1)
-        config_layout.addLayout(copy)
-
-        url_row = QHBoxLayout()
-        url_label = QLabel("Firefox DoH", config_group)
-        hosts_label = QLabel("Party Hosts", config_group)
-        label_width = max(
-            url_label.fontMetrics().horizontalAdvance(url_label.text()),
-            hosts_label.fontMetrics().horizontalAdvance(hosts_label.text()),
-        ) + 8
-        url_label.setFixedWidth(label_width)
-        hosts_label.setFixedWidth(label_width)
-        url_row.addWidget(url_label)
-        self.endpoint_input = QLineEdit(config_group)
-        self.endpoint_input.setReadOnly(True)
-        self.endpoint_input.setMinimumWidth(0)
-        url_row.addWidget(self.endpoint_input, 1)
-        self.copy_url_button = QPushButton("複製網址")
-        self.copy_url_button.clicked.connect(
-            lambda: QApplication.clipboard().setText(self.endpoint_input.text())
-        )
-        url_row.addWidget(self.copy_url_button)
-        config_layout.addLayout(url_row)
-
-        hosts_row = QHBoxLayout()
-        hosts_row.addWidget(hosts_label)
-        self.hosts_input = QLineEdit(config_group)
-        self.hosts_input.setReadOnly(True)
-        self.hosts_input.setMinimumWidth(0)
-        self.hosts_input.setToolTip("主機名稱對應本機；Firefox 的 DoH bootstrap 仍可能需要另外設定")
-        hosts_row.addWidget(self.hosts_input, 1)
-        config_layout.addLayout(hosts_row)
-
-        layout.addWidget(config_group)
-        layout.addStretch(1)
-        self.host_input.textChanged.connect(self.update_endpoint)
-        self.output.textChanged.connect(self.update_endpoint)
-        self.update_endpoint()
-
-    def update_endpoint(self, *_args) -> None:
-        self.files = None
-        self.trust_button.setEnabled(False)
-        self.copy_button.setEnabled(False)
-        self.snippet.clear()
-        self.status_label.clear()
-        try:
-            host = mihomo_doh.normalize_host(self.host_input.text())
-            self.endpoint_input.setText(mihomo_doh.doh_url(host))
-            self.hosts_input.setText(mihomo_doh.party_hosts_override(host))
-            self.copy_url_button.setEnabled(True)
-        except ValueError:
-            self.endpoint_input.clear()
-            self.hosts_input.clear()
-            self.copy_url_button.setEnabled(False)
-
-    def pick_output(self) -> None:
-        path = QFileDialog.getExistingDirectory(
-            self, "選擇憑證輸出根目錄", self.output.text() or str(Path.home())
-        )
-        if path:
-            self.output.setText(path)
-
-    def generate(self) -> None:
-        directory = self.output.text().strip()
-        if not directory:
-            QMessageBox.warning(self, "缺少路徑", "請指定憑證目錄。")
+    def _change_provider(self):
+        next_provider = self.provider.get()
+        if next_provider == self._active_provider:
             return
-        try:
-            host = mihomo_doh.normalize_host(self.host_input.text())
-            files = mihomo_doh.generate_certificates(Path(directory), host)
-        except Exception as exc:
-            QMessageBox.critical(self, "憑證產生失敗", str(exc))
-            return
-        self.files = files
-        self.settings.setValue("doh/cert_root", directory)
-        self.settings.setValue("doh/host", host)
-        self.snippet.setPlainText(mihomo_doh.mihomo_yaml(files))
-        self.trust_button.setEnabled(True)
-        self.copy_button.setEnabled(True)
-        self.status_label.setText("已更新" if files.renewed else "憑證有效")
+        self._store_provider(self._active_provider)
+        self._active_provider = next_provider
+        self._restore_provider(next_provider)
+        self._refresh_provider()
 
-    def install_trust(self) -> None:
-        if self.files is None:
-            return
-        if QMessageBox.question(
-            self, "信任 CA",
-            "將此 CA 加入目前 Windows 使用者的受信任根憑證存放區？",
-        ) != QMessageBox.Yes:
-            return
-        try:
-            mihomo_doh.trust_ca_for_current_user(self.files.ca_certificate)
-        except Exception as exc:
-            QMessageBox.critical(self, "CA 匯入失敗", str(exc))
-            return
-        self.status_label.setText("CA 已信任")
-
-
-class UwpFirewallWorker(QThread):
-    completed = Signal(bool, object)
-
-    def __init__(self, mode: str, path: Path):
-        super().__init__()
-        self.mode = mode
-        self.path = path
-
-    def run(self) -> None:
-        try:
-            task = uwp_firewall.backup if self.mode == "backup" else uwp_firewall.restore
-            self.completed.emit(True, task(self.path))
-        except Exception as exc:
-            self.completed.emit(False, str(exc))
-
-
-class UwpFirewallPanel(QWidget):
-    """Backup and restore package-bound firewall rules, never all firewall rules."""
-
-    def __init__(self, parent: QWidget):
-        super().__init__(parent)
-        self.worker: UwpFirewallWorker | None = None
-        layout = QVBoxLayout(self)
-
-        group = QGroupBox("UWP 防火牆規則")
-        controls = QHBoxLayout(group)
-        self.backup_button = QPushButton("備份 JSON")
-        self.restore_button = QPushButton("套用備份")
-        self.backup_button.clicked.connect(self.backup)
-        self.restore_button.clicked.connect(self.restore)
-        controls.addWidget(self.backup_button)
-        controls.addWidget(self.restore_button)
-        controls.addStretch(1)
-        layout.addWidget(group)
-
-        self.status = QLabel("")
-        layout.addWidget(self.status)
-        layout.addStretch(1)
-
-    def backup(self) -> None:
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "備份 UWP 防火牆規則", "uwp-firewall-rules.json", "JSON (*.json)"
-        )
-        if filename:
-            self._execute("backup", Path(filename))
-
-    def restore(self) -> None:
-        filename, _ = QFileDialog.getOpenFileName(
-            self, "選擇 UWP 防火牆備份", "", "JSON (*.json)"
-        )
-        if not filename:
-            return
-        try:
-            count = uwp_firewall.inspect_backup(Path(filename))
-        except Exception as exc:
-            QMessageBox.critical(self, "備份無效", str(exc))
-            return
-        choice = QMessageBox.question(
-            self,
-            "確認套用 UWP 防火牆規則",
-            f"規則 {count['total']} 條（允許 {count['allow']}／封鎖 {count['block']}）。"
-            "\n只建立缺少的規則；未安裝套件或無法完整保留條件的規則會略過。"
-            "\n需要管理員授權。確定套用？",
-        )
-        if choice == QMessageBox.Yes:
-            self._execute("restore", Path(filename))
-
-    def _execute(self, mode: str, path: Path) -> None:
-        self.backup_button.setEnabled(False)
-        self.restore_button.setEnabled(False)
-        self.status.setText("處理中…")
-        self.worker = UwpFirewallWorker(mode, path)
-        self.worker.completed.connect(
-            lambda ok, result: self._finished(mode, path, ok, result)
-        )
-        self.worker.finished.connect(self._worker_finished)
-        self.worker.start()
-
-    def _finished(self, mode: str, path: Path, ok: bool, result: object) -> None:
-        if not ok:
-            self.status.setText("未完成")
-            QMessageBox.critical(self, "防火牆操作失敗", str(result))
-        elif mode == "backup":
-            count = result.get("Total", 0)
-            self.status.setText(f"已備份 {count} 條：{path}")
+    def _refresh_provider(self):
+        provider = self.provider.get()
+        if provider == "warp":
+            self.openvpn.set(False)
+            self.wireguard.set(True)
+            self.ov_check.configure(state="disabled")
+            self.wg_check.configure(state="disabled")
+            for widget in (self.udp_row, self.tcp_row, self.udp_label, self.tcp_label,
+                           self.credential_row, self.credential_label,
+                           self.mode_row, self.mode_label, self.filter_check, self.filter_label):
+                widget.grid_remove()
+            self.warp_button.configure(state="normal")
         else:
-            self.status.setText(
-                f"新增 {result.get('Added', 0)}／已存在 {result.get('Existing', 0)}／"
-                f"未安裝 {result.get('MissingPackage', 0)}／略過 {result.get('Unsupported', 0)}"
-            )
-            if result.get("Errors"):
-                QMessageBox.warning(
-                    self, "部分套用失敗", "\n".join(result["Errors"][:8])
-                )
-    def _worker_finished(self) -> None:
-        # Do not destroy a QThread on 'completed' before run() returns.
-        self.backup_button.setEnabled(True)
-        self.restore_button.setEnabled(True)
-        if self.worker is not None:
-            self.worker.deleteLater()
-            self.worker = None
-
-
-class MainWindow(QMainWindow):
-    def __init__(self) -> None:
-        super().__init__()
-        self.settings = QSettings(ORG_NAME, APP_NAME)
-        self.worker: GenerateWorker | None = None
-        self._pending_safe_paths: str | None = None
-        self._pia_wireguard_preference = True
-        self._active_provider = "pia"
-        self._provider_credentials: dict[str, tuple[str, str]] = {}
-
-        self.setWindowTitle("VPN / Mihomo Generator")
-        self.resize(880, 690)
-
-        central = QWidget(self)
-        self.setCentralWidget(central)
-        window_layout = QVBoxLayout(central)
-        self.tabs = QTabWidget(central)
-        window_layout.addWidget(self.tabs)
-
-        provider_page = QWidget(self.tabs)
-        self.tabs.addTab(provider_page, "VPN Provider")
-        root = QVBoxLayout(provider_page)
-
-        form = QFormLayout()
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        root.addLayout(form)
-
-        provider_row = QWidget()
-        provider_layout = QHBoxLayout(provider_row)
-        provider_layout.setContentsMargins(0, 0, 0, 0)
-        self.pia_radio = QRadioButton("PIA")
-        self.surfshark_radio = QRadioButton("Surfshark")
-        self.warp_radio = QRadioButton("Cloudflare WARP")
-        self.pia_radio.setChecked(True)
-        provider_group = QButtonGroup(self)
-        provider_group.addButton(self.pia_radio)
-        provider_group.addButton(self.surfshark_radio)
-        provider_group.addButton(self.warp_radio)
-        provider_layout.addWidget(self.pia_radio)
-        provider_layout.addWidget(self.surfshark_radio)
-        provider_layout.addWidget(self.warp_radio)
-        provider_layout.addStretch(1)
-        form.addRow("Provider", provider_row)
-
-        protocol_row = QWidget()
-        protocol_layout = QHBoxLayout(protocol_row)
-        protocol_layout.setContentsMargins(0, 0, 0, 0)
-        self.openvpn_checkbox = QCheckBox("OpenVPN")
-        self.wireguard_checkbox = QCheckBox("WireGuard")
-        self.openvpn_checkbox.setChecked(True)
-        self.wireguard_checkbox.setChecked(True)
-        protocol_layout.addWidget(self.openvpn_checkbox)
-        protocol_layout.addWidget(self.wireguard_checkbox)
-        protocol_layout.addStretch(1)
-        form.addRow("輸出協定", protocol_row)
-
-        self.udp_edit = QLineEdit()
-        self.udp_row = self._path_row(self.udp_edit, self.pick_udp_zip)
-        self.udp_label = QLabel("OpenVPN UDP ZIP")
-        form.addRow(self.udp_label, self.udp_row)
-
-        self.tcp_edit = QLineEdit()
-        self.tcp_row = self._path_row(self.tcp_edit, self.pick_tcp_zip)
-        self.tcp_label = QLabel("OpenVPN TCP ZIP")
-        form.addRow(self.tcp_label, self.tcp_row)
-
-        self.username_edit = QLineEdit()
-        self.username_edit.setPlaceholderText("Username")
-
-        self.password_edit = QLineEdit()
-        self.password_edit.setEchoMode(QLineEdit.Password)
-        self.password_edit.setPlaceholderText("Password")
-
-        self.credentials_row = QWidget()
-        credentials_layout = QHBoxLayout(self.credentials_row)
-        credentials_layout.setContentsMargins(0, 0, 0, 0)
-        credentials_layout.addWidget(self.username_edit, 1)
-        credentials_layout.addWidget(self.password_edit, 1)
-
-        self.show_password = QCheckBox("顯示密碼")
-        self.show_password.toggled.connect(
-            lambda checked: self.password_edit.setEchoMode(
-                QLineEdit.Normal if checked else QLineEdit.Password
-            )
-        )
-        credentials_layout.addWidget(self.show_password)
-        self.credentials_label = QLabel("PIA 帳號 / 密碼")
-        form.addRow(self.credentials_label, self.credentials_row)
-
-        self.out_edit = QLineEdit()
-        form.addRow("輸出目錄", self._path_row(self.out_edit, self.pick_output_dir))
-        self.safe_paths_checkbox = QCheckBox("加入 Provider 目錄至系統 SAFE_PATHS")
-        self.safe_paths_checkbox.setChecked(False)
-        self.safe_paths_checkbox.setToolTip("只新增 <輸出目錄>\\providers；保留現有清單，需管理員權限")
-        form.addRow("", self.safe_paths_checkbox)
-
-        mode_row = QWidget()
-        mode_layout = QHBoxLayout(mode_row)
-        mode_layout.setContentsMargins(0, 0, 0, 0)
-        self.multi_radio = QRadioButton("分節點檔案")
-        self.single_radio = QRadioButton("單一檔案")
-        self.multi_radio.setChecked(True)
-
-        mode_group = QButtonGroup(self)
-        mode_group.addButton(self.multi_radio)
-        mode_group.addButton(self.single_radio)
-        mode_layout.addWidget(self.multi_radio)
-        mode_layout.addWidget(self.single_radio)
-
-        mode_help = QToolButton()
-        mode_help.setText("?")
-        mode_help.setToolTip("輸出模式說明")
-        mode_help.setFixedSize(24, 24)
-        mode_help.clicked.connect(self.show_output_mode_help)
-        mode_layout.addWidget(mode_help)
-        mode_layout.addStretch(1)
-        self.mode_row = mode_row
-        self.mode_label = QLabel("輸出模式")
-        form.addRow(self.mode_label, mode_row)
-
-        self.exclude_streaming = QCheckBox("排除 PIA Streaming Optimized")
-        self.exclude_streaming.setChecked(True)
-        self.exclude_streaming_label = QLabel("節點過濾")
-        form.addRow(self.exclude_streaming_label, self.exclude_streaming)
-
-        # Stable, left-aligned label column across PIA, Surfshark and WARP.
-        # Apply to QFormLayout's auto-created QLabel instances as well.
-        font = self.credentials_label.fontMetrics()
-        all_label_texts = [
-            "Provider", "輸出協定", "OpenVPN UDP ZIP", "OpenVPN TCP ZIP",
-            "Surfshark 帳號 / 密碼", "PIA 帳號 / 密碼",
-            "輸出目錄", "輸出模式", "節點過濾",
-        ]
-        label_width = max(font.horizontalAdvance(text) for text in all_label_texts) + 12
-        self._provider_form_labels = []
-        for row_index in range(form.rowCount()):
-            label_item = form.itemAt(row_index, QFormLayout.ItemRole.LabelRole)
-            if label_item is None:
-                continue
-            label = label_item.widget()
-            if not isinstance(label, QLabel):
-                continue
-            label.setFixedWidth(label_width)
-            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            self._provider_form_labels.append(label)
-
-        self.run_button = QPushButton("執行")
-        self.run_button.clicked.connect(self.start_generation)
-        root.addWidget(self.run_button)
-        self.warp_schedule_button = QPushButton("安裝／管理 WARP 排程")
-        self.warp_schedule_button.clicked.connect(self.open_warp_schedule)
-        root.addWidget(self.warp_schedule_button)
-        root.addWidget(QLabel("Log"))
-        self.log_view = QPlainTextEdit()
-        self.log_view.setReadOnly(True)
-        root.addWidget(self.log_view, 1)
-
-        # Mihomo-wide tools intentionally live outside the selected provider page.
-        self.doh_panel = MihomoDohPanel(self.tabs, self.settings)
-        self.tabs.addTab(self.doh_panel, "Mihomo DNS / TLS")
-        self.uwp_panel = UwpFirewallPanel(self.tabs)
-        self.tabs.addTab(self.uwp_panel, "Windows 防火牆")
-
-        self.openvpn_checkbox.toggled.connect(self.update_protocol_controls)
-        self.pia_radio.toggled.connect(self.update_provider_controls)
-        self.surfshark_radio.toggled.connect(self.update_provider_controls)
-        self.warp_radio.toggled.connect(self.update_provider_controls)
-        self.wireguard_checkbox.toggled.connect(self.remember_pia_wireguard_preference)
-
-        self.restore_settings()
-        self.update_provider_controls()
-        self.update_protocol_controls()
-
-    def selected_provider(self) -> str:
-        if self.warp_radio.isChecked():
-            return "warp"
-        return "surfshark" if self.surfshark_radio.isChecked() else "pia"
-
-    def _path_row(self, edit: QLineEdit, callback) -> QWidget:
-        row = QWidget()
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(edit, 1)
-        button = QPushButton("瀏覽")
-        button.clicked.connect(callback)
-        layout.addWidget(button)
-        return row
-
-    def remember_pia_wireguard_preference(self, checked: bool) -> None:
-        if self.selected_provider() == "pia" and self.wireguard_checkbox.isEnabled():
-            self._pia_wireguard_preference = checked
-
-    def update_provider_controls(self, *_args) -> None:
-        provider = self.selected_provider()
-
-        if provider != self._active_provider:
-            self.save_provider_settings(self._active_provider)
-            self.restore_provider_settings(provider)
-            self._active_provider = provider
-
-        surfshark = provider == "surfshark"
-        warp = provider == "warp"
-
-        if warp:
-            if self.wireguard_checkbox.isEnabled():
-                self._pia_wireguard_preference = self.wireguard_checkbox.isChecked()
-
-            self.openvpn_checkbox.blockSignals(True)
-            self.openvpn_checkbox.setChecked(False)
-            self.openvpn_checkbox.blockSignals(False)
-            self.openvpn_checkbox.setEnabled(False)
-
-            self.wireguard_checkbox.blockSignals(True)
-            self.wireguard_checkbox.setChecked(True)
-            self.wireguard_checkbox.blockSignals(False)
-            self.wireguard_checkbox.setEnabled(False)
-            self.wireguard_checkbox.setToolTip("Cloudflare WARP 固定使用 WireGuard。")
-
-            self.udp_label.hide()
-            self.udp_row.hide()
-            self.tcp_label.hide()
-            self.tcp_row.hide()
-            self.credentials_label.hide()
-            self.credentials_row.hide()
-            self.exclude_streaming_label.hide()
-            self.exclude_streaming.hide()
-            self.mode_label.hide()
-            self.mode_row.hide()
-            self.single_radio.setEnabled(False)
-            self.multi_radio.setEnabled(False)
-
-        else:
-            self.openvpn_checkbox.setEnabled(True)
-            self.udp_label.show()
-            self.udp_row.show()
-            self.credentials_label.show()
-            self.credentials_row.show()
-            self.exclude_streaming_label.show()
-            self.exclude_streaming.show()
-            self.mode_label.show()
-            self.mode_row.show()
-            self.single_radio.setEnabled(True)
-            self.multi_radio.setEnabled(True)
-
-            if surfshark:
-                if self.wireguard_checkbox.isEnabled():
-                    self._pia_wireguard_preference = self.wireguard_checkbox.isChecked()
-                self.wireguard_checkbox.blockSignals(True)
-                self.wireguard_checkbox.setChecked(False)
-                self.wireguard_checkbox.blockSignals(False)
-                self.wireguard_checkbox.setEnabled(False)
-                self.wireguard_checkbox.setToolTip("Surfshark WireGuard generator 尚未實作；預留給未來 provisioning/API。")
-
-                self.udp_label.setText("OpenVPN ZIP")
-                self.tcp_label.hide()
-                self.tcp_row.hide()
-                self.credentials_label.setText("Surfshark 帳號 / 密碼")
-                self.exclude_streaming.setText("排除 Streaming Optimized")
-                self.exclude_streaming.setToolTip("排除 Surfshark Streaming Optimized 節點")
-            else:
-                self.wireguard_checkbox.setEnabled(True)
-                self.wireguard_checkbox.setToolTip("")
-                self.wireguard_checkbox.blockSignals(True)
-                self.wireguard_checkbox.setChecked(self._pia_wireguard_preference)
-                self.wireguard_checkbox.blockSignals(False)
-
-                self.udp_label.setText("OpenVPN UDP ZIP")
-                self.tcp_label.show()
-                self.tcp_row.show()
-                self.credentials_label.setText("PIA 帳號 / 密碼")
-                self.exclude_streaming.setText("排除 Streaming Optimized")
-                self.exclude_streaming.setToolTip("排除 PIA Streaming Optimized 節點")
-
-        self.warp_schedule_button.setVisible(warp)
-        self.update_protocol_controls()
-
-    def update_protocol_controls(self, *_args) -> None:
-        if self.selected_provider() == "warp":
-            self.udp_row.setEnabled(False)
-            self.tcp_row.setEnabled(False)
-            return
-        enabled = self.openvpn_checkbox.isChecked()
-        self.udp_row.setEnabled(enabled)
-        if self.selected_provider() == "pia":
-            self.tcp_row.setEnabled(enabled)
-
-    def show_output_mode_help(self) -> None:
-        if self.selected_provider() == "warp":
-            QMessageBox.information(
-                self,
-                "輸出模式說明",
-                "Cloudflare WARP 固定輸出：providers/warp.yaml",
-            )
-            return
-        if self.selected_provider() == "surfshark":
-            text = (
-                "分節點檔案\n"
-                "OpenVPN：providers/<endpoint>/surfshark-ov.yaml\n\n"
-                "單一檔案\n"
-                "OpenVPN：providers/surfshark-ov-all.yaml"
-            )
-        else:
-            text = (
-                "分節點檔案\n"
-                "OpenVPN：providers/<endpoint>/pia-ov.yaml\n"
-                "WireGuard：providers/<endpoint>/pia-wg.yaml\n"
-                "兩者同時輸出時會放在相同 endpoint 目錄。\n\n"
-                "單一檔案\n"
-                "OpenVPN：providers/pia-ov-all.yaml\n"
-                "WireGuard：providers/pia-wg-all.yaml\n"
-                "兩者同時輸出時仍維持兩份獨立 provider payload。"
-            )
-        QMessageBox.information(self, "輸出模式說明", text)
-
-    def pick_udp_zip(self) -> None:
-        provider = self.selected_provider()
-        title = "選擇 Surfshark OpenVPN ZIP" if provider == "surfshark" else "選擇 PIA OpenVPN UDP ZIP"
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            title,
-            self._dialog_start(self.udp_edit.text()),
-            "ZIP files (*.zip);;All files (*)",
-        )
-        if path:
-            self.udp_edit.setText(path)
-
-    def pick_tcp_zip(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "選擇 PIA OpenVPN TCP ZIP",
-            self._dialog_start(self.tcp_edit.text()),
-            "ZIP files (*.zip);;All files (*)",
-        )
-        if path:
-            self.tcp_edit.setText(path)
-
-    def pick_output_dir(self) -> None:
-        path = QFileDialog.getExistingDirectory(
-            self,
-            "選擇輸出目錄",
-            self._dialog_start(self.out_edit.text()),
-        )
-        if path:
-            self.out_edit.setText(path)
-
-    @staticmethod
-    def _dialog_start(value: str) -> str:
-        if value:
-            path = Path(value)
-            return str(path if path.is_dir() else path.parent)
-        return str(Path.home())
-
-    def append_log(self, text: str) -> None:
-        self.log_view.appendPlainText(text)
-        bar = self.log_view.verticalScrollBar()
-        bar.setValue(bar.maximum())
-
-    def validate_inputs(self) -> list[str]:
-        problems: list[str] = []
-        provider = self.selected_provider()
-        ov_enabled = self.openvpn_checkbox.isChecked()
-        wg_enabled = self.wireguard_checkbox.isChecked() and provider in ("pia", "warp")
-
-        if not ov_enabled and not wg_enabled:
-            problems.append("請至少選擇一個目前支援的協定。")
-
-        if ov_enabled and provider != "warp":
-            udp = Path(self.udp_edit.text().strip())
-            if not udp.is_file() or udp.suffix.lower() != ".zip":
-                if provider == "surfshark":
-                    problems.append("請選擇有效的 Surfshark OpenVPN ZIP。")
-                else:
-                    problems.append("請選擇有效的 OpenVPN UDP ZIP。")
-
-            if provider == "pia":
-                tcp = Path(self.tcp_edit.text().strip())
-                if not tcp.is_file() or tcp.suffix.lower() != ".zip":
-                    problems.append("請選擇有效的 OpenVPN TCP ZIP。")
-
-        credentials_required = (provider == "pia" and wg_enabled) or (provider == "surfshark" and ov_enabled)
-        if credentials_required and (
-            not self.username_edit.text().strip()
-            or not self.password_edit.text()
-        ):
+            self.ov_check.configure(state="normal")
+            self.wg_check.configure(state="normal" if provider == "pia" else "disabled")
             if provider == "surfshark":
-                problems.append("Surfshark OpenVPN 需要 Surfshark 帳號與密碼。")
+                self.wireguard.set(False)
+            for widget in (self.udp_row, self.udp_label, self.credential_row,
+                           self.credential_label, self.mode_row, self.mode_label,
+                           self.filter_check, self.filter_label):
+                widget.grid()
+            if provider == "pia":
+                self.tcp_row.grid()
+                self.tcp_label.grid()
             else:
-                problems.append("WireGuard provisioning 需要 PIA 帳號與密碼。")
+                self.tcp_row.grid_remove()
+                self.tcp_label.grid_remove()
+            self.credential_label.configure(text=f"{'PIA' if provider == 'pia' else 'Surfshark'} 帳號 / 密碼")
+            self.warp_button.configure(state="disabled")
+        self._refresh_protocols()
 
-        if not self.out_edit.text().strip():
-            problems.append("請選擇輸出目錄。")
+    def _refresh_protocols(self):
+        enabled = self.openvpn.get() and self.provider.get() != "warp"
+        for row in (self.udp_row, self.tcp_row):
+            for widget in row.winfo_children():
+                if isinstance(widget, (ttk.Entry, ttk.Button)):
+                    widget.configure(state="normal" if enabled else "disabled")
 
-        return problems
+    def _pick_zip(self, variable):
+        path = filedialog.askopenfilename(parent=self, title="選擇 OpenVPN ZIP",
+                                          filetypes=[("ZIP", "*.zip"), ("所有檔案", "*.*")])
+        if path:
+            variable.set(path)
 
-    def open_warp_schedule(self) -> None:
-        self.save_settings()
-        WarpScheduleDialog(self, self.out_edit.text().strip(), self.settings).exec()
+    def _pick_output(self):
+        path = filedialog.askdirectory(parent=self, title="選擇輸出目錄",
+                                       initialdir=self.out_dir.get() or str(Path.home()))
+        if path:
+            self.out_dir.set(path)
 
-    def start_generation(self) -> None:
-        problems = self.validate_inputs()
-        if problems:
-            QMessageBox.warning(self, "輸入不完整", "\n".join(problems))
-            return
-
-        self.save_settings()
-        self.log_view.clear()
-        self.run_button.setEnabled(False)
-        self._pending_safe_paths = (
-            safe_paths.provider_directory(self.out_edit.text().strip())
-            if self.safe_paths_checkbox.isChecked() else None
-        )
-        self.safe_paths_checkbox.setEnabled(False)
-
-        provider = self.selected_provider()
-        ov_enabled = self.openvpn_checkbox.isChecked()
-        wg_enabled = self.wireguard_checkbox.isChecked() and provider in ("pia", "warp")
-        self.worker = GenerateWorker(
-            provider=provider,
-            generate_openvpn=ov_enabled,
-            generate_wireguard=wg_enabled,
-            udp_zip=Path(self.udp_edit.text().strip()) if ov_enabled else None,
-            tcp_zip=(Path(self.tcp_edit.text().strip()) if ov_enabled and provider == "pia" else None),
-            username=self.username_edit.text().strip(),
-            password=self.password_edit.text(),
-            out_dir=Path(self.out_edit.text().strip()),
-            single_file=self.single_radio.isChecked(),
-            exclude_streaming=self.exclude_streaming.isChecked(),
-        )
-        self.worker.log.connect(self.append_log)
-        self.worker.completed.connect(self.generation_finished)
-        self.worker.start()
-
-    def generation_finished(self, ok: bool, detail: str) -> None:
-        self.run_button.setEnabled(True)
-        self.safe_paths_checkbox.setEnabled(True)
-        requested = self._pending_safe_paths
-        self._pending_safe_paths = None
-        self.safe_paths_checkbox.setChecked(False)
-
-        note = ""
-        if ok and requested is not None:
-            try:
-                changed = safe_paths.ensure_machine_safe_path(requested)
-                note = (
-                    "\nSAFE_PATHS 已加入；需完整重啟 Clash Party。"
-                    if changed else "\nSAFE_PATHS 已包含此目錄。"
-                )
-            except Exception as exc:
-                QMessageBox.warning(self, "SAFE_PATHS 未更新", str(exc))
-
-        if ok:
-            QMessageBox.information(self, "完成", f"輸出完成：\n{detail}{note}")
+    def _show_mode_help(self):
+        if self.provider.get() == "surfshark":
+            text = ("分節點：providers/<endpoint>/surfshark-ov.yaml\n"
+                    "單一：providers/surfshark-ov-all.yaml")
         else:
-            QMessageBox.critical(self, "失敗", detail)
-        self.worker = None
+            text = ("分節點：providers/<endpoint>/pia-ov.yaml 及 pia-wg.yaml\n"
+                    "單一：providers/pia-ov-all.yaml 及 pia-wg-all.yaml")
+        messagebox.showinfo("輸出模式", text, parent=self)
 
-    def provider_setting_key(self, provider: str, name: str) -> str:
-        return f"{provider}/{name}"
+    def _current_options(self):
+        return {
+            "provider": self.provider.get(), "openvpn": self.openvpn.get(),
+            "wireguard": self.wireguard.get(), "udp_zip": self.udp_zip.get().strip(),
+            "tcp_zip": self.tcp_zip.get().strip(), "username": self.username.get().strip(),
+            "password": self.password.get(), "out_dir": self.out_dir.get().strip(),
+            "single_file": self.single_file.get(), "exclude_streaming": self.exclude_streaming.get(),
+        }
 
-    def restore_provider_settings(self, provider: str) -> None:
-        username, password = self._provider_credentials.get(provider, ("", ""))
-        self.username_edit.setText(username)
-        self.password_edit.setText(password)
-        self.udp_edit.setText(
-            self.settings.value(self.provider_setting_key(provider, "udp_zip"), "", str)
-        )
-        self.tcp_edit.setText(
-            self.settings.value(self.provider_setting_key(provider, "tcp_zip"), "", str)
-        )
-        self.out_edit.setText(
-            self.settings.value(self.provider_setting_key(provider, "out_dir"), "", str)
-        )
-        self.openvpn_checkbox.setChecked(
-            self.settings.value(self.provider_setting_key(provider, "generate_openvpn"), True, bool)
-        )
+    def _save(self):
+        self._store_provider(self.provider.get())
+        self.config_data["provider"] = self.provider.get()
+        self.config_data["providers"] = self.provider_data
+        save_settings(self.config_data)
 
-        if provider == "pia":
-            self._pia_wireguard_preference = self.settings.value(
-                self.provider_setting_key(provider, "generate_wireguard"), True, bool
-            )
-        self.exclude_streaming.setChecked(
-            self.settings.value(
-                self.provider_setting_key(provider, "exclude_streaming"), True, bool
-            )
-        )
+    def _open_schedule(self):
+        self._save()
+        WarpScheduleDialog(self, self.out_dir.get().strip(), self.schedule_data)
 
-        single = self.settings.value(
-            self.provider_setting_key(provider, "single_file"), False, bool
-        )
-        self.single_radio.setChecked(single)
-        self.multi_radio.setChecked(not single)
+    def _append_log(self, value):
+        self.log.configure(state="normal")
+        self.log.insert("end", value + "\n")
+        self.log.see("end")
+        self.log.configure(state="disabled")
 
-    def save_provider_settings(self, provider: str) -> None:
-        # Session-only credentials; never write either field to QSettings.
-        self._provider_credentials[provider] = (
-            self.username_edit.text(), self.password_edit.text()
-        )
-        self.settings.setValue(
-            self.provider_setting_key(provider, "udp_zip"), self.udp_edit.text().strip()
-        )
-        self.settings.setValue(
-            self.provider_setting_key(provider, "tcp_zip"), self.tcp_edit.text().strip()
-        )
-        self.settings.setValue(
-            self.provider_setting_key(provider, "out_dir"), self.out_edit.text().strip()
-        )
-        self.settings.setValue(
-            self.provider_setting_key(provider, "generate_openvpn"),
-            self.openvpn_checkbox.isChecked(),
-        )
-        self.settings.setValue(
-            self.provider_setting_key(provider, "single_file"),
-            self.single_radio.isChecked(),
-        )
-
-        if provider == "pia":
-            self.settings.setValue(
-                self.provider_setting_key(provider, "generate_wireguard"),
-                self._pia_wireguard_preference,
-            )
-        self.settings.setValue(
-            self.provider_setting_key(provider, "exclude_streaming"),
-            self.exclude_streaming.isChecked(),
-        )
-
-    def restore_settings(self) -> None:
-        provider = self.settings.value("provider", "pia", str)
-        self.pia_radio.blockSignals(True)
-        self.surfshark_radio.blockSignals(True)
-        self.warp_radio.blockSignals(True)
-        self.warp_radio.setChecked(provider == "warp")
-        self.surfshark_radio.setChecked(provider == "surfshark")
-        self.pia_radio.setChecked(provider not in ("surfshark", "warp"))
-        self.pia_radio.blockSignals(False)
-        self.surfshark_radio.blockSignals(False)
-        self.warp_radio.blockSignals(False)
-
-        self._active_provider = self.selected_provider()
-        self.restore_provider_settings(self._active_provider)
-
-    def save_settings(self) -> None:
-        # Credentials are deliberately never persisted.
-        provider = self.selected_provider()
-        self.save_provider_settings(provider)
-        self.settings.setValue("provider", provider)
-
-    def closeEvent(self, event) -> None:
-        # An active Windows UAC / PowerShell process must not be orphaned by
-        # destroying the QThread-owned window while it is still executing.
-        worker = self.uwp_panel.worker
-        if worker is not None and worker.isRunning():
-            event.ignore()
-            QMessageBox.information(
-                self, "防火牆操作進行中",
-                "請先完成 UWP 防火牆備份或還原，再關閉程式。",
-            )
+    def _start_generation(self):
+        options = self._current_options()
+        errors = validate_generation(options)
+        if errors:
+            messagebox.showwarning("輸入不完整", "\n".join(errors), parent=self)
             return
-        self.save_settings()
-        super().closeEvent(event)
+        self._save()
+        self.running = True
+        self.run_button.configure(state="disabled")
+        self.safe_check.configure(state="disabled")
+        self.pending_safe_path = (
+            safe_paths.provider_directory(options["out_dir"]) if self.safe_paths.get() else None
+        )
+        self.log.configure(state="normal")
+        self.log.delete("1.0", "end")
+        self.log.configure(state="disabled")
+        def worker():
+            stream = LogStream(lambda value: self.events.put(("log", value)))
+            try:
+                with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
+                    print(f"[INFO] Provider: {options['provider']}")
+                    print(f"[INFO] 輸出目錄: {options['out_dir']}")
+                    target = generate_provider(options)
+                    print("[OK] 全部完成。")
+                stream.flush()
+                self.events.put(("generate_finished", (True, str(target))))
+            except Exception as exc:
+                stream.flush()
+                self.events.put(("log", traceback.format_exc().rstrip()))
+                self.events.put(("generate_finished", (False, str(exc))))
+        threading.Thread(target=worker, daemon=True, name="generate-provider").start()
+
+    def _generation_finished(self, ok, detail):
+        self.running = False
+        self.run_button.configure(state="normal")
+        self.safe_check.configure(state="normal")
+        path = self.pending_safe_path
+        self.pending_safe_path = None
+        self.safe_paths.set(False)
+        note = ""
+        if ok and path:
+            try:
+                changed = safe_paths.ensure_machine_safe_path(path)
+                note = ("\nSAFE_PATHS 已加入；需完整重啟 Clash Party。"
+                        if changed else "\nSAFE_PATHS 已包含此目錄。")
+            except Exception as exc:
+                messagebox.showwarning("SAFE_PATHS 未更新", str(exc), parent=self)
+        if ok:
+            messagebox.showinfo("完成", f"輸出完成：\n{detail}{note}", parent=self)
+        else:
+            messagebox.showerror("失敗", detail, parent=self)
+
+    def _build_doh(self):
+        frm = self.doh_tab
+        frm.columnconfigure(0, weight=1)
+        data = self.config_data.get("doh", {})
+        self.cert_dir = tk.StringVar(value=data.get("cert_root", default_cert_root()))
+        self.doh_host = tk.StringVar(value=data.get("host", "127.0.0.1"))
+        self.doh_endpoint = tk.StringVar()
+        self.doh_hosts = tk.StringVar()
+        self.doh_status = tk.StringVar()
+        group = ttk.Labelframe(frm, text="TLS 憑證", padding=12)
+        group.grid(row=0, column=0, sticky="ew")
+        group.columnconfigure(1, weight=1)
+        ttk.Label(group, text="憑證目錄", width=18).grid(row=0, column=0, sticky="w")
+        pathrow = ttk.Frame(group)
+        pathrow.grid(row=0, column=1, sticky="ew", pady=5)
+        ttk.Entry(pathrow, textvariable=self.cert_dir).pack(side="left", fill="x", expand=True)
+        ttk.Button(pathrow, text="瀏覽", command=self._pick_cert_root).pack(side="left", padx=6)
+        ttk.Label(group, text="DoH 主機", width=18).grid(row=1, column=0, sticky="w")
+        ttk.Entry(group, textvariable=self.doh_host).grid(row=1, column=1, sticky="ew", pady=5)
+        actions = ttk.Frame(group)
+        actions.grid(row=2, column=1, sticky="w", pady=6)
+        ttk.Button(actions, text="產生／更新", command=self._generate_certs,
+                   bootstyle="success").pack(side="left")
+        self.trust_button = ttk.Button(actions, text="信任 CA", command=self._trust_ca, state="disabled")
+        self.trust_button.pack(side="left", padx=8)
+        ttk.Label(group, textvariable=self.doh_status).grid(row=3, column=1, sticky="w")
+        config = ttk.Labelframe(frm, text="Mihomo 設定", padding=12)
+        config.grid(row=1, column=0, sticky="nsew", pady=12)
+        config.columnconfigure(1, weight=1)
+        self.doh_yaml = scrolledtext.ScrolledText(config, height=7, wrap="word",
+                                                 font=("Consolas", 10), state="disabled")
+        self.doh_yaml.grid(row=0, column=0, columnspan=3, sticky="ew")
+        self.copy_yaml = ttk.Button(config, text="複製 YAML", command=lambda: self._copy(
+            self.doh_yaml.get("1.0", "end-1c")), state="disabled")
+        self.copy_yaml.grid(row=1, column=2, sticky="e", pady=7)
+        ttk.Label(config, text="Firefox DoH", width=18).grid(row=2, column=0, sticky="w")
+        ttk.Entry(config, textvariable=self.doh_endpoint, state="readonly").grid(
+            row=2, column=1, sticky="ew")
+        self.copy_url = ttk.Button(config, text="複製網址",
+                                   command=lambda: self._copy(self.doh_endpoint.get()))
+        self.copy_url.grid(row=2, column=2, padx=6)
+        ttk.Label(config, text="Party Hosts", width=18).grid(row=3, column=0, sticky="w", pady=6)
+        ttk.Entry(config, textvariable=self.doh_hosts, state="readonly").grid(
+            row=3, column=1, sticky="ew", pady=6)
+        frm.rowconfigure(1, weight=1)
+        self.doh_host.trace_add("write", lambda *_: self._refresh_doh_endpoint())
+        self.cert_dir.trace_add("write", lambda *_: self._refresh_doh_endpoint())
+        self._refresh_doh_endpoint()
+
+    def _refresh_doh_endpoint(self):
+        self.cert_files = None
+        self.trust_button.configure(state="disabled")
+        self.copy_yaml.configure(state="disabled")
+        self.doh_status.set("")
+        self.doh_yaml.configure(state="normal")
+        self.doh_yaml.delete("1.0", "end")
+        self.doh_yaml.configure(state="disabled")
+        try:
+            host = mihomo_doh.normalize_host(self.doh_host.get())
+            self.doh_endpoint.set(mihomo_doh.doh_url(host))
+            self.doh_hosts.set(mihomo_doh.party_hosts_override(host))
+            self.copy_url.configure(state="normal")
+        except ValueError:
+            self.doh_endpoint.set("")
+            self.doh_hosts.set("")
+            self.copy_url.configure(state="disabled")
+
+    def _pick_cert_root(self):
+        path = filedialog.askdirectory(parent=self, initialdir=self.cert_dir.get() or str(Path.home()))
+        if path:
+            self.cert_dir.set(path)
+
+    def _generate_certs(self):
+        try:
+            host = mihomo_doh.normalize_host(self.doh_host.get())
+            files = mihomo_doh.generate_certificates(Path(self.cert_dir.get().strip()), host)
+        except Exception as exc:
+            messagebox.showerror("憑證產生失敗", str(exc), parent=self)
+            return
+        self.cert_files = files
+        self.config_data["doh"] = {"cert_root": self.cert_dir.get().strip(), "host": host}
+        self._save()
+        self.doh_yaml.configure(state="normal")
+        self.doh_yaml.insert("1.0", mihomo_doh.mihomo_yaml(files))
+        self.doh_yaml.configure(state="disabled")
+        self.trust_button.configure(state="normal")
+        self.copy_yaml.configure(state="normal")
+        self.doh_status.set("已更新" if files.renewed else "憑證有效")
+
+    def _trust_ca(self):
+        if self.cert_files is None or not messagebox.askyesno(
+                "信任 CA", "將此 CA 加入目前 Windows 使用者的受信任根憑證存放區？", parent=self):
+            return
+        try:
+            mihomo_doh.trust_ca_for_current_user(self.cert_files.ca_certificate)
+            self.doh_status.set("CA 已信任")
+        except Exception as exc:
+            messagebox.showerror("CA 匯入失敗", str(exc), parent=self)
+
+    def _copy(self, value):
+        self.clipboard_clear()
+        self.clipboard_append(value)
+        self.update_idletasks()
+
+    def _build_uwp(self):
+        frm = self.uwp_tab
+        buttons = ttk.Labelframe(frm, text="UWP 防火牆規則", padding=14)
+        buttons.pack(fill="x")
+        self.uwp_backup = ttk.Button(buttons, text="備份 JSON", command=self._uwp_backup)
+        self.uwp_backup.pack(side="left", padx=5)
+        self.uwp_restore = ttk.Button(buttons, text="套用備份", command=self._uwp_restore)
+        self.uwp_restore.pack(side="left", padx=5)
+        self.uwp_status = tk.StringVar()
+        ttk.Label(frm, textvariable=self.uwp_status).pack(anchor="w", pady=12)
+
+    def _uwp_backup(self):
+        path = filedialog.asksaveasfilename(parent=self, title="備份 UWP 防火牆規則",
+                                            initialfile="uwp-firewall-rules.json",
+                                            defaultextension=".json", filetypes=[("JSON", "*.json")])
+        if path:
+            self._start_uwp("backup", Path(path))
+
+    def _uwp_restore(self):
+        path = filedialog.askopenfilename(parent=self, title="選擇 UWP 防火牆備份",
+                                          filetypes=[("JSON", "*.json")])
+        if not path:
+            return
+        try:
+            count = uwp_firewall.inspect_backup(Path(path))
+        except Exception as exc:
+            messagebox.showerror("備份無效", str(exc), parent=self)
+            return
+        question = (f"規則 {count['total']} 條（允許 {count['allow']}／封鎖 {count['block']}）。"
+                    "\n只建立缺少的規則；未安裝套件或無法完整保留條件的規則會略過。"
+                    "\n需要管理員授權。確定套用？")
+        if messagebox.askyesno("確認套用 UWP 防火牆規則", question, parent=self):
+            self._start_uwp("restore", Path(path))
+
+    def _start_uwp(self, mode, path):
+        if self.uwp_running:
+            return
+        self.uwp_running = True
+        self.uwp_status.set("處理中…")
+        self.uwp_backup.configure(state="disabled")
+        self.uwp_restore.configure(state="disabled")
+        def task():
+            try:
+                handler = uwp_firewall.backup if mode == "backup" else uwp_firewall.restore
+                result = handler(path)
+                self.events.put(("uwp_finished", (mode, path, True, result)))
+            except Exception as exc:
+                self.events.put(("uwp_finished", (mode, path, False, str(exc))))
+        threading.Thread(target=task, daemon=True, name="uwp-firewall").start()
+
+    def _uwp_finished(self, mode, path, ok, result):
+        self.uwp_running = False
+        self.uwp_backup.configure(state="normal")
+        self.uwp_restore.configure(state="normal")
+        if not ok:
+            self.uwp_status.set("未完成")
+            messagebox.showerror("防火牆操作失敗", str(result), parent=self)
+        elif mode == "backup":
+            self.uwp_status.set(f"已備份 {result.get('Total', 0)} 條：{path}")
+        else:
+            self.uwp_status.set(
+                f"新增 {result.get('Added', 0)}／已存在 {result.get('Existing', 0)}／"
+                f"未安裝 {result.get('MissingPackage', 0)}／略過 {result.get('Unsupported', 0)}")
+            if result.get("Errors"):
+                messagebox.showwarning("部分套用失敗", "\n".join(result["Errors"][:8]), parent=self)
+
+    def _pump(self):
+        try:
+            for _ in range(100):
+                try:
+                    name, payload = self.events.get_nowait()
+                except queue.Empty:
+                    break
+                if name == "log":
+                    self._append_log(payload)
+                elif name == "generate_finished":
+                    self._generation_finished(*payload)
+                elif name == "uwp_finished":
+                    self._uwp_finished(*payload)
+        finally:
+            if not self._closing:
+                self.after(100, self._pump)
+
+    def _close(self):
+        if self.running or self.uwp_running:
+            messagebox.showinfo("操作進行中", "請先完成產生器或防火牆操作，再關閉程式。", parent=self)
+            return
+        try:
+            self._save()
+        except Exception as exc:
+            messagebox.showerror("設定儲存失敗", str(exc), parent=self)
+            return
+        self._closing = True
+        self.destroy()
 
 
 def run_warp_cli(argv: list[str]) -> int:
-    """Headless WARP generation for Windows Task Scheduler / packaged EXE."""
+    """Unchanged task action: VPN-Mihomo-Generator.exe --warp --out-dir ..."""
     import argparse
     from datetime import datetime
     from contextlib import redirect_stdout, redirect_stderr
 
-    parser = argparse.ArgumentParser(description="Regenerate Cloudflare WARP without opening the GUI.")
-    parser.add_argument("--warp", action="store_true", help="Generate the WARP WireGuard provider")
-    parser.add_argument("--out-dir", type=Path, default=Path(r"P:\Clash"),
-                        help=r"Mihomo directory (default: P:\Clash); writes providers\warp.yaml")
-    parser.add_argument("--timeout", type=float, default=15.0, help="WARP API timeout in seconds")
-    parser.add_argument("--log-file", type=Path, help="Optional log path (default: OUT_DIR/logs/warp-generator.log)")
+    parser = argparse.ArgumentParser(description="Regenerate Cloudflare WARP without GUI.")
+    parser.add_argument("--warp", action="store_true")
+    parser.add_argument("--out-dir", type=Path, default=Path(r"P:\Clash"))
+    parser.add_argument("--timeout", type=float, default=15.0)
+    parser.add_argument("--log-file", type=Path)
     args = parser.parse_args(argv)
     if not args.warp:
         parser.error("Specify --warp")
@@ -1151,7 +724,7 @@ def run_warp_cli(argv: list[str]) -> int:
         log_file.parent.mkdir(parents=True, exist_ok=True)
         with log_file.open("a", encoding="utf-8") as log:
             with redirect_stdout(log), redirect_stderr(log):
-                print(f"\\n===== WARP scheduled run {datetime.now().astimezone().isoformat(timespec='seconds')} =====", flush=True)
+                print(f"\n===== WARP scheduled run {datetime.now().astimezone().isoformat(timespec='seconds')} =====", flush=True)
                 try:
                     warp = core.load_sibling("warp-wireguard-generator.py", "warp_wireguard_generator_cli")
                     result = warp.generate_warp(out_dir=args.out_dir, timeout=args.timeout)
@@ -1162,12 +735,10 @@ def run_warp_cli(argv: list[str]) -> int:
                     print("[ERROR] WARP generation failed; existing provider is preserved.", flush=True)
                     return 1
     except OSError:
-        # PyInstaller --windowed has no console; report failure via exit status.
         return 2
 
 
 def main() -> int:
-    # Handle elevated SAFE_PATHS append and scheduled WARP calls without a GUI.
     if len(sys.argv) > 1:
         if sys.argv[1] == "--safe-paths-append":
             if len(sys.argv) != 3:
@@ -1178,12 +749,9 @@ def main() -> int:
             except Exception:
                 return 1
         return run_warp_cli(sys.argv[1:])
-    app = QApplication(sys.argv)
-    app.setOrganizationName(ORG_NAME)
-    app.setApplicationName(APP_NAME)
     window = MainWindow()
-    window.show()
-    return app.exec()
+    window.mainloop()
+    return 0
 
 
 if __name__ == "__main__":
