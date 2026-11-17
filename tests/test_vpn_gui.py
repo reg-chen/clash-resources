@@ -227,6 +227,10 @@ class WindowsGuiTests(unittest.TestCase):
         cls.patch.stop()
         cls.temp.cleanup()
 
+    def test_uses_current_ttkbootstrap_dark_theme(self):
+        self.assertEqual(self.window.style.theme_use(), "bootstrap-dark")
+        self.assertEqual(self.window.style.theme_mode, "dark")
+
     def test_native_text_panes_use_dark_palette_and_ttk_scrollbars(self):
         colors = self.window.style.colors
         for widget in (self.window.log, self.window.doh_yaml):
