@@ -147,6 +147,31 @@ jobs:
           $process = Start-Process -FilePath $exe -ArgumentList @("--warp", "--help") -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Frozen WARP CLI failed: $($process.ExitCode)" }
 
+      - name: Smoke-test frozen CustomTkinter GUI window
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/VPN-Mihomo-Generator.exe").Path
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            $shown = $false
+            for ($i = 0; $i -lt 24; $i++) {
+              Start-Sleep -Milliseconds 500
+              $windows = Get-Process -Name "VPN-Mihomo-Generator" -ErrorAction SilentlyContinue
+              if ($windows | Where-Object { $_.MainWindowTitle -eq "VPN / Mihomo Generator" }) {
+                $shown = $true
+                break
+              }
+            }
+            if (-not $shown) {
+              throw "Frozen CustomTkinter GUI did not present its main window."
+            }
+            Write-Host "Frozen CustomTkinter GUI displayed successfully."
+          }
+          finally {
+            Get-Process -Name "VPN-Mihomo-Generator" -ErrorAction SilentlyContinue |
+              Stop-Process -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Save PyInstaller build cache
         uses: actions/cache/save@v5
         with:
