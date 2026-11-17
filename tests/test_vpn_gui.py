@@ -281,20 +281,6 @@ class WindowsGuiTests(unittest.TestCase):
                 sum(abs(a - b) for a, b in zip(corner, inside)), 40,
                 "Rounded corner cannot be distinguished from button fill",
             )
-            # Temporary CI visual inspection: no credentials are populated in
-            # this test, and the image contains only a locally rendered UI.
-            import base64
-            import io
-            full = ImageGrab.grab(bbox=(
-                self.window.winfo_rootx(), self.window.winfo_rooty(),
-                self.window.winfo_rootx() + self.window.winfo_width(),
-                self.window.winfo_rooty() + self.window.winfo_height(),
-            )).convert("RGB")
-            full.thumbnail((820, 640))
-            buf = io.BytesIO()
-            full.save(buf, format="PNG", optimize=True)
-            print("CTK_VISUAL_QA_PNG=" + base64.b64encode(buf.getvalue()).decode(),
-                  flush=True)
         finally:
             self.window.withdraw()
 
@@ -435,11 +421,7 @@ class WindowsGuiTests(unittest.TestCase):
         finally:
             self.window.withdraw()
 
-    def test_schedule_dialog_actual_geometry_and_visuals(self):
-        import base64
-        import io
-        from PIL import ImageGrab
-
+    def test_schedule_dialog_size_and_visible_fields(self):
         self.window.deiconify()
         self.window.update()
         dialog = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
@@ -468,15 +450,12 @@ class WindowsGuiTests(unittest.TestCase):
             self.assertGreaterEqual(width, 470, "Schedule dialog too narrow for the selector")
             self.assertGreaterEqual(height, 225, "Schedule dialog clipped its fields")
             self.assertTrue(dialog.interval_spinbox.winfo_ismapped())
-            image = ImageGrab.grab(bbox=(
-                dialog.winfo_rootx(), dialog.winfo_rooty(),
-                dialog.winfo_rootx() + width, dialog.winfo_rooty() + height,
-            )).convert("RGB")
-            image.thumbnail((680, 470))
-            encoded = io.BytesIO()
-            image.save(encoded, format="PNG", optimize=True)
-            print("CTK_SCHEDULE_QA_PNG=" + base64.b64encode(encoded.getvalue()).decode(),
-                  flush=True)
+            number_right = (dialog.interval_spinbox.winfo_rootx()
+                            + dialog.interval_spinbox.winfo_width())
+            unit_x = dialog.interval_unit.winfo_rootx()
+            self.assertGreaterEqual(unit_x, number_right - 6)
+            self.assertLessEqual(unit_x, number_right + 45,
+                                 "Day unit should be beside the numeric entry")
         finally:
             dialog.destroy()
             self.window.withdraw()
