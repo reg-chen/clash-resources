@@ -281,6 +281,20 @@ class WindowsGuiTests(unittest.TestCase):
                 sum(abs(a - b) for a, b in zip(corner, inside)), 40,
                 "Rounded corner cannot be distinguished from button fill",
             )
+            # Temporary CI visual inspection: no credentials are populated in
+            # this test, and the image contains only a locally rendered UI.
+            import base64
+            import io
+            full = ImageGrab.grab(bbox=(
+                self.window.winfo_rootx(), self.window.winfo_rooty(),
+                self.window.winfo_rootx() + self.window.winfo_width(),
+                self.window.winfo_rooty() + self.window.winfo_height(),
+            )).convert("RGB")
+            full.thumbnail((820, 640))
+            buf = io.BytesIO()
+            full.save(buf, format="PNG", optimize=True)
+            print("CTK_VISUAL_QA_PNG=" + base64.b64encode(buf.getvalue()).decode(),
+                  flush=True)
         finally:
             self.window.withdraw()
 
