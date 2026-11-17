@@ -995,9 +995,12 @@ class MainWindow(ctk.CTk):
         except Exception as exc:
             messagebox.showerror("備份無效", str(exc), parent=self)
             return
-        question = (f"規則 {count['total']} 條（允許 {count['allow']}／封鎖 {count['block']}）。"
-                    "\n只建立缺少的規則；未安裝套件或無法完整保留條件的規則會略過。"
-                    "\n需要管理員授權。確定套用？")
+        appiso = count.get("appiso", 0)
+        question = (f"備份包含 {count['total']} 條（允許 {count['allow']}／封鎖 {count['block']}）。"
+                    + (f"\n其中 AppIso 登錄規則 {appiso} 條僅供備份，"
+                       "不會直接寫回系統登錄機碼。" if appiso else "")
+                    + "\n其他規則僅新增缺少的項目；無法保留條件或未安裝套件時會略過。"
+                    + "\n需要管理員授權。確定套用？")
         if messagebox.askyesno("確認套用 UWP 防火牆規則", question, parent=self):
             self._start_uwp("restore", Path(path))
 
@@ -1025,13 +1028,17 @@ class MainWindow(ctk.CTk):
             self.uwp_status.set("未完成")
             messagebox.showerror("防火牆操作失敗", str(result), parent=self)
         elif mode == "backup":
-            self.uwp_status.set(f"已備份 {result.get('Total', 0)} 條：{path}")
+            sources = result.get("Sources", {})
+            detail = (f"NetSecurity {sources.get('PersistentStore', 0) + sources.get('ConfigurableServiceStore', 0)}"
+                      f"／AppIso {sources.get('AppIsoRegistry', 0)}")
+            self.uwp_status.set(f"已備份 {result.get('Total', 0)} 條（{detail}）：{path}")
         else:
             self.uwp_status.set(
                 f"新增 {result.get('Added', 0)}／已存在 {result.get('Existing', 0)}／"
                 f"未安裝 {result.get('MissingPackage', 0)}／略過 {result.get('Unsupported', 0)}")
-            if result.get("Errors"):
-                messagebox.showwarning("部分套用失敗", "\n".join(result["Errors"][:8]), parent=self)
+            notices = list(result.get("Warnings", [])) + list(result.get("Errors", []))
+            if notices:
+                messagebox.showwarning("部分規則未套用", "\n".join(notices[:8]), parent=self)
 
     def _pump(self):
         try:
