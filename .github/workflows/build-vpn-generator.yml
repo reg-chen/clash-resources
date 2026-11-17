@@ -134,6 +134,28 @@ jobs:
           $process = Start-Process -FilePath $exe -ArgumentList @("--warp", "--help") -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Frozen WARP CLI failed: $($process.ExitCode)" }
 
+      - name: Smoke-test frozen headless Loopback restore entry point
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/VPN-Mihomo-Generator.exe").Path
+          $selection = Join-Path $env:RUNNER_TEMP "loopback-invalid-selection.json"
+          $report = Join-Path $env:RUNNER_TEMP "loopback-cli-report.json"
+          Set-Content -LiteralPath $selection -Value '{}' -Encoding utf8
+          $process = Start-Process -FilePath $exe -ArgumentList @(
+            "--uwp-loopback-apply", $selection, "--report", $report
+          ) -PassThru -Wait
+          if ($process.ExitCode -ne 4) {
+            throw "Expected safe rejection of invalid Loopback selection; exit $($process.ExitCode)"
+          }
+          if (-not (Test-Path -LiteralPath $report)) {
+            throw "Frozen Loopback CLI did not write the validation report"
+          }
+          $json = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if (@($json.Errors).Count -eq 0) {
+            throw "Invalid Loopback selection was not rejected"
+          }
+          Write-Host "Frozen Loopback CLI rejected invalid selection without GUI or firewall changes."
+
       - name: Smoke-test frozen CustomTkinter GUI window
         shell: pwsh
         run: |
