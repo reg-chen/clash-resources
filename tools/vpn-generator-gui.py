@@ -470,7 +470,7 @@ class WarpScheduleDialog(ctk.CTkToplevel):
         self.config_data = config
 
         frm = ui_frame(self, padding=16)
-        frm.pack(fill="both", expand=True)
+        frm.pack(fill="both", expand=True, padx=18, pady=16)
         frm.columnconfigure(1, weight=1)
         ui_label(frm, text="由 Windows 工作排程執行 WARP 更新，不需要開啟 GUI。").grid(
             row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
@@ -490,12 +490,12 @@ class WarpScheduleDialog(ctk.CTkToplevel):
         self.interval_spinbox = ui_entry(frm, textvariable=self.interval, width=8)
         self.interval_spinbox.grid(row=2, column=1, sticky="w", padx=(12, 0), pady=6)
         self.interval_unit = ui_label(frm, text="天")
-        self.interval_unit.grid(row=2, column=2, sticky="w", pady=6)
+        self.interval_unit.grid(row=2, column=1, sticky="w", padx=(108, 0), pady=6)
 
         ui_label(frm, text="執行時間").grid(row=3, column=0, sticky="w", pady=6)
         ui_entry(frm, textvariable=self.clock, width=12).grid(
             row=3, column=1, sticky="w", padx=(12, 0), pady=6)
-        ui_label(frm, text="HH:mm").grid(row=3, column=2, sticky="w", pady=6)
+        ui_label(frm, text="HH:mm").grid(row=3, column=1, sticky="w", padx=(128, 0), pady=6)
         ui_label(frm, text="Mihomo 目錄").grid(row=4, column=0, sticky="w", pady=6)
         ui_entry(frm, textvariable=self.out, width=36).grid(
             row=4, column=1, columnspan=2, sticky="ew", padx=(12, 0), pady=6)
