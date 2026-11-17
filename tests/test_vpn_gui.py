@@ -357,7 +357,19 @@ class WindowsGuiTests(unittest.TestCase):
     def test_loopback_same_account_split_token_admin_can_use_uac(self):
         with mock.patch.object(gui.uwp_loopback, "current_user_context",
                                return_value=("S-1-5-21-1-2-3-1001", True)):
-            self.assertTrue(self.window._uwp_require_own_admin())
+            with mock.patch.object(gui.uwp_loopback, "current_process_matches_login_shell",
+                                   return_value=True):
+                self.assertTrue(self.window._uwp_require_own_admin())
+
+    def test_loopback_alternate_admin_runas_is_blocked(self):
+        with mock.patch.object(gui.uwp_loopback, "current_user_context",
+                               return_value=("S-1-5-21-1-2-3-500", True)):
+            with mock.patch.object(gui.uwp_loopback, "current_process_matches_login_shell",
+                                   return_value=False):
+                with mock.patch.object(gui.messagebox, "showwarning") as warning:
+                    self.window._uwp_backup()
+                    self.assertEqual(warning.call_count, 1)
+        self.assertIn("另一個管理員帳號", self.window.uwp_status.get())
 
     def test_loopback_restore_preview_defaults_and_missing_app_skip(self):
         self.window.deiconify()
