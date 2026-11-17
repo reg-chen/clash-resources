@@ -30,9 +30,10 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
+          package-manager-cache: false
 
       - name: Install Iconify dependencies without lifecycle scripts
         shell: bash
@@ -87,4 +88,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Large monthly icon releases can exceed jsDelivr purge limits.
+          # Avoid firing dozens of requests at once; branch @main naturally
+          # refreshes on its documented cache cycle.
+          changed_count="$(wc -l < /tmp/icon-paths)"
+          if (( changed_count > 12 )); then
+            echo "::warning::Updated $changed_count icons; bulk jsDelivr purge skipped to avoid throttling."
+            printf 'Icon updates pushed: %s; skipped bulk purge (>12 files) to avoid rate limits. jsDelivr @main will refresh on its normal cache cycle.\n' "$changed_count" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           python3 tools/cdn_purge_verify.py --paths-file /tmp/icon-paths
