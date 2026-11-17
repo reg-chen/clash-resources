@@ -14,7 +14,7 @@ import sys
 import threading
 import traceback
 import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext
+from tkinter import filedialog, messagebox
 from pathlib import Path
 
 import ttkbootstrap as ttk
@@ -148,12 +148,102 @@ class LogStream:
             self.buffer = ""
 
 
+def colorref(value: str) -> int:
+    """Convert a theme #RRGGBB color into a Windows COLORREF (0x00BBGGRR)."""
+    color = value.lstrip("#")
+    if len(color) != 6 or any(character not in "0123456789abcdefABCDEF" for character in color):
+        raise ValueError("Expected six-digit RGB color")
+    return int(color[4:6] + color[2:4] + color[:2], 16)
+
+
+def set_dark_titlebar(window: tk.Misc, colors) -> bool:
+    """Darken the *native Windows frame*, not just ttk widgets.
+
+    Tk's winfo_id() is its inner HWND. GetParent resolves the top-level
+    decorated window that owns the DWM non-client/title-bar region.
+    Other platforms and unsupported Windows builds keep their native frame.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        dwmapi = ctypes.WinDLL("dwmapi", use_last_error=True)
+        user32.GetParent.argtypes = [wintypes.HWND]
+        user32.GetParent.restype = wintypes.HWND
+        handle = window.winfo_id()
+        hwnd = user32.GetParent(handle) or handle
+        dwmapi.DwmSetWindowAttribute.argtypes = [
+            wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+        ]
+        dwmapi.DwmSetWindowAttribute.restype = ctypes.c_long
+
+        def set_attribute(attribute: int, value: int) -> bool:
+            data = ctypes.c_uint32(value)
+            return dwmapi.DwmSetWindowAttribute(
+                hwnd, attribute, ctypes.byref(data), ctypes.sizeof(data)
+            ) == 0
+
+        # DWMWA_USE_IMMERSIVE_DARK_MODE (20), available on Windows 11.
+        success = set_attribute(20, 1)
+        # Explicit dark caption, border and text even if the OS app theme is light.
+        # Windows 11: DWMWA_CAPTION_COLOR=35, BORDER_COLOR=34, TEXT_COLOR=36.
+        set_attribute(35, colorref(colors.bg))
+        set_attribute(34, colorref(colors.border))
+        set_attribute(36, colorref(colors.fg))
+        return success
+    except (AttributeError, OSError, ValueError):
+        # A non-critical cosmetic feature must not prevent GUI launch.
+        return False
+
+
+class DarkScrolledText(ttk.Frame):
+    """A themed Tk Text widget with a ttk scrollbar (tk.scrolledtext is white)."""
+
+    def __init__(self, parent, *, height: int, font, wrap: str, state: str):
+        super().__init__(parent)
+        colors = ttk.Style().colors
+        self.text = tk.Text(
+            self, height=height, font=font, wrap=wrap, state=state,
+            bg=colors.inputbg, fg=colors.inputfg,
+            selectbackground=colors.selectbg, selectforeground=colors.selectfg,
+            insertbackground=colors.inputfg,
+            highlightbackground=colors.border, highlightcolor=colors.primary,
+            highlightthickness=1, relief="flat", bd=0,
+            padx=8, pady=6,
+        )
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.text.yview)
+        self.text.configure(yscrollcommand=self.scrollbar.set)
+        self.scrollbar.pack(side="right", fill="y")
+        self.text.pack(side="left", fill="both", expand=True)
+
+    def configure(self, **kwargs):
+        # Preserve the Text API used by the log and DoH/YAML panes.
+        return self.text.configure(**kwargs)
+
+    def insert(self, *args):
+        return self.text.insert(*args)
+
+    def delete(self, *args):
+        return self.text.delete(*args)
+
+    def get(self, *args):
+        return self.text.get(*args)
+
+    def see(self, *args):
+        return self.text.see(*args)
+
+
 class WarpScheduleDialog(tk.Toplevel):
     """Register/overwrite the same Windows task; do not inspect old settings."""
 
     def __init__(self, parent, out_dir: str, config: dict):
         super().__init__(parent)
         self.title("WARP 工作排程")
+        self.configure(background=parent.style.colors.bg)
+        self.after(0, lambda: set_dark_titlebar(self, parent.style.colors))
         self.transient(parent)
         self.resizable(False, False)
         self.out = tk.StringVar(value=out_dir or r"P:\Clash")
@@ -211,6 +301,8 @@ class MainWindow(ttk.Window):
     def __init__(self):
         super().__init__(themename="darkly")
         self.title("VPN / Mihomo Generator")
+        self.configure(background=self.style.colors.bg)
+        self.after(0, lambda: set_dark_titlebar(self, self.style.colors))
         self.geometry("900x720")
         self.minsize(740, 580)
         self.config_data = load_settings()
@@ -334,7 +426,7 @@ class MainWindow(ttk.Window):
         self.warp_button.pack(side="left", padx=12)
         logbox = ttk.Labelframe(root, text="Log", padding=6)
         logbox.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
-        self.log = scrolledtext.ScrolledText(logbox, height=10, state="disabled",
+        self.log = DarkScrolledText(logbox, height=10, state="disabled",
                                             font=("Consolas", 10), wrap="word")
         self.log.pack(fill="both", expand=True)
 
@@ -534,7 +626,7 @@ class MainWindow(ttk.Window):
         config = ttk.Labelframe(frm, text="Mihomo 設定", padding=12)
         config.grid(row=1, column=0, sticky="nsew", pady=12)
         config.columnconfigure(1, weight=1)
-        self.doh_yaml = scrolledtext.ScrolledText(config, height=7, wrap="word",
+        self.doh_yaml = DarkScrolledText(config, height=7, wrap="word",
                                                  font=("Consolas", 10), state="disabled")
         self.doh_yaml.grid(row=0, column=0, columnspan=3, sticky="ew")
         self.copy_yaml = ttk.Button(config, text="複製 YAML", command=lambda: self._copy(
