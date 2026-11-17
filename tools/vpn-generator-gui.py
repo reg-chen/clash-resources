@@ -1131,6 +1131,21 @@ class MainWindow(ctk.CTk):
     def _uwp_backup(self):
         if not self._uwp_require_own_admin():
             return
+        try:
+            elevated = uwp_loopback.current_process_is_elevated()
+        except Exception as exc:
+            messagebox.showerror(
+                "無法確認管理員提升權限", str(exc), parent=self)
+            return
+        if not elevated:
+            self.uwp_status.set("備份需要目前登入帳號的提升權限。")
+            messagebox.showwarning(
+                "備份 UWP Loopback 需要管理員權限",
+                "目前帳號具備管理員身分，但程式尚未提升權限。"
+                "\n請以同一個 Windows 帳號的「以系統管理員身分執行」啟動程式後再備份。"
+                "\n不要借用另一個管理員帳號執行，以免讀取錯誤帳號的 UWP 清單。",
+                parent=self)
+            return
         path = filedialog.asksaveasfilename(
             parent=self, title="備份 UWP Loopback 勾選項目",
             initialfile="uwp-loopback-exemptions.json",
