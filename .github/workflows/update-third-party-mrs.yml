@@ -2,10 +2,6 @@ name: Update third-party MRS
 on:
   push:
     branches: [main]
-    # Tag pushes bypass path filters; use a unique tag to force a rebuild
-    # without creating an empty commit on main.
-    tags:
-      - 'mrs-refresh-*'
     paths:
       - '.github/workflows/update-third-party-mrs.yml'
       - 'tools/third-party-mrs-sources.json'
@@ -30,10 +26,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    # Main branch runs are path-filtered before the workflow starts.
-    # Only the repository Owner may invoke this job via a refresh tag or
-    # workflow_dispatch. Scheduled runs remain unrestricted.
-    if: ${{ (github.event_name != 'workflow_dispatch' && github.ref_type != 'tag') || github.actor == github.repository_owner }}
+    # MRS source pushes and scheduled runs are automatic.
+    # Manual workflow_dispatch is reserved for the repository Owner.
+    if: ${{ github.event_name != 'workflow_dispatch' || github.actor == github.repository_owner }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
