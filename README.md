@@ -25,7 +25,7 @@ git tag mrs-refresh-20261117-125200 origin/main
 git push origin refs/tags/mrs-refresh-20261117-125200
 ```
 
-每次補跑請換用當下真實時間形成的新 Tag；勿覆蓋舊 Tag、勿將空 commit 推入 `main`。Tag 推送者若非 Repo Owner，workflow 的建置 job 會跳過。
+每次補跑請換用當下真實時間形成的新 Tag；勿覆蓋舊 Tag、勿將空 commit 推入 `main`。請只推送指定的單一 Tag（`refs/tags/名稱`），不要用 `git push --tags` 將其他既存 Tag 一起推送，以免重複觸發。Tag 推送者若非 Repo Owner，workflow 的建置 job 會跳過。
 
 **僅使用本儲存庫的程式碼，與重新散布第三方規則、圖示或包含第三方函式庫的執行檔，授權義務並不相同。**
 
