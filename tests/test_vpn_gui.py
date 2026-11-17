@@ -30,6 +30,19 @@ def options(**kwargs):
     return data
 
 
+class DarkThemeHelpersTests(unittest.TestCase):
+    def test_win32_colorref_channels(self):
+        self.assertEqual(gui.colorref("#123456"), 0x563412)
+        self.assertEqual(gui.colorref("#FFFFFF"), 0xFFFFFF)
+        with self.assertRaises(ValueError):
+            gui.colorref("not-a-color")
+
+    def test_non_windows_dark_titlebar_is_safe(self):
+        if sys.platform == "win32":
+            self.skipTest("Only meaningful off Windows")
+        self.assertFalse(gui.set_dark_titlebar(None, None))
+
+
 class ConfigAndValidationTests(unittest.TestCase):
     def test_no_qsettings_migration(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -173,6 +186,16 @@ class WindowsGuiTests(unittest.TestCase):
         cls.window.destroy()
         cls.patch.stop()
         cls.temp.cleanup()
+
+    def test_native_text_panes_use_dark_palette_and_ttk_scrollbars(self):
+        colors = self.window.style.colors
+        for widget in (self.window.log, self.window.doh_yaml):
+            self.assertIsInstance(widget, gui.DarkScrolledText)
+            self.assertEqual(widget.text.cget("background").lower(), colors.inputbg.lower())
+            self.assertEqual(widget.text.cget("foreground").lower(), colors.inputfg.lower())
+            self.assertEqual(widget.text.cget("insertbackground").lower(), colors.inputfg.lower())
+            self.assertEqual(widget.scrollbar.winfo_class(), "TScrollbar")
+        self.assertEqual(self.window.cget("background").lower(), colors.bg.lower())
 
     def test_three_tabs_and_function_buttons_exist(self):
         self.assertEqual(len(self.window.tabs.tabs()), 3)
