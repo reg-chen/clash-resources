@@ -60,6 +60,67 @@ def require_windows() -> None:
         raise RuntimeError("UWP Loopback 僅支援 Windows。")
 
 
+def current_user_context() -> tuple[str, bool]:
+    """Return the running Windows account SID and whether it can self-elevate.
+
+    A split-token administrator is accepted even before UAC consent. A standard
+    user who would need another administrator's credentials is not.
+    """
+    require_windows()
+    advapi = ctypes.WinDLL("advapi32.dll", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32.dll", use_last_error=True)
+    shell = ctypes.WinDLL("shell32.dll", use_last_error=True)
+    advapi.OpenProcessToken.argtypes = [
+        wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    advapi.OpenProcessToken.restype = wintypes.BOOL
+    advapi.GetTokenInformation.argtypes = [
+        wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD)]
+    advapi.GetTokenInformation.restype = wintypes.BOOL
+    advapi.ConvertSidToStringSidW.argtypes = [
+        ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    advapi.ConvertSidToStringSidW.restype = wintypes.BOOL
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+    shell.IsUserAnAdmin.restype = wintypes.BOOL
+
+    token = wintypes.HANDLE()
+    if not advapi.OpenProcessToken(kernel.GetCurrentProcess(), 0x0008, ctypes.byref(token)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        required = wintypes.DWORD()
+        advapi.GetTokenInformation(token, 1, None, 0, ctypes.byref(required))
+        if required.value < ctypes.sizeof(SidAndAttributes):
+            raise RuntimeError("無法取得目前 Windows 帳號的 SID。")
+        buffer = ctypes.create_string_buffer(required.value)
+        if not advapi.GetTokenInformation(
+                token, 1, buffer, required.value, ctypes.byref(required)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        user_sid = ctypes.cast(buffer, ctypes.POINTER(SidAndAttributes)).contents.sid
+        converted = ctypes.c_void_p()
+        if not advapi.ConvertSidToStringSidW(user_sid, ctypes.byref(converted)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            sid = ctypes.wstring_at(converted)
+        finally:
+            kernel.LocalFree(converted)
+
+        elevation_type = wintypes.DWORD()
+        if not advapi.GetTokenInformation(
+                token, 18, ctypes.byref(elevation_type),
+                ctypes.sizeof(elevation_type), ctypes.byref(required)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        # Default=1, Full=2, Limited=3. Limited is the same admin's
+        # filtered token and can elevate with consent rather than credentials.
+        is_admin = elevation_type.value in (2, 3) or bool(shell.IsUserAnAdmin())
+        return sid, is_admin
+    finally:
+        kernel.CloseHandle(token)
+
+
 def _winapi():
     require_windows()
     firewall = ctypes.WinDLL("Firewallapi.dll")
@@ -426,6 +487,15 @@ def elevated_child(selection_file: Path, report_file: Path) -> int:
         if (not isinstance(data, dict) or data.get("Type") != TYPE
                 or not isinstance(data.get("SelectedEntries"), list)):
             raise ValueError("無效的 Loopback 勾選項目。")
+        expected_sid = data.get("RequestingUserSID")
+        if not isinstance(expected_sid, str) or not re.fullmatch(
+                r"S-1-5-21-(?:\\d+-){3}\\d+", expected_sid, re.I):
+            raise ValueError("缺少有效的來源 Windows 使用者身分。")
+        actual_sid, _ = current_user_context()
+        if actual_sid.casefold() != expected_sid.casefold():
+            raise PermissionError(
+                "管理員授權切換了 Windows 使用者帳號；為避免還原至錯誤使用者，已中止。"
+                "請使用目前登入帳號本身的管理員權限。")
         outcome = apply_selected_entries(data["SelectedEntries"])
     except Exception as exc:
         outcome = {"Total": 0, "Added": 0, "Existing": 0,
@@ -455,7 +525,11 @@ def restore_selected(path: Path, selected: list[str]) -> dict:
     with tempfile.TemporaryDirectory(prefix="regchen-uwp-loopback-") as directory:
         pick = Path(directory) / "selection.json"
         report = Path(directory) / "report.json"
-        pick.write_text(json.dumps({"Type": TYPE, "SelectedEntries": selected_entries}),
+        requesting_sid, _ = current_user_context()
+        pick.write_text(json.dumps({
+            "Type": TYPE, "RequestingUserSID": requesting_sid,
+            "SelectedEntries": selected_entries,
+        }),
                         encoding="utf-8")
         if getattr(sys, "frozen", False):
             exec_args = [sys.executable]
