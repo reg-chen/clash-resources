@@ -132,13 +132,17 @@ class ConfigAndValidationTests(unittest.TestCase):
             def deiconify(self):
                 events.append("map")
 
+            def update(self):
+                events.append(("paint", self.alpha))
+
         window = FakeWindow()
         with mock.patch.object(gui.sys, "platform", "win32"):
             with mock.patch.object(gui, "set_dark_titlebar",
                                    side_effect=lambda *_: events.append("dwm") or True):
                 gui.present_dark_window(window, gui.UI_COLORS)
         self.assertEqual(events, [
-            "idle", ("alpha", 0.0), "map", "idle", "dwm", ("alpha", 1.0),
+            "idle", ("alpha", 0.0), "map", ("paint", 0.0),
+            "idle", "dwm", ("alpha", 1.0),
         ])
         self.assertEqual(window.alpha, 1.0)
 
@@ -161,13 +165,16 @@ class ConfigAndValidationTests(unittest.TestCase):
             def deiconify(self):
                 events.append("map")
 
+            def update(self):
+                events.append("paint")
+
         window = FakeWindow()
         with mock.patch.object(gui.sys, "platform", "win32"):
             with mock.patch.object(gui, "set_dark_titlebar",
                                    side_effect=RuntimeError("DWM failed")):
                 with self.assertRaisesRegex(RuntimeError, "DWM failed"):
                     gui.present_dark_window(window, gui.UI_COLORS)
-        self.assertEqual(events, [0.0, "map", 0.85])
+        self.assertEqual(events, [0.0, "map", "paint", 0.85])
         self.assertEqual(window.opacity, 0.85)
 
     def test_dwm_color_does_not_force_window_remapping(self):
@@ -329,6 +336,20 @@ class WindowsGuiTests(unittest.TestCase):
         cls.window.destroy()
         cls.patch.stop()
         cls.temp.cleanup()
+
+    def test_first_paint_callback_runs_before_window_is_revealed(self):
+        # Real Tk event-loop regression: after(0) isn't drained by idle tasks.
+        dialog = gui.StableDarkToplevel(self.window)
+        dialog.withdraw()
+        dialog.configure(fg_color=gui.BG)
+        alphas = []
+        dialog.after(0, lambda: alphas.append(float(dialog.attributes("-alpha"))))
+        try:
+            gui.present_dark_window(dialog, gui.UI_COLORS)
+            self.assertEqual(alphas, [0.0])
+            self.assertEqual(float(dialog.attributes("-alpha")), 1.0)
+        finally:
+            dialog.destroy()
 
     def test_native_ctk_theme_and_controls(self):
         self.assertIsInstance(self.window, gui.ctk.CTk)

@@ -237,9 +237,9 @@ def present_dark_window(window: tk.Misc, colors) -> None:
 
     CustomTkinter 6.0.0 normally withdraws and remaps windows to update the
     Windows caption. This app disables that behavior to avoid desktop flashes.
-    Hiding the *new* window with zero opacity while its native frame is mapped
-    lets DWM apply the colors synchronously, without a visible white frame or
-    an 80-100 ms post-display recoloring delay. Never call Tk.update() here.
+    Keep the window transparent until Tk processes its mapping, Configure
+    events and pending first-paint callbacks. update_idletasks() alone doesn't
+    process after(0), leaving CTk elements to repaint visibly one at a time.
     """
     window.update_idletasks()
     if sys.platform != "win32":
@@ -250,6 +250,9 @@ def present_dark_window(window: tk.Misc, colors) -> None:
     window.attributes("-alpha", 0.0)
     try:
         window.deiconify()
+        # Render queued CTk painting while still invisible. update_idletasks
+        # does not drain ordinary events or after(0) callbacks.
+        window.update()
         window.update_idletasks()
         set_dark_titlebar(window, colors)
     finally:
