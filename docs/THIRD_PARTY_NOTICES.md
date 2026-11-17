@@ -48,9 +48,9 @@
 | --- | --- | --- |
 | [Mihomo](https://github.com/MetaCubeX/mihomo) | MRS Action 於建置時下載 Linux release，使用 `convert-ruleset`；**此工作流程不把 Linux Mihomo binary 加入 Repo** | 上游 **MIT**；若另行重新散布 binary 須留意其實際套件所含授權及告知 |
 | [Iconify Utils](https://www.npmjs.com/package/@iconify/utils)／[@iconify-json/fluent-emoji-flat](https://www.npmjs.com/package/@iconify-json/fluent-emoji-flat) | SVG Action 的 `npm install` 安裝於 Runner，轉換並提交 SVG；**不提交 node_modules** | 工具及圖示資料為 **MIT**；產出圖示另見 Microsoft 授權 |
-| [ttkbootstrap](https://pypi.org/project/ttkbootstrap/2.2.7/) | 新版 Windows GUI 使用 `ttkbootstrap==2.2.7`，PyInstaller 打包於 EXE | **MIT AND (Apache-2.0 OR BSD-2-Clause)**（PyPI 2026-11-05 發布版本的 SPDX 表達式）；須依套件及其打包資源保留相應 notices／授權 |
+| [CustomTkinter 6](https://github.com/TomSchimansky/CustomTkinter) | Windows GUI 使用 `customtkinter==6.0.0`，PyInstaller `--onefile` 打包 | **MIT**（以官方 Repository LICENSE 文字為準）；保留原始著作權與授權告知 |
 | [Tkinter／Tcl/Tk](https://www.tcl-lang.org/software/tcltk/license.html) | Python GUI 介面與 Windows 上的 Tcl/Tk runtime | Tcl/Tk 寬鬆自由軟體授權，請核對打包版本包含的原始授權及歸屬 |
-| [Pillow](https://pypi.org/project/pillow/) | ttkbootstrap 的圖像依賴，可能打包於 Windows EXE | **HPND／MIT-CMU 類型**，依當次實際發行套件 LICENSE 為準，保留必要歸屬 |
+| [Pillow](https://pypi.org/project/pillow/) | CustomTkinter 的圖像依賴，可能打包於 Windows EXE | **HPND／MIT-CMU 類型**，依當次實際發行套件 LICENSE 為準，保留必要歸屬 |
 | [PyInstaller](https://pyinstaller.org/en/stable/license.html) | 將 Python GUI 與其函式庫打包成 EXE | **GPL-2.0 with special exception**，部分檔案 Apache-2.0；官方例外允許產物採不同授權，不要求單為 PyInstaller 加入其授權檔，但其**相依函式庫**授權仍須遵守 |
 | [Python cryptography](https://pypi.org/project/cryptography/) | 本地 DoH 憑證及相關 GUI 功能，並打包至 EXE | **Apache-2.0 OR BSD-3-Clause**；發行 EXE 時應核對打包相依套件所需的授權、歸屬／NOTICE |
 | [PIA manual-connections](https://github.com/pia-foss/manual-connections) | `pia-wireguard-generator.py` 下載其 CA certificate 並呼叫 PIA API；另有 PIA OpenVPN profiles 作為產生設定的輸入 | 上游手動連線專案 **MIT**；PIA 的服務、API、帳號及連線設定不因此全面取得 MIT 授權，仍受服務條款約束 |
@@ -58,7 +58,7 @@
 | [Cloudflare WARP](https://one.one.one.one/) | `warp-wireguard-generator.py` 透過 Cloudflare API 註冊並產生本機 WireGuard 設定 | 屬第三方服務/API，**不因呼叫 API 而取得程式或服務的 MIT 再散布授權** |
 | [GitHub Actions](https://github.com/actions)、[jsDelivr](https://www.jsdelivr.com/) | CI 工作流程／CDN 清除和驗證 | 工作流程中引用第三方 CI 元件與線上服務，不代表將其完整程式碼重新散布於 Repo；各元件仍適用自己的授權／服務條款 |
 
-**Windows EXE GUI 遷移：** 2026-11 起，新的 Windows EXE 建置腳本使用 ttkbootstrap＋Tkinter／Tcl/Tk，不包含 PySide6／Qt。Qt 既有的 [LGPL-3.0 條款](licenses/LGPL-3.0.txt)保留供舊版已建立的 EXE 參照；不能把新建置不含 Qt 的事實追溯套用至歷史 Artifact。PyInstaller 的特別例外仍僅涵蓋 PyInstaller 自身；打包依賴（包含 Pillow、Tcl/Tk、cryptography）需按建置版本核對授權／歸屬。
+**Windows EXE GUI 遷移：** 2026-11 起，新的 Windows EXE 建置腳本使用 CustomTkinter 6＋Tkinter／Tcl/Tk，不包含 PySide6／Qt。Qt 既有的 [LGPL-3.0 條款](licenses/LGPL-3.0.txt)保留供舊版已建立的 EXE 參照；不能把新建置不含 Qt 的事實追溯套用至歷史 Artifact。PyInstaller 的特別例外仍僅涵蓋 PyInstaller 自身；打包依賴（包含 Pillow、Tcl/Tk、cryptography）需按建置版本核對授權／歸屬。
 
 <a id="distribution-access"></a>
 ## Distribution surfaces and access control
