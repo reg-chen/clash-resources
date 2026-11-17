@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Windows VPN/Mihomo utilities with a ttkbootstrap GUI.
+"""Windows VPN/Mihomo utilities with a CustomTkinter 6 GUI.
 
 The command-line entry points run before a Tk root is created.  In particular,
 Windows Task Scheduler uses this same executable with --warp.
@@ -17,7 +17,7 @@ import tkinter as tk
 from tkinter import filedialog
 from pathlib import Path
 
-import ttkbootstrap as ttk
+import customtkinter as ctk
 
 import vpn_generator_core as core
 import warp_schedule
@@ -231,100 +231,108 @@ def show_with_dark_titlebar(window: tk.Misc, colors) -> None:
                      if window.winfo_exists() else None)
 
 
-class DarkScrolledText(ttk.Frame):
-    """A themed Tk Text widget with a ttk scrollbar (tk.scrolledtext is white)."""
-
-    def __init__(self, parent, *, height: int, font, wrap: str, state: str):
-        super().__init__(parent)
-        colors = ttk.Style().colors
-        self.text = tk.Text(
-            self, height=height, font=font, wrap=wrap, state=state,
-            bg=colors.inputbg, fg=colors.inputfg,
-            selectbackground=colors.selectbg, selectforeground=colors.selectfg,
-            insertbackground=colors.inputfg,
-            highlightbackground=colors.border, highlightcolor=colors.primary,
-            highlightthickness=1, relief="flat", bd=0,
-            padx=8, pady=6,
-        )
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.text.yview)
-        self.text.configure(yscrollcommand=self.scrollbar.set)
-        self.scrollbar.pack(side="right", fill="y")
-        self.text.pack(side="left", fill="both", expand=True)
-
-    def configure(self, **kwargs):
-        # Preserve the Text API used by the log and DoH/YAML panes.
-        return self.text.configure(**kwargs)
-
-    def insert(self, *args):
-        return self.text.insert(*args)
-
-    def delete(self, *args):
-        return self.text.delete(*args)
-
-    def get(self, *args):
-        return self.text.get(*args)
-
-    def see(self, *args):
-        return self.text.see(*args)
-
-
-# Calm, high-contrast dark controls. Each tone stays readable in every state.
+BG = "#1E222A"
+PANEL = "#252B35"
+INPUT = "#2B333E"
+BORDER = "#3A4655"
+TEXT = "#EBF0F7"
+MUTED = "#AAB6C6"
+ACCENT = "#47749C"
+UI_COLORS = type("Colors", (), {"bg": BG, "fg": TEXT, "border": BORDER})()
 BUTTON_PALETTE = {
-    "primary": ("#355D86", "#426B94", "#294866"),
-    "secondary": ("#303D4F", "#3E4D61", "#263241"),
-    "danger": ("#68434E", "#78515C", "#523640"),
+    "primary": ("#355D86", "#416F98", "#294966"),
+    "secondary": ("#334252", "#415368", "#293544"),
+    "danger": ("#704650", "#80545F", "#523841"),
 }
-BUTTON_FOREGROUND = "#F8FAFC"
-BUTTON_STYLES = {name: f"Reg{name.title()}.TButton" for name in BUTTON_PALETTE}
-def configure_action_buttons(style) -> None:
-    """Compact native ttk styling; intentionally NO image elements or rounded bitmaps.
+BUTTON_FOREGROUND = TEXT
 
-    The prior 112x44 image element and 15x8 padding imposed oversized minimum
-    dimensions, and nine-slice transparency produced visible square backplates.
-    Inherit the current ttkbootstrap TButton layout instead of overriding it.
-    """
-    for variant, (base, hover, pressed) in BUTTON_PALETTE.items():
-        name = BUTTON_STYLES[variant]
-        style.configure(
-            name,
-            background=base,
-            foreground=BUTTON_FOREGROUND,
-            bordercolor=base,
-            darkcolor=base,
-            lightcolor=base,
-            borderwidth=1,
-            padding=(10, 4),
-            font=("Segoe UI", 9),
-            anchor="center",
-            relief="flat",
-        )
-        style.map(
-            name,
-            background=[
-                ("disabled", "#343A42"),
-                ("pressed", pressed),
-                ("active", hover),
-            ],
-            foreground=[
-                ("disabled", "#9DA8B7"),
-                ("pressed", BUTTON_FOREGROUND),
-                ("active", BUTTON_FOREGROUND),
-            ],
-            bordercolor=[
-                ("disabled", "#343A42"),
-                ("pressed", pressed),
-                ("active", hover),
-            ],
-        )
+
+def ui_frame(parent, *, padding=0, panel=False):
+    return ctk.CTkFrame(parent, width=1, height=1, corner_radius=8 if panel else 0,
+                        fg_color=PANEL if panel else "transparent",
+                        border_color=BORDER if panel else PANEL,
+                        border_width=1 if panel else 0)
+
+
+def ui_group(parent, *, text: str, padding=0):
+    return ctk.CTkFrame(parent, width=1, height=1, corner_radius=8,
+                        fg_color=PANEL, border_color=BORDER, border_width=1)
+
+
+def ui_label(parent, *, width=None, foreground=None, **kwargs):
+    if width is not None:
+        kwargs["width"] = max(1, int(width) * 8)
+    kwargs.setdefault("height", 25)
+    kwargs.setdefault("anchor", "w")
+    kwargs.setdefault("text_color", foreground or TEXT)
+    kwargs.setdefault("fg_color", "transparent")
+    return ctk.CTkLabel(parent, **kwargs)
+
+
+def ui_entry(parent, *, width=None, state="normal", **kwargs):
+    kwargs["width"] = max(70, int(width) * 8) if width is not None else 160
+    if kwargs.get("show") == "":
+        kwargs.pop("show")
+    return ctk.CTkEntry(
+        parent, height=30, corner_radius=6,
+        border_width=1, fg_color=INPUT, border_color=BORDER,
+        text_color=TEXT, state="disabled" if state == "readonly" else state,
+        **kwargs)
+
+
+def ui_radio(parent, **kwargs):
+    return ctk.CTkRadioButton(parent, width=1, height=26,
+                              radiobutton_width=18, radiobutton_height=18,
+                              border_width_unchecked=2, border_width_checked=5,
+                              fg_color=ACCENT, hover_color="#527EA4",
+                              border_color="#647386", text_color=TEXT,
+                              font=("Segoe UI", 12), **kwargs)
+
+
+def ui_check(parent, **kwargs):
+    return ctk.CTkCheckBox(parent, width=1, height=26,
+                           checkbox_width=18, checkbox_height=18,
+                           corner_radius=4, border_width=1,
+                           fg_color=ACCENT, hover_color="#527EA4",
+                           border_color="#647386", checkmark_color=TEXT,
+                           text_color=TEXT, font=("Segoe UI", 12), **kwargs)
 
 
 def styled_button(parent, *, variant: str = "secondary", **kwargs):
-    """Shared ttk Button API: keyboard, accessibility, commands and state intact."""
-    return ttk.Button(parent, style=BUTTON_STYLES[variant], **kwargs)
+    """CTk native rounded canvas: 7px corner on a 30px-high button."""
+    fill, hover, _pressed = BUTTON_PALETTE[variant]
+    label_text = kwargs.pop("text", "")
+    old_width = kwargs.pop("width", None)
+    import unicodedata
+    estimated = sum(14 if unicodedata.east_asian_width(ch) in ("F", "W") else 7
+                    for ch in str(label_text))
+    width = max(30 if label_text == "?" else 64, estimated + 24)
+    if old_width is not None:
+        width = max(width, int(old_width) * 8)
+    return ctk.CTkButton(
+        parent, text=label_text, width=width, height=30,
+        corner_radius=7, border_width=1,
+        border_color=BORDER, bg_color="transparent",
+        fg_color=fill, hover_color=hover,
+        text_color=BUTTON_FOREGROUND, text_color_disabled="#A4AEBA",
+        font=("Segoe UI", 12), **kwargs)
 
 
-class DarkAlertDialog(tk.Toplevel):
-    """Theme-consistent modal, including the Windows native title bar."""
+class DarkScrolledText(ctk.CTkTextbox):
+    """Native CTk scrollable textbox; height argument is legacy line units."""
+
+    def __init__(self, parent, *, height: int, font, wrap: str, state: str):
+        super().__init__(
+            parent, width=1, height=max(105, height * 20),
+            corner_radius=7, border_width=1,
+            border_color=BORDER, fg_color=INPUT,
+            text_color=TEXT, scrollbar_button_color="#617183",
+            scrollbar_button_hover_color="#8394A7",
+            font=font, wrap=wrap, state=state)
+
+
+class DarkAlertDialog(ctk.CTkToplevel):
+    """CustomTkinter dark modal with safe Yes/No semantics."""
 
     def __init__(self, parent, *, title: str, message: str,
                  kind: str = "info", confirm: bool = False):
@@ -335,29 +343,27 @@ class DarkAlertDialog(tk.Toplevel):
         self.resizable(False, False)
         self.result = False
         self.confirm = confirm
-        self.colors = ttk.Style().colors
-        self.configure(bg=self.colors.bg)
+        self.configure(fg_color=BG)
         self.protocol("WM_DELETE_WINDOW", lambda: self._finish(False))
         self.bind("<Escape>", lambda _event: self._finish(False))
         self.bind("<Return>", lambda _event: self._finish(True))
-
-        content = ttk.Frame(self, padding=20)
-        content.pack(fill="both", expand=True)
-        content.columnconfigure(1, weight=1)
+        content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=18, pady=16)
+        content.grid_columnconfigure(1, weight=1)
         symbol, color = {
-            "info": ("i", self.colors.info),
-            "warning": ("!", self.colors.warning),
-            "error": ("!", self.colors.danger),
-            "question": ("?", self.colors.info),
-        }.get(kind, ("i", self.colors.info))
-        ttk.Label(content, text=symbol, foreground=color,
-                  font=("Segoe UI", 20, "bold"), width=2,
-                  anchor="center").grid(row=0, column=0, sticky="n", padx=(0, 12))
-        self.message_label = ttk.Label(
-            content, text=message, justify="left",
-            wraplength=480, anchor="w")
-        self.message_label.grid(row=0, column=1, sticky="w", pady=(4, 16))
-        actions = ttk.Frame(content)
+            "info": ("i", "#82B3DF"),
+            "warning": ("!", "#C8A66E"),
+            "error": ("!", "#CC8C91"),
+            "question": ("?", "#82B3DF"),
+        }.get(kind, ("i", "#82B3DF"))
+        ctk.CTkLabel(content, text=symbol, text_color=color,
+                     width=28, height=30, font=("Segoe UI", 20, "bold")).grid(
+            row=0, column=0, sticky="n", padx=(0, 12))
+        self.message_label = ctk.CTkLabel(
+            content, text=message, text_color=TEXT, justify="left",
+            wraplength=465, anchor="w", height=30)
+        self.message_label.grid(row=0, column=1, sticky="ew", pady=(0, 16))
+        actions = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
         actions.grid(row=1, column=0, columnspan=2, sticky="e")
         if confirm:
             self.cancel_button = styled_button(
@@ -368,26 +374,24 @@ class DarkAlertDialog(tk.Toplevel):
             actions, text="確定", variant="primary",
             command=lambda: self._finish(True))
         self.ok_button.pack(side="left")
-
-        # Place the dialog relative to its parent rather than the desktop.
         self.update_idletasks()
-        width = max(300, self.winfo_reqwidth())
+        width = max(320, self.winfo_reqwidth())
         height = self.winfo_reqheight()
         x = parent.winfo_rootx() + max(0, (parent.winfo_width() - width) // 2)
         y = parent.winfo_rooty() + max(0, (parent.winfo_height() - height) // 2)
         self.geometry(f"+{x}+{y}")
         self.deiconify()
-        show_with_dark_titlebar(self, self.colors)
+        self.after(80, lambda: set_dark_titlebar(self, UI_COLORS)
+                   if self.winfo_exists() else None)
         self._previous_grab = parent.grab_current()
         self.grab_set()
         self.ok_button.focus_set()
 
-    def _finish(self, result: bool) -> None:
+    def _finish(self, result: bool):
         self.result = bool(result)
         try:
             self.grab_release()
-            if (self._previous_grab is not None
-                    and self._previous_grab.winfo_exists()):
+            if self._previous_grab is not None and self._previous_grab.winfo_exists():
                 self._previous_grab.grab_set()
         finally:
             self.destroy()
