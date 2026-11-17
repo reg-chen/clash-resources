@@ -1,0 +1,56 @@
+name: One-time Fluent Emoji SVG sync (no purge)
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/one-time-icon-sync.yml"
+permissions:
+  contents: write
+jobs:
+  sync:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install Iconify dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix tools --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @iconify/utils@3 @iconify-json/fluent-emoji-flat@1
+      - name: Synchronize SVG icons
+        run: node tools/sync-fluent-emoji-flat.mjs --write
+      - name: Commit and push changed SVGs only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3; do
+            git fetch --quiet origin main
+            if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+              git reset --hard origin/main
+              node tools/sync-fluent-emoji-flat.mjs --write
+            fi
+            git add -- icons/fluent-emoji-flat/
+            if git diff --cached --quiet; then
+              echo "No changed SVG files; no commit."
+              exit 0
+            fi
+            git commit -m "chore(icons): one-time Fluent Emoji update (no purge)"
+            if git push origin HEAD:main; then
+              echo "SVG changes pushed successfully; Purge intentionally skipped."
+              exit 0
+            fi
+            echo "::warning::Concurrent main update, retrying ($attempt/3)"
+          done
+          echo "::error::Could not publish icons without force-push"
+          exit 1

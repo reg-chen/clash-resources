@@ -42,16 +42,16 @@ jobs:
           npm install --prefix tools --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @iconify/utils@3 @iconify-json/fluent-emoji-flat@1
           node --check tools/sync-fluent-emoji-flat.mjs
 
-      - name: Check icon changes (ordinary pushes are read-only)
-        if: ${{ github.event_name == 'push' && github.event.head_commit.message != 'chore(icons): one-time sync without purge 2026-11-17' }}
+      - name: Check icon changes (push never publishes)
+        if: github.event_name == 'push'
         run: node tools/sync-fluent-emoji-flat.mjs --check
 
-      - name: Update SVGs (monthly, Owner dispatch, one-time owner push)
-        if: ${{ github.event_name != 'push' || (github.event_name == 'push' && github.actor == github.repository_owner && github.event.head_commit.message == 'chore(icons): one-time sync without purge 2026-11-17') }}
+      - name: Update SVGs (monthly or Owner dispatch)
+        if: github.event_name != 'push'
         run: node tools/sync-fluent-emoji-flat.mjs --write
 
       - name: Commit changes only if icon bytes changed
-        if: ${{ github.event_name != 'push' || (github.event_name == 'push' && github.actor == github.repository_owner && github.event.head_commit.message == 'chore(icons): one-time sync without purge 2026-11-17') }}
+        if: github.event_name != 'push'
         id: commit
         shell: bash
         run: |
@@ -84,7 +84,7 @@ jobs:
 
       # GITHUB_TOKEN pushes do not trigger the separate jsDelivr Purge workflow.
       - name: Purge only the updated icons and verify jsDelivr
-        if: ${{ steps.commit.outputs.changed == 'true' && (github.event_name != 'push' || github.event.head_commit.message != 'chore(icons): one-time sync without purge 2026-11-17') }}
+        if: steps.commit.outputs.changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
