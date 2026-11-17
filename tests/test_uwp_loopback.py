@@ -177,6 +177,36 @@ class LoopbackPortableBackupTests(unittest.TestCase):
         })
         self.assertEqual(call.call_count, 1)
 
+    def test_legacy_migration_never_passes_previous_sid_to_checknetisolation(self):
+        legacy = app(OLD_SID)
+        legacy.pop("PackageFamilyName")
+        self.write([legacy], schema=1)
+        entries = loopback.read_backup(self.target)
+        self.assertNotIn("SID", entries[0])
+        def fake_add(command, **kwargs):
+            self.assertEqual(command[3], f"-p={NEW_SID}")
+            self.assertNotIn(OLD_SID, str(command))
+            return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+        with mock.patch.object(loopback, "require_windows"):
+            with mock.patch.object(loopback, "installed_containers", return_value=self.apps):
+                with mock.patch.object(loopback, "enabled_sids",
+                                       side_effect=[set(), {NEW_SID}]):
+                    with mock.patch.object(loopback.subprocess, "run",
+                                           side_effect=fake_add):
+                        applied = loopback.apply_selected_entries(entries)
+        self.assertEqual(applied["Added"], 1)
+
+    def test_wrong_publisher_is_not_applied_even_if_container_name_matches(self):
+        wrong = portable(app(OLD_SID, family="Another.Publisher_x"))
+        with mock.patch.object(loopback, "require_windows"):
+            with mock.patch.object(loopback, "installed_containers", return_value=self.apps):
+                with mock.patch.object(loopback, "enabled_sids", return_value=set()):
+                    with mock.patch.object(loopback.subprocess, "run") as add:
+                        result = loopback.apply_selected_entries([wrong])
+        self.assertEqual(result["MissingPackage"], 1)
+        self.assertEqual(result["Added"], 0)
+        add.assert_not_called()
+
     def test_reject_selection_not_in_backup(self):
         self.write([portable(app(OLD_SID))])
         with mock.patch.object(loopback, "require_windows"):
