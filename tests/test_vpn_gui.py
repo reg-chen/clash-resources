@@ -53,27 +53,10 @@ class ButtonContrastTests(unittest.TestCase):
         a, b = sorted((lightness(foreground), lightness(background)), reverse=True)
         return (a + .05) / (b + .05)
 
-    def test_high_resolution_rounded_surfaces_are_not_flat_bitmaps(self):
-        from PIL import Image
-        for variant, (base, _hover, _pressed) in gui.BUTTON_PALETTE.items():
-            with self.subTest(variant=variant):
-                image = gui.render_button_surface(
-                    base, gui.BUTTON_BORDERS[variant],
-                    size=(112, 44), radius=17)
-                self.assertIsInstance(image, Image.Image)
-                self.assertEqual(image.size, (112, 44))
-                self.assertEqual(image.getpixel((0, 0))[3], 0)
-                self.assertEqual(image.getpixel((111, 0))[3], 0)
-                self.assertEqual(image.getpixel((56, 20))[3], 255)
-                self.assertNotEqual(image.getpixel((56, 8)), image.getpixel((56, 32)))
-                # Antialiased edge: intermediate alpha values prove supersampling.
-                alphas = image.getchannel("A").tobytes()
-                self.assertTrue(any(0 < alpha < 255 for alpha in alphas))
-
-    def test_surface_geometry_validation(self):
-        with self.assertRaises(ValueError):
-            gui.render_button_surface("#355D86", "#6583A1",
-                                      size=(20, 18), radius=17)
+    def test_action_styles_do_not_require_generated_bitmap_assets(self):
+        self.assertFalse(hasattr(gui, "render_button_surface"))
+        self.assertFalse(hasattr(gui, "BUTTON_BORDERS"))
+        self.assertFalse(hasattr(gui, "configure_rounded_buttons"))
 
     def test_white_label_contrast_at_normal_and_hover_is_wcag_aa(self):
         for variant, (base, hover, pressed) in gui.BUTTON_PALETTE.items():
@@ -241,29 +224,48 @@ class WindowsGuiTests(unittest.TestCase):
             self.assertEqual(widget.scrollbar.winfo_class(), "TScrollbar")
         self.assertEqual(self.window.cget("background").lower(), colors.bg.lower())
 
-    def test_button_assets_scale_to_display_and_keep_state_images_alive(self):
-        cache = self.window.style._reg_button_assets
-        expected_size = tuple(gui.ttk.scale_size(self.window, value)
-                              for value in (112, 44))
-        self.assertEqual(set(cache), set(gui.BUTTON_PALETTE))
-        for variant, assets in cache.items():
-            with self.subTest(variant=variant):
-                self.assertEqual(assets["images"]["normal"].size, expected_size)
-                self.assertEqual(set(assets["photos"]),
-                                 {"normal", "hover", "pressed", "focus", "disabled"})
-                self.assertNotEqual(assets["images"]["normal"].tobytes(),
-                                    assets["images"]["hover"].tobytes())
-                self.assertNotEqual(assets["images"]["focus"].tobytes(),
-                                    assets["images"]["normal"].tobytes())
-                for image in assets["photos"].values():
-                    self.assertTrue(self.window.tk.call("image", "type", str(image)))
+    def test_buttons_are_compact_and_have_no_custom_bitmap_backplates(self):
+        style = self.window.style
+        self.window.deiconify()
+        try:
+            self.window.update_idletasks()
+            entry_height = self.window.password_entry.winfo_reqheight()
+            for widget in (
+                self.window.run_button,
+                self.window.warp_button,
+                self.window.trust_button,
+                self.window.uwp_backup,
+                self.window.uwp_restore,
+            ):
+                with self.subTest(text=widget.cget("text")):
+                    self.assertLessEqual(
+                        widget.winfo_reqheight(), int(entry_height * 1.65),
+                        f"Button '{widget.cget('text')}' taller than a normal form control",
+                    )
+                    style_name = widget.cget("style")
+                    self.assertIn(style_name, gui.BUTTON_STYLES.values())
+                    # The former custom image element forced a 112x44 minimum
+                    # and left rectangular alpha backplates behind each button.
+                    self.assertNotIn(style_name + ".background", str(style.layout(style_name)))
+            self.assertLess(self.window.run_button.winfo_reqheight(), 45)
+        finally:
+            self.window.withdraw()
 
-    def test_actions_use_rounded_muted_styles(self):
+    def test_native_button_state_colors_and_keyboard_behavior(self):
         style = self.window.style
         for variant, name in gui.BUTTON_STYLES.items():
             with self.subTest(variant=variant):
                 self.assertTrue(style.layout(name))
-                self.assertIn(name + ".background", str(style.layout(name)))
+                self.assertEqual(style.lookup(name, "background"),
+                                 gui.BUTTON_PALETTE[variant][0])
+                self.assertEqual(
+                    style.lookup(name, "background", state=("active",)),
+                    gui.BUTTON_PALETTE[variant][1],
+                )
+                self.assertEqual(
+                    style.lookup(name, "background", state=("pressed",)),
+                    gui.BUTTON_PALETTE[variant][2],
+                )
         self.assertEqual(self.window.run_button.cget("style"), gui.BUTTON_STYLES["primary"])
         self.assertEqual(self.window.warp_button.cget("style"), gui.BUTTON_STYLES["secondary"])
         self.assertEqual(self.window.trust_button.cget("style"), gui.BUTTON_STYLES["secondary"])
