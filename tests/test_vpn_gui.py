@@ -226,6 +226,40 @@ class WindowsGuiTests(unittest.TestCase):
         self.window.provider.set("warp")
         self.assertTrue(self.window.doh_endpoint.get())
 
+    def test_schedule_shows_exact_original_two_frequency_choices(self):
+        dlg = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
+        try:
+            values = tuple(dlg.frequency_combo["values"])
+            self.assertEqual(values, (
+                "每月 5、10、15、20、25、30 日（預設）",
+                "每 N 天",
+            ))
+            self.assertEqual(dlg.mode.get(), "monthly")
+            self.assertFalse(bool(dlg.interval_spinbox.grid_info()))
+            dlg.frequency_label.set("每 N 天")
+            dlg._frequency_selected()
+            self.assertEqual(dlg.mode.get(), "interval")
+            self.assertTrue(bool(dlg.interval_spinbox.grid_info()))
+            dlg.mode.set("monthly")
+            self.assertFalse(bool(dlg.interval_spinbox.grid_info()))
+            self.assertNotIn("daily", values)
+        finally:
+            dlg.destroy()
+
+    def test_windows_dwm_verifies_actual_caption_color(self):
+        self.window.deiconify()
+        try:
+            self.window.update()
+            self.assertTrue(
+                gui.set_dark_titlebar(self.window, self.window.style.colors),
+                "DWM caption color was not applied to Tk's outer decorated HWND",
+            )
+            self.assertTrue(self.window.wm_frame())
+            gui.show_with_dark_titlebar(self.window, self.window.style.colors)
+            self.assertTrue(self.window.winfo_exists())
+        finally:
+            self.window.withdraw()
+
     def test_schedule_dialog_uses_same_task_and_updates(self):
         dlg = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
         dlg.mode.set("interval")
