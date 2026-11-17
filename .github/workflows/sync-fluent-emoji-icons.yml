@@ -43,7 +43,7 @@ jobs:
           node --check tools/sync-fluent-emoji-flat.mjs
 
       - name: Check icon changes (ordinary pushes are read-only)
-        if: ${{ github.event_name == 'push' && !(github.event_name == 'push' && github.actor == github.repository_owner && github.event.head_commit.message == 'chore(icons): one-time sync without purge 2026-11-17') }}
+        if: ${{ github.event_name == 'push' && github.event.head_commit.message != 'chore(icons): one-time sync without purge 2026-11-17' }}
         run: node tools/sync-fluent-emoji-flat.mjs --check
 
       - name: Update SVGs (monthly, Owner dispatch, one-time owner push)
