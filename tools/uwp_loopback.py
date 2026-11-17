@@ -22,7 +22,7 @@ import sys
 import tempfile
 
 TYPE = "UWP-LoopbackExemptions"
-SCHEMA = 1
+SCHEMA = 2
 SID_RE = re.compile(r"^S-1-15-(?:2|7)-(?:\d+-)*\d+$", re.I)
 MAX_ITEMS = 10000
 
@@ -271,6 +271,11 @@ def _validate_rows(items: object, schema: int) -> list[dict[str, str]]:
         elif schema == 2:
             if not parsed["PackageFamilyName"] or not parsed["AppContainerName"]:
                 raise ValueError("可攜式 Loopback 備份缺少 Package Family Name 或 AppContainer 名稱。")
+        elif schema == 0:
+            # Elevated selection payload: legacy backups can lack PFN, but
+            # must still supply an exact stable AppContainer moniker.
+            if not parsed["AppContainerName"]:
+                raise ValueError("無法辨識的舊版 AppContainer 不可進行還原。")
         else:
             raise ValueError("不支援的 Loopback 備份版本。")
         key = identity_key(parsed)
@@ -375,7 +380,7 @@ def apply_selected_entries(entries: list[dict[str, str]]) -> dict:
         raise ValueError("還原清單長度異常。")
     # Selection always carries stable app identity; no source SID can reach
     # CheckNetIsolation even if a user supplied a legacy v1 backup.
-    originals = _validate_rows(entries, 2) if entries else []
+    originals = _validate_rows(entries, 0) if entries else []
     installed = installed_containers()
     active = enabled_sids()
     outcome = {
@@ -436,16 +441,20 @@ def _ps_literal(value: str) -> str:
 def restore_selected(path: Path, selected: list[str]) -> dict:
     """Invoke exactly one UAC prompt after the user confirms the checked list."""
     require_windows()
-    saved = {item["SID"] for item in read_backup(path)}
-    if len(selected) != len(set(selected)) or any(s not in saved for s in selected):
-        raise ValueError("選取的豁免項目不屬於這份備份。")
+    saved = {identity_key(item): item for item in read_backup(path)
+             if identity_key(item)}
+    if len(selected) != len(set(selected)) or any(key not in saved for key in selected):
+        raise ValueError("選取的 App 身分不屬於這份備份。")
     if not selected:
         return {"Total": 0, "Added": 0, "Existing": 0,
                 "MissingPackage": 0, "Errors": []}
+    # The elevated child will independently resolve these portable identities
+    # against Windows' current AppContainers; no source SID crosses UAC.
+    selected_entries = [saved[key] for key in selected]
     with tempfile.TemporaryDirectory(prefix="regchen-uwp-loopback-") as directory:
         pick = Path(directory) / "selection.json"
         report = Path(directory) / "report.json"
-        pick.write_text(json.dumps({"Type": TYPE, "SelectedSids": selected}),
+        pick.write_text(json.dumps({"Type": TYPE, "SelectedEntries": selected_entries}),
                         encoding="utf-8")
         if getattr(sys, "frozen", False):
             exec_args = [sys.executable]
