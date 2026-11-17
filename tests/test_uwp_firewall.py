@@ -100,7 +100,7 @@ class UwpFirewallTests(unittest.TestCase):
     def test_export_uses_appiso_registry_not_only_get_netfirewallrule(self):
         script = (Path(__file__).resolve().parents[1] / "tools" / "uwp_firewall.ps1").read_text(
             encoding="utf-8")
-        self.assertIn("AppIso\\\\FirewallRules", script)
+        self.assertIn(r"AppIso\FirewallRules", script)
         self.assertIn("ConfigurableServiceStore", script)
         self.assertIn("AppIsoRules = $appIsoRules", script)
         self.assertIn("Schema = 2", script)
