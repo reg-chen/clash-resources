@@ -23,7 +23,7 @@ import vpn_generator_core as core
 import warp_schedule
 import mihomo_doh
 import safe_paths
-import uwp_firewall
+import uwp_loopback
 
 APP_NAME = "VPN-Mihomo-Generator"
 TASK_NAME = warp_schedule.TASK_NAME
@@ -438,6 +438,115 @@ class ThemedMessagebox:
 
 # All existing calls stay compatible; confirm/close still yields bool.
 messagebox = ThemedMessagebox
+
+
+class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
+    """Preview the checked UWP Loopback exemptions before any UAC prompt."""
+
+    def __init__(self, parent, entries: list[dict]):
+        super().__init__(parent)
+        self.withdraw()
+        self.title("選擇要還原的 UWP Loopback 豁免")
+        self.configure(fg_color=BG)
+        self.geometry("770x610")
+        self.minsize(660, 460)
+        self.transient(parent)
+        self.selected = None
+        self.variables: dict[str, tk.BooleanVar] = {}
+        self.rows = entries
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
+
+        active = sum(x["Status"] == "available" for x in entries)
+        existing = sum(x["Status"] == "existing" for x in entries)
+        missing = sum(x["Status"] == "missing" for x in entries)
+        ui_label(
+            self, text=f"備份 {len(entries)} 項　可新增 {active}　已存在 {existing}　未安裝 {missing}",
+            font=("Segoe UI", 13, "bold"),
+        ).pack(fill="x", padx=18, pady=(17, 3))
+        ui_label(
+            self,
+            text="只有勾選的、目前仍安裝的 App 會新增豁免；不會刪除已有項目。",
+            foreground=MUTED,
+        ).pack(fill="x", padx=18, pady=(0, 12))
+
+        scroll = ctk.CTkScrollableFrame(
+            self, corner_radius=8, fg_color=PANEL,
+            scrollbar_button_color="#596A7E",
+            scrollbar_button_hover_color="#74879A",
+        )
+        scroll.pack(fill="both", expand=True, padx=18, pady=(0, 12))
+        for entry in entries:
+            sid = entry["SID"]
+            status = entry["Status"]
+            variable = tk.BooleanVar(value=(status == "available"))
+            self.variables[sid] = variable
+            row = ctk.CTkFrame(scroll, fg_color="transparent", corner_radius=0)
+            row.pack(fill="x", padx=8, pady=6)
+            row.grid_columnconfigure(0, weight=1)
+            label = entry.get("DisplayName") or entry.get("AppContainerName") or sid
+            control = ctk.CTkCheckBox(
+                row, text=label[:90], variable=variable,
+                fg_color=ACCENT, hover_color="#527EA4",
+                border_color="#647386", checkbox_width=18,
+                checkbox_height=18, corner_radius=4,
+                text_color=TEXT, font=("Segoe UI", 12),
+            )
+            control.grid(row=0, column=0, sticky="w")
+            if status != "available":
+                control.deselect()
+                control.configure(state="disabled")
+            state_text = {
+                "available": "可新增", "existing": "已存在",
+                "missing": "未安裝，略過",
+            }[status]
+            ui_label(row, text=state_text,
+                     foreground=("#87C4A6" if status == "available" else MUTED)
+                     ).grid(row=0, column=1, sticky="e", padx=8)
+            detail = entry.get("AppContainerName") or sid
+            ui_label(row, text=f"{detail}　·　{sid}", foreground=MUTED,
+                     font=("Consolas", 10)).grid(
+                row=1, column=0, columnspan=2, sticky="w", padx=(28, 0))
+
+        footer = ctk.CTkFrame(self, fg_color="transparent")
+        footer.pack(fill="x", padx=18, pady=(0, 17))
+        styled_button(footer, text="全選可新增", command=self._select_all).pack(side="left", padx=(0, 8))
+        styled_button(footer, text="清除選取", command=self._clear).pack(side="left")
+        styled_button(footer, text="取消", command=self._cancel).pack(side="right")
+        styled_button(footer, text="還原所選", variant="primary",
+                      command=self._accept).pack(side="right", padx=(0, 8))
+
+        self.deiconify()
+        self.update_idletasks()
+        self.grab_set()
+        self.after(100, lambda: set_dark_titlebar(self, UI_COLORS)
+                   if self.winfo_exists() else None)
+
+    def _select_all(self):
+        for row in self.rows:
+            self.variables[row["SID"]].set(row["Status"] == "available")
+
+    def _clear(self):
+        for variable in self.variables.values():
+            variable.set(False)
+
+    def _accept(self):
+        self.selected = [
+            row["SID"] for row in self.rows
+            if row["Status"] == "available" and self.variables[row["SID"]].get()
+        ]
+        self._finish()
+
+    def _cancel(self):
+        self.selected = None
+        self._finish()
+
+    def _finish(self):
+        self.grab_release()
+        self.destroy()
+
+    def show(self):
+        self.wait_window(self)
+        return self.selected
 
 
 class WarpScheduleDialog(ctk.CTkToplevel):
@@ -969,56 +1078,73 @@ class MainWindow(ctk.CTk):
 
     def _build_uwp(self):
         frm = self.uwp_tab
-        buttons = ui_group(frm, text="UWP 防火牆規則", padding=14)
+        buttons = ui_group(frm, text="UWP Loopback 豁免", padding=14)
         buttons.pack(fill="x")
-        self.uwp_backup = styled_button(buttons, text="備份 JSON", command=self._uwp_backup)
+        self.uwp_backup = styled_button(
+            buttons, text="備份已勾選項目", command=self._uwp_backup)
         self.uwp_backup.pack(side="left", padx=8, pady=(27, 10))
-        self.uwp_restore = styled_button(buttons, text="套用備份", command=self._uwp_restore)
+        self.uwp_restore = styled_button(
+            buttons, text="預覽／選擇還原", command=self._uwp_restore)
         self.uwp_restore.pack(side="left", padx=8, pady=(27, 10))
-        self.uwp_status = tk.StringVar()
-        ui_label(frm, textvariable=self.uwp_status).pack(anchor="w", pady=12)
+        self.uwp_status = tk.StringVar(
+            value="只處理 UWP Loopback 已啟用的豁免，不備份一般防火牆規則。"
+        )
+        ui_label(frm, textvariable=self.uwp_status).pack(
+            anchor="w", pady=12, padx=8)
 
     def _uwp_backup(self):
-        path = filedialog.asksaveasfilename(parent=self, title="備份 UWP 防火牆規則",
-                                            initialfile="uwp-firewall-rules.json",
-                                            defaultextension=".json", filetypes=[("JSON", "*.json")])
+        path = filedialog.asksaveasfilename(
+            parent=self, title="備份 UWP Loopback 勾選項目",
+            initialfile="uwp-loopback-exemptions.json",
+            defaultextension=".json", filetypes=[("JSON", "*.json")])
         if path:
             self._start_uwp("backup", Path(path))
 
     def _uwp_restore(self):
-        path = filedialog.askopenfilename(parent=self, title="選擇 UWP 防火牆備份",
-                                          filetypes=[("JSON", "*.json")])
+        path = filedialog.askopenfilename(
+            parent=self, title="選擇 UWP Loopback 備份",
+            filetypes=[("JSON", "*.json")])
         if not path:
             return
         try:
-            count = uwp_firewall.inspect_backup(Path(path))
+            rows = uwp_loopback.restore_preview(Path(path))
+            selected = UwpLoopbackRestoreDialog(self, rows).show()
         except Exception as exc:
-            messagebox.showerror("備份無效", str(exc), parent=self)
+            messagebox.showerror("備份無效或查詢失敗", str(exc), parent=self)
             return
-        appiso = count.get("appiso", 0)
-        question = (f"備份包含 {count['total']} 條（允許 {count['allow']}／封鎖 {count['block']}）。"
-                    + (f"\n其中 AppIso 登錄規則 {appiso} 條僅供備份，"
-                       "不會直接寫回系統登錄機碼。" if appiso else "")
-                    + "\n其他規則僅新增缺少的項目；無法保留條件或未安裝套件時會略過。"
-                    + "\n需要管理員授權。確定套用？")
-        if messagebox.askyesno("確認套用 UWP 防火牆規則", question, parent=self):
-            self._start_uwp("restore", Path(path))
+        if selected is None:
+            return
+        if not selected:
+            self.uwp_status.set("未選取任何需要新增的 Loopback 豁免。")
+            return
+        if messagebox.askyesno(
+            "確認還原 UWP Loopback",
+            f"將為 {len(selected)} 個目前已安裝的 App 新增 Loopback 豁免。"
+            "\n已存在的項目不會重複新增，也不會清除其他 App 的設定。"
+            "\n需取得 Windows 管理員授權，確定繼續嗎？",
+            parent=self,
+        ):
+            self._start_uwp("restore", Path(path), selected)
 
-    def _start_uwp(self, mode, path):
+    def _start_uwp(self, mode, path, selected=None):
         if self.uwp_running:
             return
         self.uwp_running = True
         self.uwp_status.set("處理中…")
         self.uwp_backup.configure(state="disabled")
         self.uwp_restore.configure(state="disabled")
+
         def task():
             try:
-                handler = uwp_firewall.backup if mode == "backup" else uwp_firewall.restore
-                result = handler(path)
+                if mode == "backup":
+                    result = uwp_loopback.backup(path)
+                else:
+                    result = uwp_loopback.restore_selected(path, selected)
                 self.events.put(("uwp_finished", (mode, path, True, result)))
             except Exception as exc:
                 self.events.put(("uwp_finished", (mode, path, False, str(exc))))
-        threading.Thread(target=task, daemon=True, name="uwp-firewall").start()
+        threading.Thread(target=task, daemon=True,
+                         name="uwp-loopback").start()
 
     def _uwp_finished(self, mode, path, ok, result):
         self.uwp_running = False
@@ -1026,19 +1152,16 @@ class MainWindow(ctk.CTk):
         self.uwp_restore.configure(state="normal")
         if not ok:
             self.uwp_status.set("未完成")
-            messagebox.showerror("防火牆操作失敗", str(result), parent=self)
+            messagebox.showerror("UWP Loopback 操作失敗", str(result), parent=self)
         elif mode == "backup":
-            sources = result.get("Sources", {})
-            detail = (f"NetSecurity {sources.get('PersistentStore', 0) + sources.get('ConfigurableServiceStore', 0)}"
-                      f"／AppIso {sources.get('AppIsoRegistry', 0)}")
-            self.uwp_status.set(f"已備份 {result.get('Total', 0)} 條（{detail}）：{path}")
+            self.uwp_status.set(
+                f"已備份 {result['Total']} 個 Loopback 豁免"
+                f"（可辨識 {result['Recognized']}／未辨識 {result['Unresolved']}）：{path}")
         else:
             self.uwp_status.set(
-                f"新增 {result.get('Added', 0)}／已存在 {result.get('Existing', 0)}／"
-                f"未安裝 {result.get('MissingPackage', 0)}／略過 {result.get('Unsupported', 0)}")
-            notices = list(result.get("Warnings", [])) + list(result.get("Errors", []))
-            if notices:
-                messagebox.showwarning("部分規則未套用", "\n".join(notices[:8]), parent=self)
+                f"新增 {result['Added']}／已存在 {result['Existing']}／"
+                f"未安裝略過 {result['MissingPackage']}"
+            )
 
     def _pump(self):
         try:
@@ -1105,6 +1228,10 @@ def run_warp_cli(argv: list[str]) -> int:
 
 def main() -> int:
     if len(sys.argv) > 1:
+        if sys.argv[1] == "--uwp-loopback-apply":
+            if len(sys.argv) != 5 or sys.argv[3] != "--report":
+                return 2
+            return uwp_loopback.elevated_child(Path(sys.argv[2]), Path(sys.argv[4]))
         if sys.argv[1] == "--safe-paths-append":
             if len(sys.argv) != 3:
                 return 2

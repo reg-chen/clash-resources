@@ -185,6 +185,18 @@ class ScheduledWarpTests(unittest.TestCase):
                     self.assertEqual(gui.main(), 0)
         cli.assert_called_once_with(["--warp", "--out-dir", r"P:\Clash"])
 
+    def test_loopback_apply_cli_runs_without_gui(self):
+        with mock.patch.object(
+            gui.sys, "argv",
+            ["VPN-Mihomo-Generator.exe", "--uwp-loopback-apply",
+             "selected.json", "--report", "report.json"],
+        ):
+            with mock.patch.object(gui.uwp_loopback, "elevated_child", return_value=0) as child:
+                with mock.patch.object(gui, "MainWindow",
+                                       side_effect=AssertionError("GUI started")):
+                    self.assertEqual(gui.main(), 0)
+        child.assert_called_once_with(Path("selected.json"), Path("report.json"))
+
     def test_safe_paths_elevation_cli_remains(self):
         with mock.patch.object(gui.sys, "argv",
                                ["VPN-Mihomo-Generator.exe", "--safe-paths-append", r"P:\Clash\providers"]):
@@ -328,6 +340,32 @@ class WindowsGuiTests(unittest.TestCase):
         self.assertTrue(self.window.uwp_backup.winfo_exists())
         self.assertTrue(self.window.trust_button.winfo_exists())
         self.assertTrue(self.window.warp_button.winfo_exists())
+
+    def test_loopback_restore_preview_defaults_and_missing_app_skip(self):
+        self.window.deiconify()
+        self.window.update()
+        rows = [
+            {"SID": "S-1-15-2-1-2-3-4-5-6-7", "AppContainerName": "Example.A_abc",
+             "DisplayName": "Example A", "Status": "available"},
+            {"SID": "S-1-15-2-2-3-4-5-6-7-8", "AppContainerName": "Example.B_xyz",
+             "DisplayName": "Old App", "Status": "missing"},
+            {"SID": "S-1-15-2-3-4-5-6-7-8-9", "AppContainerName": "Example.C_z",
+             "DisplayName": "Already Applied", "Status": "existing"},
+        ]
+        dialog = gui.UwpLoopbackRestoreDialog(self.window, rows)
+        try:
+            self.assertTrue(dialog.variables[rows[0]["SID"]].get())
+            self.assertFalse(dialog.variables[rows[1]["SID"]].get())
+            self.assertFalse(dialog.variables[rows[2]["SID"]].get())
+            self.assertGreaterEqual(dialog.winfo_width(), 660)
+            dialog._select_all()
+            self.assertFalse(dialog.variables[rows[1]["SID"]].get())
+            dialog._accept()
+            self.assertEqual(dialog.selected, [rows[0]["SID"]])
+        finally:
+            if dialog.winfo_exists():
+                dialog.destroy()
+            self.window.withdraw()
 
     def test_provider_session_credentials_remain_separate(self):
         self.window.provider.set("pia")

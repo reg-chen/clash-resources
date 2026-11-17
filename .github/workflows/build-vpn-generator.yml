@@ -4,16 +4,17 @@ on:
   push:
     branches: [main]
     paths:
-      - "tools/uwp_firewall.py"
-      - "tools/uwp_firewall.ps1"
+      - "tools/uwp_loopback.py"
       - "tools/vpn-generator-gui.py"
-      - "tests/test_uwp_firewall.py"
+      - "tests/test_uwp_loopback.py"
       - "tests/test_vpn_gui.py"
       - ".github/workflows/build-vpn-generator.yml"
   pull_request:
     branches: [main]
     paths:
       - "tools/vpn-generator-gui.py"
+      - "tools/uwp_loopback.py"
+      - "tests/test_uwp_loopback.py"
       - "tests/test_vpn_gui.py"
       - ".github/workflows/build-vpn-generator.yml"
   workflow_dispatch:
@@ -69,7 +70,7 @@ jobs:
             tools/vpn_generator_core.py `
             tools/mihomo_doh.py `
             tools/safe_paths.py `
-            tools/uwp_firewall.py `
+            tools/uwp_loopback.py `
             tools/pia-openvpn-generator.py `
             tools/pia-wireguard-generator.py `
             tools/warp-wireguard-generator.py `
@@ -91,29 +92,13 @@ jobs:
           python -c "import importlib.util; p='tools/vpn-generator-gui.py'; s=importlib.util.spec_from_file_location('vpn_gui',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); w=m.MainWindow(); w.update(); w.destroy(); print('Tk smoke passed')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Smoke-test UWP firewall backup on Windows (read-only)
+      - name: Smoke-test checked UWP Loopback exemptions (read-only)
         shell: pwsh
         run: |
-          $script = (Resolve-Path "tools/uwp_firewall.ps1").Path
-          $parseErrors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            $script, [ref]$null, [ref]$parseErrors
-          ) | Out-Null
-          if ($parseErrors.Count -gt 0) {
-            throw "PowerShell syntax errors: $($parseErrors -join '; ')"
-          }
-          $backup = Join-Path $env:RUNNER_TEMP "uwp-firewall-smoke.json"
-          $report = Join-Path $env:RUNNER_TEMP "uwp-firewall-smoke-report.json"
-          # GitHub-hosted runners can legitimately have no installed AppX rules.
-          # The EXE itself never passes -AllowEmpty and rejects zero-rule backups.
-          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -Mode backup -Path $backup -Report $report -AllowEmpty
+          $out = Join-Path $env:RUNNER_TEMP "uwp-loopback-smoke.json"
+          python -c "import sys; from pathlib import Path; sys.path.insert(0,'tools'); import uwp_loopback as u; p=Path(sys.argv[1]); d=u.backup(p); assert len(u.read_backup(p))==d['Total']; print(d)" $out
           if ($LASTEXITCODE -ne 0) {
-            throw "UWP firewall read-only backup failed: exit $LASTEXITCODE"
-          }
-          Get-Content -LiteralPath $report -Raw | Write-Host
-          python -c "import sys; from pathlib import Path; sys.path.insert(0, 'tools'); import uwp_firewall; print(uwp_firewall.inspect_backup(Path(sys.argv[1])))" $backup
-          if ($LASTEXITCODE -ne 0) {
-            throw "UWP firewall backup JSON validation failed"
+            throw "UWP Loopback Win32 API backup failed"
           }
 
       - name: Validate runtime syntax and topology
@@ -139,7 +124,6 @@ jobs:
             --add-data "tools/pia-wireguard-generator.py;." `
             --add-data "tools/warp-wireguard-generator.py;." `
             --add-data "tools/surfshark-openvpn-generator.py;." `
-            --add-data "tools/uwp_firewall.ps1;." `
             tools/vpn-generator-gui.py
 
       - name: Smoke-test frozen headless WARP entry point
@@ -149,6 +133,28 @@ jobs:
           # --help never opens a GUI or touches live WARP credentials/API.
           $process = Start-Process -FilePath $exe -ArgumentList @("--warp", "--help") -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Frozen WARP CLI failed: $($process.ExitCode)" }
+
+      - name: Smoke-test frozen headless Loopback restore entry point
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/VPN-Mihomo-Generator.exe").Path
+          $selection = Join-Path $env:RUNNER_TEMP "loopback-invalid-selection.json"
+          $report = Join-Path $env:RUNNER_TEMP "loopback-cli-report.json"
+          Set-Content -LiteralPath $selection -Value '{}' -Encoding utf8
+          $process = Start-Process -FilePath $exe -ArgumentList @(
+            "--uwp-loopback-apply", $selection, "--report", $report
+          ) -PassThru -Wait
+          if ($process.ExitCode -ne 4) {
+            throw "Expected safe rejection of invalid Loopback selection; exit $($process.ExitCode)"
+          }
+          if (-not (Test-Path -LiteralPath $report)) {
+            throw "Frozen Loopback CLI did not write the validation report"
+          }
+          $json = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if (@($json.Errors).Count -eq 0) {
+            throw "Invalid Loopback selection was not rejected"
+          }
+          Write-Host "Frozen Loopback CLI rejected invalid selection without GUI or firewall changes."
 
       - name: Smoke-test frozen CustomTkinter GUI window
         shell: pwsh
