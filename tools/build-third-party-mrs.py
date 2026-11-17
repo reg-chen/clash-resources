@@ -10,12 +10,18 @@ import urllib.request
 
 from mrs_overlap import parse_domain_keys, write_report
 from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, build_merged_mrs
+from mrs_provenance import pin_source_url
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
 STATE = ROOT / "tools/third-party-mrs-sha256.json"
 old = json.loads(STATE.read_text()) if STATE.exists() else {}
 new = dict(old)
+PROVENANCE = ROOT / "tools/third-party-mrs-provenance.json"
+previous = json.loads(PROVENANCE.read_text()) if PROVENANCE.exists() else {}
+previous_inputs = {v["name"]: v for v in previous.get("inputs", []) if isinstance(v, dict) and "name" in v}
+provenance_inputs = []
+revision_cache = {}
 changed = []
 overlap_sets = {}
 overlap_notes = []
@@ -24,7 +30,8 @@ skipped_details = []
 
 for item in SOURCES:
     url = item["source"]
-    req = urllib.request.Request(url, headers={"User-Agent": "clash-resources-mrs-builder/1.0", "Cache-Control": "no-cache"})
+    pinned_url, commit_sha = pin_source_url(url, revision_cache)
+    req = urllib.request.Request(pinned_url, headers={"User-Agent": "clash-resources-mrs-builder/1.0", "Cache-Control": "no-cache"})
     try:
         with urllib.request.urlopen(req, timeout=90) as res:
             raw = res.read()
@@ -33,6 +40,20 @@ for item in SOURCES:
     if not raw or len(raw) < 10:
         raise RuntimeError(f"Empty or suspicious source: {item['name']}")
     digest = hashlib.sha256(raw).hexdigest()
+    record = {
+        "name": item["name"], "target": item["target"], "format": item["format"],
+        "source_url": url, "source_commit_sha": commit_sha,
+        "pinned_source_url": pinned_url,
+        "source_sha256": digest, "source_size_bytes": len(raw),
+    }
+    old_record = previous_inputs.get(item["name"], {})
+    # Avoid a new provenance commit when a branch advances but its file bytes
+    # have not changed. The older immutable URL still points at those bytes.
+    if (all(old_record.get(k) == record[k] for k in
+            ("name", "target", "format", "source_url", "source_sha256", "source_size_bytes"))
+            and old_record.get("pinned_source_url") and old_record.get("source_commit_sha")):
+        record = old_record
+    provenance_inputs.append(record)
     # Stats come from the same downloaded source bytes used for this MRS build.
     # Already-compiled MRS has no text representation; a separately fetched
     # canonical plain-domain list is explicitly identified as approximate.
@@ -143,4 +164,16 @@ except Exception as exc:
     print(f"WARNING: overlap report failed: {exc}", file=sys.stderr)
 
 STATE.write_text(json.dumps(new, indent=2, sort_keys=True) + "\n")
+# Commit this manifest atomically with compiled MRS, not in a follow-up commit.
+paths = sorted({*(s["target"] for s in SOURCES),
+                *(str(output.relative_to(ROOT)) for output in outputs)})
+provenance_outputs = [
+    {"path": path, "sha256": hashlib.sha256((ROOT / path).read_bytes()).hexdigest(),
+     "size_bytes": (ROOT / path).stat().st_size}
+    for path in paths
+]
+PROVENANCE.write_text(json.dumps({
+    "schema": 1, "inputs": sorted(provenance_inputs, key=lambda v: v["name"]),
+    "outputs": provenance_outputs,
+}, indent=2, sort_keys=True) + "\n")
 print(f"Updated {len(changed)} providers")

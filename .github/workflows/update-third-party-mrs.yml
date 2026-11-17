@@ -6,6 +6,8 @@ on:
       - '.github/workflows/update-third-party-mrs.yml'
       - 'tools/third-party-mrs-sources.json'
       - 'tools/build-third-party-mrs.py'
+      - 'tools/mrs_provenance.py'
+      - 'tests/test_mrs_provenance.py'
       - 'tools/mrs_overlap.py'
       - 'tools/mrs_merge.py'
       - 'tools/activate-merged-mrs.py'
@@ -30,6 +32,8 @@ jobs:
     # Manual workflow_dispatch is reserved for the repository Owner.
     if: ${{ github.event_name != 'workflow_dispatch' || github.actor == github.repository_owner }}
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -82,7 +86,7 @@ jobs:
               python3 tools/activate-merged-mrs.py
             fi
 
-            git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml
+            git add rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json tools/third-party-mrs-provenance.json configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml
             if git diff --cached --quiet; then
               echo 'No new MRS changes to push.'
               echo 'changed=false' >> "$GITHUB_OUTPUT"

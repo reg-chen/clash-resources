@@ -38,7 +38,9 @@
 
 **修改聲明：** 本專案使用腳本自動下載、擷取網域、過濾不能轉換的格式、分類／去重／合併並以 Mihomo 編譯為 `.mrs`，屬於對原始規則的格式轉換及編輯（2026 年起持續更新）。原始來源清單見 [third-party-mrs-sources.json](../tools/third-party-mrs-sources.json)，建置程序見 [MRS workflow](../.github/workflows/update-third-party-mrs.yml)、[build script](../tools/build-third-party-mrs.py)、[merge script](../tools/mrs_merge.py)。
 
-**待釐清的散布義務：** 目前提供上游 URL、腳本與 GPL 授權全文，但不保證每份已發布 MRS 均可由上述動態 URL 還原到當時完全相同的來源版本。若要確保符合 GPL-3.0 對對應來源及修改內容的要求，仍應評估為發行版本保留可重建的原始輸入快照或等效來源交付方式；這不能單靠 README 聲明取代。
+**來源追溯機制：** MRS 建置先解析各上游 GitHub commit，再下載該 commit 對應的固定 Raw URL。每次更新時，Action 將 [來源追溯清單](../tools/third-party-mrs-provenance.json) **與 MRS 產物放進同一個 commit**；清單包含原始 URL、固定版本 URL、上游 commit SHA、原始檔 SHA-256／位元組數與產物 SHA-256。未變更的來源會保留原本驗證過的固定版本，避免每小時無謂提交。
+
+**GPL 對應來源的剩餘風險：** 固定 URL 和 SHA-256 能追溯版本，卻不能保證第三方 GitHub 儲存庫永久可取用。若適用 GPL-3.0 的「對應來源」交付義務，**僅有雜湊及連結未必充分**；仍應評估保存原始輸入快照或其他可持續提供相同來源的方式。
 
 ## Tools, build dependencies and downloaded inputs
 
