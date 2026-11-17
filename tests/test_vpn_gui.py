@@ -67,7 +67,7 @@ class ButtonContrastTests(unittest.TestCase):
                 self.assertEqual(image.getpixel((56, 20))[3], 255)
                 self.assertNotEqual(image.getpixel((56, 8)), image.getpixel((56, 32)))
                 # Antialiased edge: intermediate alpha values prove supersampling.
-                alphas = image.getchannel("A").getdata()
+                alphas = image.getchannel("A").tobytes()
                 self.assertTrue(any(0 < alpha < 255 for alpha in alphas))
 
     def test_surface_geometry_validation(self):
