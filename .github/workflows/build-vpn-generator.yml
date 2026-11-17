@@ -104,7 +104,10 @@ jobs:
           }
           $backup = Join-Path $env:RUNNER_TEMP "uwp-firewall-smoke.json"
           $report = Join-Path $env:RUNNER_TEMP "uwp-firewall-smoke-report.json"
-          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -Mode backup -Path $backup -Report $report
+          # GitHub-hosted runners can legitimately have no installed AppX rules.
+          # The EXE itself never passes -AllowEmpty and rejects zero-rule backups.
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -Mode backup -Path $backup -Report $report -AllowEmpty
+          Get-Content -LiteralPath $report -Raw | Write-Host
           if ($LASTEXITCODE -ne 0) {
             throw "UWP firewall read-only backup failed: exit $LASTEXITCODE"
           }
