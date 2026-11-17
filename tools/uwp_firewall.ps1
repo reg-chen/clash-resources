@@ -5,7 +5,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Path,
     [Parameter(Mandatory = $true)]
-    [string]$Report
+    [string]$Report,
+    # CI-only: a clean GitHub runner may genuinely have no UWP isolation rules.
+    [switch]$AllowEmpty
 )
 $ErrorActionPreference = "Stop"
 Import-Module NetSecurity -ErrorAction Stop
@@ -59,8 +61,9 @@ function String-Value($value) {
 
 function Rule-Records($familyMap) {
     $output = @()
-    $filters = @(Get-NetFirewallApplicationFilter -PolicyStore PersistentStore -All -ErrorAction Stop)
-    foreach ($app in $filters) {
+    foreach ($store in @("PersistentStore", "ConfigurableServiceStore")) {
+        $filters = @(Get-NetFirewallApplicationFilter -PolicyStore $store -All -ErrorAction Stop)
+        foreach ($app in $filters) {
         $sid = [string]$app.Package
         if ($sid -notmatch '^S-1-15-2-(?:[0-9]+-)*[0-9]+$') { continue }
         $rule = $app | Get-NetFirewallRule -ErrorAction Stop
@@ -74,6 +77,8 @@ function Rule-Records($familyMap) {
         $family = if ($familyMap.ContainsKey($sid)) { [string]$familyMap[$sid] } else { "" }
         $output += [pscustomobject]@{
             Name = [string]$rule.Name
+            PolicyStore = $store
+            Owner = [string]$rule.Owner
             DisplayName = [string]$rule.DisplayName
             Description = [string]$rule.Description
             Enabled = [string]$rule.Enabled
@@ -100,8 +105,41 @@ function Rule-Records($familyMap) {
             RemoteMachine = String-Value $security.RemoteMachine
             OverrideBlockRules = [string]$security.OverrideBlockRules
         }
+        }
     }
     return $output
+}
+
+# Modern Windows AppContainer network-isolation rules are not returned by
+# Get-NetFirewallRule. They live in this registry key; read verbatim for a
+# lossless backup rather than trying to reconstruct their undocumented fields.
+$AppIsoKey = "SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\RestrictedServices\AppIso\FirewallRules"
+function AppIso-Records {
+    $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey($AppIsoKey, $false)
+    if ($null -eq $key) {
+        if ($AllowEmpty) { return @() }
+        throw "找不到或無法讀取 UWP AppIso 防火牆登錄機碼：HKLM:\$AppIsoKey。備份未完成。"
+    }
+    $records = [System.Collections.Generic.List[object]]::new()
+    try {
+        foreach ($name in $key.GetValueNames()) {
+            $kind = $key.GetValueKind($name)
+            if ($kind -ne [Microsoft.Win32.RegistryValueKind]::String) {
+                throw "AppIso 防火牆包含不支援的登錄類型：$name ($kind)。備份未完成，以免遺漏規則。"
+            }
+            $raw = [string]$key.GetValue(
+                $name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames
+            )
+            $records.Add([pscustomobject]@{
+                Name = [string]$name
+                Kind = "String"
+                Data = $raw
+            })
+        }
+    } finally {
+        $key.Close()
+    }
+    return $records.ToArray()
 }
 
 $identityFields = @(
@@ -128,24 +166,51 @@ function NonDefault($value) {
 }
 
 $families = Installed-Packages
-$reportData = @{ Total = 0; Added = 0; Existing = 0; MissingPackage = 0; Unsupported = 0; Errors = @() }
+$reportData = @{ Total = 0; Added = 0; Existing = 0; MissingPackage = 0; Unsupported = 0; Errors = @(); Warnings = @(); Sources = @{} }
 
 if ($Mode -eq "backup") {
     $rules = @(Rule-Records $families)
+    $appIsoRules = @(AppIso-Records)
+    $reportData.Sources = @{
+        PersistentStore = @($rules | Where-Object { $_.PolicyStore -eq "PersistentStore" }).Count
+        ConfigurableServiceStore = @($rules | Where-Object { $_.PolicyStore -eq "ConfigurableServiceStore" }).Count
+        AppIsoRegistry = $appIsoRules.Count
+    }
+    $reportData.Total = $rules.Count + $appIsoRules.Count
+    if ($reportData.Total -eq 0 -and -not $AllowEmpty) {
+        $reportData.Errors += "查詢結果為 0 條；已檢查 PersistentStore、ConfigurableServiceStore 與 AppIso 登錄規則。未產生空白備份，請確認防火牆服務／讀取權限。"
+        $reportData | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $Report -Encoding UTF8
+        exit 3
+    }
     $snapshot = [pscustomobject]@{
-        Schema = 1
+        Schema = 2
         ExportedAt = (Get-Date).ToUniversalTime().ToString("o")
-        Type = "PersistentStore-UWP-PackageRules"
+        Type = "UWP-PackageFirewallRules"
+        ComputerName = $env:COMPUTERNAME
         Rules = $rules
+        AppIsoRules = $appIsoRules
     }
     $temporary = "$Path.partial"
     $snapshot | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temporary -Encoding UTF8
     Move-Item -LiteralPath $temporary -Destination $Path -Force
-    $reportData.Total = $rules.Count
 } else {
     $snapshot = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
-    if ($snapshot.Schema -ne 1 -or $snapshot.Type -ne "PersistentStore-UWP-PackageRules") {
+    $legacy = ($snapshot.Schema -eq 1 -and $snapshot.Type -eq "PersistentStore-UWP-PackageRules")
+    $current = ($snapshot.Schema -eq 2 -and $snapshot.Type -eq "UWP-PackageFirewallRules")
+    if (-not ($legacy -or $current)) {
         throw "Unsupported UWP firewall backup format."
+    }
+    # Registry AppIso rules are preserved byte-for-byte in the backup, but are
+    # deliberately NOT written directly to HKLM during restore: Windows owns
+    # these network-isolation values, and arbitrary registry writes bypass the
+    # NetSecurity APIs. Report these explicitly rather than claiming success.
+    if ($current) {
+        $appIsoCount = @($snapshot.AppIsoRules).Count
+        $reportData.Total += $appIsoCount
+        $reportData.Unsupported += $appIsoCount
+        if ($appIsoCount -gt 0) {
+            $reportData.Warnings += "AppIso 登錄規則 $appIsoCount 條已保存在 JSON，但尚不支援安全自動還原；沒有修改登錄機碼。"
+        }
     }
     $existing = @{}
     foreach ($rule in @(Rule-Records $families)) { $existing[(Identity $rule)] = $true }
@@ -179,7 +244,12 @@ if ($Mode -eq "backup") {
             continue
         }
         # Never broaden a rule that uses conditions not restored below.
-        if ((NonDefault $record.Authentication) -or
+        # ConfigurableServiceStore AppContainer isolation rules can have
+        # extra Windows-owned semantics; do not reinterpret them as manually
+        # created PersistentStore rules.
+        if ([string]$record.PolicyStore -notin @("", "PersistentStore") -or
+            (NonDefault $record.Owner) -or
+            (NonDefault $record.Authentication) -or
             (NonDefault $record.Encryption) -or
             (NonDefault $record.LocalUser) -or
             (NonDefault $record.RemoteUser) -or
