@@ -361,6 +361,20 @@ class WindowsGuiTests(unittest.TestCase):
                                    return_value=True):
                 self.assertTrue(self.window._uwp_require_own_admin())
 
+    def test_loopback_backup_requires_elevated_process(self):
+        with mock.patch.object(gui.uwp_loopback, "current_user_context",
+                               return_value=("S-1-5-21-1-2-3-1001", True)):
+            with mock.patch.object(gui.uwp_loopback, "current_process_matches_login_shell",
+                                   return_value=True):
+                with mock.patch.object(gui.uwp_loopback, "current_process_is_elevated",
+                                       return_value=False):
+                    with mock.patch.object(gui.filedialog, "asksaveasfilename") as save:
+                        with mock.patch.object(gui.messagebox, "showwarning") as warning:
+                            self.window._uwp_backup()
+                            save.assert_not_called()
+                            warning.assert_called_once()
+        self.assertIn("提升權限", self.window.uwp_status.get())
+
     def test_loopback_alternate_admin_runas_is_blocked(self):
         with mock.patch.object(gui.uwp_loopback, "current_user_context",
                                return_value=("S-1-5-21-1-2-3-500", True)):
