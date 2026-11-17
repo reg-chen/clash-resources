@@ -130,11 +130,11 @@ def enabled_sids() -> set[str]:
             kernel.HeapFree(heap, 0, ctypes.cast(entries, ctypes.c_void_p))
 
 
-def _installed_package_ids() -> tuple[set[str], set[str]]:
-    """Query actually installed AppX packages, not merely created containers.
+def _installed_package_ids() -> tuple[dict[str, str], set[str]]:
+    """Map full package versions to stable Package Family Names (PFN).
 
-    Stale AppContainer profiles can persist after an app is uninstalled.
-    Requiring a matching Get-AppxPackage record prevents restoring to ghosts.
+    Full names include version and architecture; PFNs do not. Never derive a
+    package family from a machine/user SID or by splitting package names.
     """
     require_windows()
     elevated = bool(ctypes.windll.shell32.IsUserAnAdmin())
@@ -160,22 +160,22 @@ def _installed_package_ids() -> tuple[set[str], set[str]]:
         payload = [payload]
     if not isinstance(payload, list):
         raise RuntimeError("Windows 的 AppX 套件清單格式異常。")
-    fullnames: set[str] = set()
+    full_to_family: dict[str, str] = {}
     families: set[str] = set()
     for item in payload:
         if not isinstance(item, dict):
             continue
         full = item.get("PackageFullName")
         family = item.get("PackageFamilyName")
-        if isinstance(full, str) and full:
-            fullnames.add(full.casefold())
         if isinstance(family, str) and family:
             families.add(family.casefold())
-    return fullnames, families
+            if isinstance(full, str) and full:
+                full_to_family[full.casefold()] = family
+    return full_to_family, families
 
 
 def installed_containers() -> dict[str, dict[str, str]]:
-    """Verify both native AppContainer presence and an installed AppX package."""
+    """Resolve actual local SIDs with stable monikers and installed PFNs."""
     firewall, advapi, kernel = _winapi()
     installed_full, installed_family = _installed_package_ids()
     count = wintypes.DWORD()
@@ -193,23 +193,58 @@ def installed_containers() -> dict[str, dict[str, str]]:
             entry = entries[i]
             if not entry.sid:
                 continue
-            package_full_name = entry.package_full_name or ""
-            container_name = entry.name or ""
-            if (package_full_name.casefold() not in installed_full
-                    and container_name.casefold() not in installed_family):
-                # A registered container is not proof that the app still exists.
+            full = entry.package_full_name or ""
+            moniker = entry.name or ""
+            family = installed_full.get(full.casefold(), "")
+            if not family and moniker.casefold() in installed_family:
+                family = moniker
+            if not family:
+                # A stale AppContainer is not evidence that the App is installed.
                 continue
             sid = _sid_string(entry.sid, advapi, kernel)
             result[sid] = {
                 "SID": sid,
-                "AppContainerName": container_name,
+                "PackageFamilyName": family,
+                "AppContainerName": moniker,
                 "DisplayName": entry.display_name or "",
-                "PackageFullName": package_full_name,
+                "PackageFullName": full,
             }
     finally:
         if entries:
             firewall.NetworkIsolationFreeAppContainers(entries)
     return result
+
+
+def identity_key(record: dict) -> str:
+    """Stable across reinstalls. Source SID is intentionally never a key."""
+    moniker = record.get("AppContainerName", "")
+    if not isinstance(moniker, str) or not moniker.strip():
+        # Cannot safely identify an unlabelled legacy or orphaned container.
+        # Make it unselectable; never silently fall back to SourceSID.
+        return ""
+    return moniker.casefold()
+
+
+def _local_match(original: dict, installed: dict[str, dict]) -> dict | None:
+    """Resolve the current machine's SID, checking PFN when available.
+
+    Reject ambiguous and mismatched identities rather than applying a rule to
+    the wrong app. Legacy v1 has only AppContainerName; it must match exactly.
+    """
+    key = identity_key(original)
+    if not key:
+        return None
+    expected_family = original.get("PackageFamilyName", "").casefold()
+    matches = []
+    for item in installed.values():
+        if identity_key(item) != key:
+            continue
+        if expected_family and item.get("PackageFamilyName", "").casefold() != expected_family:
+            continue
+        matches.append(item)
+    if len(matches) != 1:
+        return None
+    return matches[0]
 
 
 def read_backup(path: Path) -> list[dict[str, str]]:
