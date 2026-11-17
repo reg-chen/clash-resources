@@ -1,11 +1,11 @@
 # Fluent Emoji Flat — upstream and license
 
-The SVG assets under \`icons/fluent-emoji-flat/\` originate from
+The SVG assets under `icons/fluent-emoji-flat/` originate from
 [Microsoft Fluent UI Emoji](https://github.com/microsoft/fluentui-emoji),
 made available as the [Fluent Emoji Flat Iconify collection](https://icon-sets.iconify.design/fluent-emoji-flat/).
 
 Copyright (c) Microsoft Corporation. License: MIT.
-This collection is synchronized monthly via \`tools/sync-fluent-emoji-flat.mjs\`.
+This collection is synchronized monthly via `tools/sync-fluent-emoji-flat.mjs`.
 Root-level brand SVGs and PNG images are manually maintained and are not
 managed by this workflow.
 
