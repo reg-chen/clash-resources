@@ -44,7 +44,13 @@ function canonicalSVG(svg) {
   if (!viewBox) throw new Error("SVG has no viewBox");
   // Existing icons use the same path data, but often insert formatting
   // whitespace between XML tags. Never rewrite for whitespace alone.
-  return viewBox[1] + "|" + match[2].trim().replace(/>\s+</g, "><");
+  const normalizedBody = match[2].trim()
+    .replace(/>\s+</g, "><")
+    // Iconify now emits lowercase hex colors while the existing files
+    // use uppercase. XML path coordinates/commands remain case-sensitive.
+    .replace(/\b(fill|stroke|stop-color|flood-color|color)="(#[0-9a-fA-F]{3,8})"/g,
+      (_, property, color) => property + '="' + color.toLowerCase() + '"');
+  return viewBox[1] + "|" + normalizedBody;
 }
 
 const updates = [];
