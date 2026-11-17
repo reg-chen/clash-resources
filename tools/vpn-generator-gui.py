@@ -268,61 +268,144 @@ class DarkScrolledText(ttk.Frame):
         return self.text.see(*args)
 
 
-# Deliberately quieter than darkly's bright green success controls.
-# White-on-blue stays above WCAG AA contrast even in the hover state.
+# Calm, high-contrast dark controls. Each tone stays readable in every state.
 BUTTON_PALETTE = {
-    "primary": ("#355D86", "#426F9B", "#284562"),
-    "secondary": ("#424C5D", "#535D70", "#303A47"),
-    "danger": ("#754653", "#864A57", "#59333F"),
+    "primary": ("#355D86", "#426B94", "#294866"),
+    "secondary": ("#303D4F", "#3E4D61", "#263241"),
+    "danger": ("#68434E", "#78515C", "#523640"),
 }
 BUTTON_FOREGROUND = "#F8FAFC"
 BUTTON_STYLES = {name: f"Reg{name.title()}.TButton" for name in BUTTON_PALETTE}
+BUTTON_BORDERS = {
+    "primary": "#6583A1",
+    "secondary": "#5F6F84",
+    "danger": "#9C6C79",
+}
 
 
-def configure_rounded_buttons(style) -> None:
-    """Rounded ttk buttons using ttkbootstrap 2.x cached images and layouts."""
-    from ttkbootstrap import Assets, El, image_element, layout, state_map
+def render_button_surface(
+    fill: str, outline: str, *,
+    size: tuple[int, int] = (112, 44),
+    radius: int = 17,
+    pressed: bool = False,
+):
+    """High-resolution, antialiased button with a hairline and soft depth.
 
-    assets = Assets(style)
+    Render at 4x then downsample, rather than stretching a low-resolution
+    rectangular bitmap. The returned RGBA image is transparent at the corners.
+    ttk's nine-slice renderer later extends only its straight center sections.
+    """
+    from PIL import Image, ImageDraw, ImageFilter
+
+    width, height = size
+    if width < 2 * radius + 6 or height < 2 * radius + 4:
+        raise ValueError("Button surface is too small for the corner radius")
+    supersample = 4
+    w, h = width * supersample, height * supersample
+    r = radius * supersample
+    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+
+    shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    offset = 1 if pressed else 3
+    shadow_draw.rounded_rectangle(
+        (3 * supersample, offset * supersample,
+         w - 3 * supersample, h - supersample),
+        radius=r, fill=(0, 0, 0, 32 if pressed else 65),
+    )
+    shadow = shadow.filter(ImageFilter.GaussianBlur(1.5 * supersample))
+    canvas.alpha_composite(shadow)
+
+    left, top = 2 * supersample, (2 if pressed else 1) * supersample
+    right, bottom = w - 3 * supersample, h - 4 * supersample
+    body_mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(body_mask).rounded_rectangle(
+        (left, top, right, bottom), radius=r, fill=255,
+    )
+
+    # Extremely subtle vertical light variation, not a glossy plastic gradient.
+    rgb = tuple(int(fill[i:i + 2], 16) for i in (1, 3, 5))
+    gradient = Image.new("RGBA", (w, h))
+    painter = ImageDraw.Draw(gradient)
+    for y in range(h):
+        mix = (y / max(1, h - 1))
+        delta = 7 * (1 - mix) - 5 * mix
+        tone = tuple(max(0, min(255, int(channel + delta))) for channel in rgb)
+        painter.line((0, y, w, y), fill=(*tone, 255))
+    gradient.putalpha(body_mask)
+    canvas.alpha_composite(gradient)
+
+    border_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(border_layer).rounded_rectangle(
+        (left, top, right, bottom), radius=r,
+        outline=outline, width=supersample,
+    )
+    canvas.alpha_composite(border_layer)
+    return canvas.resize((width, height), Image.Resampling.LANCZOS)
+
+
+def configure_rounded_buttons(style, root=None) -> None:
+    """Build DPI-aware capsule buttons while keeping native ttk.Button behavior."""
+    from PIL import ImageTk
+    from ttkbootstrap import El, image_element, layout, state_map
+
+    def scaled(value):
+        if root is None:
+            return value
+        return ttk.scale_size(root, value)
+
+    size = tuple(scaled(value) for value in (112, 44))
+    radius = scaled(17)
+    edge = scaled(20)
+    retained = {}
     for variant, (base, hover, pressed) in BUTTON_PALETTE.items():
-        name = BUTTON_STYLES[variant]
-        background_element = f"{name}.background"
-        # Nine-slice scaling preserves the 10px corner radius at any width.
+        style_name = BUTTON_STYLES[variant]
+        background_name = f"{style_name}.background"
+        border = BUTTON_BORDERS[variant]
+        images = {
+            "normal": render_button_surface(base, border, size=size, radius=radius),
+            "hover": render_button_surface(hover, border, size=size, radius=radius),
+            "pressed": render_button_surface(pressed, border, size=size,
+                                             radius=radius, pressed=True),
+            "focus": render_button_surface(base, "#98B9DC", size=size, radius=radius),
+            "disabled": render_button_surface("#353C48", "#454D59",
+                                               size=size, radius=radius),
+        }
+        photos = {key: ImageTk.PhotoImage(image, master=root) for key, image in images.items()}
+        retained[variant] = {"photos": photos, "images": images}
         image_element(
-            style,
-            background_element,
-            default=assets.rounded_rect(base, size=(88, 34), radius=10),
+            style, background_name,
+            default=str(photos["normal"]),
             states={
-                "pressed": assets.rounded_rect(pressed, size=(88, 34), radius=10),
-                "hover": assets.rounded_rect(hover, size=(88, 34), radius=10),
-                "disabled": assets.rounded_rect("#353B45", size=(88, 34), radius=10),
+                "disabled": str(photos["disabled"]),
+                "pressed": str(photos["pressed"]),
+                "hover": str(photos["hover"]),
+                "focus": str(photos["focus"]),
             },
-            border=10,
-            sticky="nsew",
+            border=edge, sticky="nsew",
         )
-        layout(
-            style,
-            name,
-            El(background_element, sticky="nsew", children=[
-                El("Button.label", side="left", expand=True),
-            ]),
-        )
+        layout(style, style_name, El(background_name, sticky="nsew", children=[
+            El("Button.label", side="left", expand=True),
+        ]))
         style.configure(
-            name, foreground=BUTTON_FOREGROUND,
-            anchor="center", padding=(14, 8),
+            style_name,
+            foreground=BUTTON_FOREGROUND,
+            anchor="center",
+            font=("Segoe UI", 10),
+            padding=(15, 8),
         )
-        state_map(
-            style, name,
-            foreground={
-                "disabled": "#A1A9B5",
-                "pressed": BUTTON_FOREGROUND,
-                "hover": BUTTON_FOREGROUND,
-            },
-        )
+        state_map(style, style_name, foreground={
+            "disabled": "#A5AEBB",
+            "pressed": BUTTON_FOREGROUND,
+            "hover": BUTTON_FOREGROUND,
+            "focus": BUTTON_FOREGROUND,
+        })
+    # ImageTk images must be strongly referenced for the life of the style.
+    style._reg_button_assets = retained
 
 
 def styled_button(parent, *, variant: str = "secondary", **kwargs):
-    """Use a shared accessible rounded style for every action button."""
+    """Shared ttk Button API: keyboard, accessibility, commands and state intact."""
     return ttk.Button(parent, style=BUTTON_STYLES[variant], **kwargs)
 
 
@@ -541,7 +624,7 @@ class WarpScheduleDialog(tk.Toplevel):
 class MainWindow(ttk.Window):
     def __init__(self):
         super().__init__(themename="darkly")
-        configure_rounded_buttons(self.style)
+        configure_rounded_buttons(self.style, self)
         self.title("VPN / Mihomo Generator")
         self.configure(background=self.style.colors.bg)
         self.after(100, lambda: show_with_dark_titlebar(self, self.style.colors))
