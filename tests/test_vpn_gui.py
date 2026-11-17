@@ -90,6 +90,11 @@ class ConfigAndValidationTests(unittest.TestCase):
                 self.assertEqual(gui.load_settings(), data)
                 self.assertEqual(json.loads(old_path.read_text(encoding="utf-8")), data)
 
+    def test_dwm_color_does_not_force_window_remapping(self):
+        import inspect
+        self.assertNotIn("window.withdraw()", inspect.getsource(gui.show_with_dark_titlebar))
+        self.assertNotIn("SetWindowPos", inspect.getsource(gui.set_dark_titlebar))
+
     def test_no_qsettings_migration(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "new.json"
@@ -454,6 +459,38 @@ class WindowsGuiTests(unittest.TestCase):
         self.assertTrue(self.window.wireguard.get())
         self.assertEqual(str(self.window.ov_check.cget("state")), "disabled")
 
+    def test_doh_safe_paths_is_opt_in_and_targets_certs(self):
+        self.assertFalse(self.window.doh_safe_paths.get())
+        self.window.doh_safe_paths.set(True)
+        self.window.cert_dir.set(r"P:\Clash")
+        files = SimpleNamespace(
+            renewed=True, server_certificate=Path("certs/server.crt"),
+            server_private_key=Path("certs/server.key"))
+        with mock.patch.object(gui.mihomo_doh, "generate_certificates", return_value=files):
+            with mock.patch.object(self.window, "_save"):
+                with mock.patch.object(gui.safe_paths, "ensure_machine_safe_path",
+                                       return_value=True) as append:
+                    self.window._generate_certs()
+        append.assert_called_once_with(r"P:\Clash\certs")
+        self.assertFalse(self.window.doh_safe_paths.get())
+        self.assertIn("SAFE_PATHS 已加入", self.window.doh_status.get())
+
+    def test_doh_safe_paths_failure_preserves_generated_certs(self):
+        self.window.doh_safe_paths.set(True)
+        self.window.cert_dir.set(r"P:\Clash")
+        files = SimpleNamespace(
+            renewed=False, server_certificate=Path("certs/server.crt"),
+            server_private_key=Path("certs/server.key"))
+        with mock.patch.object(gui.mihomo_doh, "generate_certificates", return_value=files):
+            with mock.patch.object(self.window, "_save"):
+                with mock.patch.object(gui.safe_paths, "ensure_machine_safe_path",
+                                       side_effect=PermissionError("拒絕存取")):
+                    with mock.patch.object(gui.messagebox, "showwarning") as warn:
+                        self.window._generate_certs()
+        warn.assert_called_once()
+        self.assertIs(self.window.cert_files, files)
+        self.assertIn("SAFE_PATHS 未更新", self.window.doh_status.get())
+
     def test_doh_panel_is_provider_independent(self):
         self.window.provider.set("surfshark")
         self.assertTrue(self.window.doh_endpoint.get())
@@ -526,6 +563,29 @@ class WindowsGuiTests(unittest.TestCase):
                 )
             except OSError as exc:
                 print(f"WINDOW_TITLEBAR_CAPTURE unavailable: {exc}", flush=True)
+        finally:
+            self.window.withdraw()
+
+    def test_schedule_and_alert_dialogs_are_centered(self):
+        self.window.deiconify()
+        self.window.update()
+        try:
+            for make in (
+                lambda: gui.WarpScheduleDialog(self.window, r"P:\Clash", {}),
+                lambda: gui.DarkAlertDialog(
+                    self.window, title="測試", message="置中測試"),
+            ):
+                dialog = make()
+                try:
+                    dialog.update()
+                    px = self.window.winfo_rootx() + self.window.winfo_width() / 2
+                    py = self.window.winfo_rooty() + self.window.winfo_height() / 2
+                    dx = dialog.winfo_rootx() + dialog.winfo_width() / 2
+                    dy = dialog.winfo_rooty() + dialog.winfo_height() / 2
+                    self.assertLessEqual(abs(px - dx), 32)
+                    self.assertLessEqual(abs(py - dy), 32)
+                finally:
+                    dialog.destroy()
         finally:
             self.window.withdraw()
 

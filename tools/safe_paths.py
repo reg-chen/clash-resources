@@ -26,6 +26,19 @@ def provider_directory(output_directory: str | Path) -> str:
     return ntpath.normpath(str(folder / "providers"))
 
 
+def certificate_directory(output_directory: str | Path) -> str:
+    """Return only the certs subdirectory for the DoH server key and cert."""
+    text = str(output_directory).strip()
+    if not text:
+        raise ValueError("缺少憑證輸出目錄。")
+    if sys.platform != "win32":
+        return ntpath.normpath(ntpath.join(text, "certs"))
+    folder = Path(text).expanduser()
+    if not folder.is_absolute():
+        raise ValueError("憑證輸出目錄必須是絕對路徑。")
+    return ntpath.normpath(str(folder / "certs"))
+
+
 def _identity(path: str) -> str:
     return ntpath.normcase(ntpath.normpath(path.strip().strip('"')))
 
@@ -62,12 +75,25 @@ def is_machine_safe_path_present(directory: str) -> bool:
 
 
 def _notify_environment_change() -> None:
-    """Notify Explorer of machine environment changes; existing apps still need restart."""
+    """Notify Explorer, not every desktop window; running apps must restart."""
     try:
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        user32.FindWindowW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p]
+        user32.FindWindowW.restype = wintypes.HWND
+        shell = user32.FindWindowW("Shell_TrayWnd", None)
+        if not shell:
+            return
+        user32.SendMessageTimeoutW.argtypes = [
+            wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
+            wintypes.UINT, wintypes.UINT, ctypes.POINTER(ctypes.c_size_t),
+        ]
+        user32.SendMessageTimeoutW.restype = wintypes.LPARAM
         result = ctypes.c_size_t()
-        ctypes.windll.user32.SendMessageTimeoutW(
-            0xFFFF, 0x001A, 0, "Environment", 0x0002, 5000,
-            ctypes.byref(result),
+        environment = ctypes.create_unicode_buffer("Environment")
+        user32.SendMessageTimeoutW(
+            shell, 0x001A, 0, ctypes.addressof(environment),
+            0x0002, 1000, ctypes.byref(result),
         )
     except (AttributeError, OSError, TypeError):
         pass

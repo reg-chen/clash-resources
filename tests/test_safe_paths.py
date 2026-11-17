@@ -6,9 +6,21 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import safe_paths
+import inspect
 
 
 class SafePathsTests(unittest.TestCase):
+    def test_certificate_directory_only_targets_certs(self):
+        self.assertEqual(safe_paths.certificate_directory(r"P:\Clash"),
+                         r"P:\Clash\certs")
+        with self.assertRaises(ValueError):
+            safe_paths.certificate_directory("")
+
+    def test_no_broadcast_environment_notification(self):
+        code = inspect.getsource(safe_paths._notify_environment_change)
+        self.assertNotIn("0xFFFF", code)
+        self.assertIn("Shell_TrayWnd", code)
+
     def test_appends_only_provider_subdirectory_and_preserves_existing(self):
         existing = r"P:\Clash\rules;P:\Clash\test;P:\Clash\providers;P:\Clash\certs"
         self.assertEqual(

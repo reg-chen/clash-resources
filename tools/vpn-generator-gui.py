@@ -187,11 +187,6 @@ def set_dark_titlebar(window: tk.Misc, colors) -> bool:
         user32.GetParent.restype = wintypes.HWND
         user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
         user32.GetWindowLongW.restype = ctypes.c_long
-        user32.SetWindowPos.argtypes = [
-            wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
-            ctypes.c_int, ctypes.c_int, wintypes.UINT,
-        ]
-        user32.SetWindowPos.restype = wintypes.BOOL
         dwmapi.DwmSetWindowAttribute.argtypes = [
             wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
         ]
@@ -219,11 +214,8 @@ def set_dark_titlebar(window: tk.Misc, colors) -> bool:
                 continue
             set_attr(34, colorref(colors.border))
             set_attr(36, colorref(colors.fg))
-            # Caption color is a set-only DWM attribute: requesting it with
-            # DwmGetWindowAttribute returns E_INVALIDARG even after a
-            # successful DwmSetWindowAttribute call (confirmed on Win CI).
-            # SWP_FRAMECHANGED | NOACTIVATE | NOZORDER | NOMOVE | NOSIZE
-            user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x0037)
+            # Avoid SWP_FRAMECHANGED: it can cause desktop-wide flashing.
+            # DWM will update this window without a forced frame rebuild.
             return True
         return False
     except (AttributeError, OSError, ValueError, tk.TclError):
@@ -231,20 +223,13 @@ def set_dark_titlebar(window: tk.Misc, colors) -> bool:
 
 
 def show_with_dark_titlebar(window: tk.Misc, colors) -> None:
-    """Force DWM to repaint after mapping a Tk top-level window."""
+    """Apply the dark caption without withdrawing or remapping the window."""
     if sys.platform != "win32" or not window.winfo_exists():
         return
     window.update_idletasks()
     if not window.winfo_ismapped():
         window.deiconify()
-        window.update_idletasks()
-    if set_dark_titlebar(window, colors):
-        # Tk draws its original light frame on first map. Recomposition is
-        # necessary even if DwmSetWindowAttribute returned S_OK.
-        window.withdraw()
-        window.deiconify()
-        window.after(80, lambda: set_dark_titlebar(window, colors)
-                     if window.winfo_exists() else None)
+    set_dark_titlebar(window, colors)
 
 
 BG = "#1E222A"
@@ -399,9 +384,7 @@ class DarkAlertDialog(ctk.CTkToplevel):
         # Size explicitly from the wrapped message; keep it readable.
         width = 540
         height = max(168, min(520, self.message_label.winfo_reqheight() + 120))
-        x = parent.winfo_rootx() + max(0, (parent.winfo_width() - width) // 2)
-        y = parent.winfo_rooty() + max(0, (parent.winfo_height() - height) // 2)
-        self.geometry(f"{width}x{height}+{x}+{y}")
+        center_dialog(self, parent, width, height)
         self.deiconify()
         self.after(80, lambda: set_dark_titlebar(self, UI_COLORS)
                    if self.winfo_exists() else None)
@@ -456,6 +439,24 @@ class ThemedMessagebox:
 messagebox = ThemedMessagebox
 
 
+def center_dialog(dialog: tk.Misc, parent: tk.Misc, width: int, height: int) -> None:
+    """Center a modal over its parent, including when the parent is moved."""
+    parent.update_idletasks()
+    x = parent.winfo_rootx() + (parent.winfo_width() - width) // 2
+    y = parent.winfo_rooty() + (parent.winfo_height() - height) // 2
+    # Tk reports the virtual desktop origin; clamp only when its reported
+    # bounds include the parent (avoid snapping external displays to primary).
+    vx, vy = parent.winfo_vrootx(), parent.winfo_vrooty()
+    vw, vh = parent.winfo_vrootwidth(), parent.winfo_vrootheight()
+    px, py = parent.winfo_rootx(), parent.winfo_rooty()
+    if vw >= width and vx <= px < vx + vw:
+        x = min(max(x, vx), vx + vw - width)
+    if vh >= height and vy <= py < vy + vh:
+        y = min(max(y, vy), vy + vh - height)
+    dialog.geometry(f"{width}x{height}{x:+d}{y:+d}")
+
+
+
 class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
     """Preview the checked UWP Loopback exemptions before any UAC prompt."""
 
@@ -464,7 +465,6 @@ class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
         self.withdraw()
         self.title("選擇要還原的 UWP Loopback 豁免")
         self.configure(fg_color=BG)
-        self.geometry("770x610")
         self.minsize(660, 460)
         self.transient(parent)
         self.selected = None
@@ -532,8 +532,9 @@ class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
         styled_button(footer, text="還原所選", variant="primary",
                       command=self._accept).pack(side="right", padx=(0, 8))
 
-        self.deiconify()
         self.update_idletasks()
+        center_dialog(self, parent, 770, 610)
+        self.deiconify()
         self.grab_set()
         self.after(100, lambda: set_dark_titlebar(self, UI_COLORS)
                    if self.winfo_exists() else None)
@@ -576,13 +577,13 @@ class WarpScheduleDialog(ctk.CTkToplevel):
 
     def __init__(self, parent, out_dir: str, config: dict):
         super().__init__(parent)
+        self.withdraw()
         self.title("WARP 工作排程")
         self.configure(fg_color=BG)
         self.transient(parent)
         self.resizable(False, False)
         # CTkToplevel defaults to a fixed 200x200 geometry; set an explicit
         # dialog size so the original frequency selector is not clipped.
-        self.geometry("570x330")
         self.minsize(570, 330)
         self.out = tk.StringVar(value=out_dir or r"P:\Clash")
         selected = config.get("mode", "monthly")
@@ -638,6 +639,7 @@ class WarpScheduleDialog(ctk.CTkToplevel):
         self.mode.trace_add("write", self._sync_mode)
         self._update_interval_visibility()
         self.update_idletasks()
+        center_dialog(self, parent, 570, 330)
         self.deiconify()
         self.grab_set()
         self.after(90, lambda: set_dark_titlebar(self, UI_COLORS) if self.winfo_exists() else None)
@@ -1008,6 +1010,7 @@ class MainWindow(ctk.CTk):
         self.doh_endpoint = tk.StringVar()
         self.doh_hosts = tk.StringVar()
         self.doh_status = tk.StringVar()
+        self.doh_safe_paths = tk.BooleanVar(value=False)
         group = ui_group(frm, text="TLS 憑證", padding=12)
         group.grid(row=0, column=0, sticky="ew")
         group.columnconfigure(1, weight=1)
@@ -1025,7 +1028,11 @@ class MainWindow(ctk.CTk):
                    variant="primary").pack(side="left")
         self.trust_button = styled_button(actions, text="信任 CA", command=self._trust_ca, state="disabled")
         self.trust_button.pack(side="left", padx=8)
-        ui_label(group, textvariable=self.doh_status).grid(row=4, column=1, sticky="w")
+        self.doh_safe_check = ui_check(
+            group, text="產生後將 certs 加入系統 SAFE_PATHS（需管理員權限）",
+            variable=self.doh_safe_paths)
+        self.doh_safe_check.grid(row=4, column=1, sticky="w", pady=(0, 4))
+        ui_label(group, textvariable=self.doh_status).grid(row=5, column=1, sticky="w")
         config = ui_group(frm, text="Mihomo 設定", padding=12)
         config.grid(row=1, column=0, sticky="nsew", pady=12)
         config.columnconfigure(1, weight=1)
@@ -1088,7 +1095,19 @@ class MainWindow(ctk.CTk):
         self.doh_yaml.configure(state="disabled")
         self.trust_button.configure(state="normal")
         self.copy_yaml.configure(state="normal")
-        self.doh_status.set("已更新" if files.renewed else "憑證有效")
+        note = ""
+        if self.doh_safe_paths.get():
+            try:
+                certs = safe_paths.certificate_directory(self.cert_dir.get().strip())
+                changed = safe_paths.ensure_machine_safe_path(certs)
+                note = ("；SAFE_PATHS 已加入（需重啟 Clash Party）" if changed
+                        else "；SAFE_PATHS 已包含 certs")
+            except Exception as exc:
+                note = "；SAFE_PATHS 未更新"
+                messagebox.showwarning("SAFE_PATHS 未更新", str(exc), parent=self)
+            finally:
+                self.doh_safe_paths.set(False)
+        self.doh_status.set(("已更新" if files.renewed else "憑證有效") + note)
 
     def _trust_ca(self):
         if self.cert_files is None or not messagebox.askyesno(
