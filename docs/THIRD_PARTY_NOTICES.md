@@ -21,7 +21,7 @@
 | GitHub／Invertocat | [GitHub 品牌指南](https://brand.github.com/foundations/logo)、[Logo Policy](https://docs.github.com/en/site-policy/other-site-policies/github-logo-policy) | 允許特定辨識 GitHub、指向服務或顯示整合的用途；禁止將 Logo 當作自家產品識別、任意修改或暗示 GitHub 背書；目前個別檔案未核對來源 |
 | Cloudflare／WARP | [Cloudflare 商標使用規範](https://www.cloudflare.com/trademark/) | 官方對一般 Cloudflare Logo 使用原則上要求**事先書面許可**；文字描述與特定 Web badge 的例外不等於 Logo 再散布許可 |
 | Surfshark | [Surfshark 媒體中心](https://surfshark.com/press) | 提供官方素材，容許個人或非商業下載／複製，限制修改、衍生、販售及商業使用；須先確認目前 SVG 與官方素材一致 |
-| PIA | [PIA 媒體素材](https://www.privateinternetaccess.com/press-page)、[使用條款](https://www.privateinternetaccess.com/terms-of-service) | 有官方素材頁，但**未確認可任意公開再散布或修改**的授權 |
+| PIA | [PIA 媒體素材](https://www.privateinternetaccess.com/press-page)、[使用條款](https://www.privateinternetaccess.com/terms-of-service)、[Simple Icons 來源](https://github.com/simple-icons/simple-icons/blob/develop/icons/privateinternetaccess.svg) | 已核對 `icons/PrivateInternetAccess.svg` 與 Simple Icons 上游路徑資料一致，僅增添 `#1E811F` 填色；Simple Icons 素材採 **CC0-1.0**，但明確不授權第三方商標。PIA 商標使用／再散布條件仍須另外確認 |
 | OpenVPN | [OpenVPN 品牌素材](https://openvpn.net/branding/)、[商標條款](https://openvpn.net/legal/) | OpenVPN 程式的 GPL 不授權其商標；其鑰匙孔標誌等依官方條款需預先取得書面許可，並限制更動圖像 |
 
 此表僅記錄**官方可核對的規範**，不代表目前的檔案已逐項取得授權。公開儲存庫及 CDN 可供第三人下載，與本地使用作為個人 VPN 分流識別不同。對未經核實的品牌圖檔，應核對實際來源、是否經修改及官方允許範圍；必要時改用純文字服務名稱或取得書面許可。
