@@ -511,6 +511,8 @@ class WarpScheduleDialog(ctk.CTkToplevel):
 
         self.mode.trace_add("write", self._sync_mode)
         self._update_interval_visibility()
+        self.update_idletasks()
+        self.deiconify()
         self.grab_set()
         self.after(90, lambda: set_dark_titlebar(self, UI_COLORS) if self.winfo_exists() else None)
 
