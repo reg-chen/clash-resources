@@ -2,6 +2,24 @@ name: Update third-party MRS
 on:
   push:
     branches: [main]
+    # Tag pushes bypass path filters; use a unique tag to force a rebuild
+    # without creating an empty commit on main.
+    tags:
+      - 'mrs-refresh-*'
+    paths:
+      - '.github/workflows/update-third-party-mrs.yml'
+      - 'tools/third-party-mrs-sources.json'
+      - 'tools/build-third-party-mrs.py'
+      - 'tools/mrs_overlap.py'
+      - 'tools/mrs_merge.py'
+      - 'tools/activate-merged-mrs.py'
+      - 'tools/migrate-third-party-mrs.py'
+      - 'tools/cdn_purge_verify.py'
+      - 'tests/test_mrs_merge.py'
+      - 'tests/test_mrs_overlap.py'
+      - 'rules/security/custom.txt'
+      - 'rules/privacy/custom.txt'
+      - 'rules/ads/custom.txt'
   schedule:
     - cron: '32 * * * *'
   workflow_dispatch:
@@ -11,51 +29,11 @@ concurrency:
   group: third-party-mrs
   cancel-in-progress: false
 jobs:
-  gate:
-    # Only push events need path/empty-commit checks; cron and manual runs bypass it.
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    outputs:
-      run: ${{ steps.decide.outputs.run }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Permit source changes or a verified empty refresh commit
-        id: decide
-        shell: bash
-        env:
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          echo "run=false" >> "$GITHUB_OUTPUT"
-          subject="$(git log -1 --format=%s "$AFTER")"
-          if [[ "$subject" == "build: refresh mrs" ]] &&
-             [[ "$(git rev-list --parents -n 1 "$AFTER" | wc -w)" -eq 2 ]] &&
-             [[ "$(git rev-parse "$AFTER^{tree}")" == "$(git rev-parse "$AFTER^1^{tree}")" ]]; then
-            echo "Verified empty refresh commit."
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Preserve the original push triggers for workflow/builder edits.
-          if [[ "$BEFORE" =~ ^0+$ ]]; then
-            changed="$(git diff-tree --no-commit-id --name-only -r "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/mrs_merge.py tools/activate-merged-mrs.py tools/migrate-third-party-mrs.py tests/test_mrs_merge.py tests/test_mrs_overlap.py rules/security/custom.txt rules/privacy/custom.txt rules/ads/custom.txt)"
-          else
-            changed="$(git diff --name-only "$BEFORE" "$AFTER" -- .github/workflows/update-third-party-mrs.yml tools/third-party-mrs-sources.json tools/build-third-party-mrs.py tools/mrs_overlap.py tools/mrs_merge.py tools/activate-merged-mrs.py tools/migrate-third-party-mrs.py tests/test_mrs_merge.py tests/test_mrs_overlap.py rules/security/custom.txt rules/privacy/custom.txt rules/ads/custom.txt)"
-          fi
-          if [[ -n "$changed" ]]; then
-            printf 'Build source changed:\n%s\n' "$changed"
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Skipping unrelated push."
-          fi
-
   build:
-    needs: gate
-    if: ${{ always() && (github.event_name != 'push' || needs.gate.outputs.run == 'true') && (github.event_name != 'workflow_dispatch' || github.actor == github.repository_owner) }}
+    # Main branch runs are path-filtered before the workflow starts.
+    # Only the repository Owner may invoke this job via a refresh tag or
+    # workflow_dispatch. Scheduled runs remain unrestricted.
+    if: ${{ (github.event_name != 'workflow_dispatch' && github.ref_type != 'tag') || github.actor == github.repository_owner }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
