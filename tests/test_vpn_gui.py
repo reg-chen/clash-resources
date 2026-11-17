@@ -445,7 +445,24 @@ class WindowsGuiTests(unittest.TestCase):
         dialog = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
         try:
             dialog.mode.set("interval")
-            dialog.update()
+            dialog.deiconify()
+            dialog.lift()
+            # CTkToplevel may temporarily withdraw its Win32 wrapper while
+            # applying the titlebar color; process its scheduled remapping.
+            import time
+            for _ in range(8):
+                self.window.update()
+                dialog.update()
+                if dialog.interval_spinbox.winfo_ismapped():
+                    break
+                time.sleep(0.08)
+            print(
+                f"CTK_SCHEDULE_VISIBILITY main_state={self.window.state()} "
+                f"main_map={self.window.winfo_ismapped()} "
+                f"dialog_state={dialog.state()} dialog_map={dialog.winfo_ismapped()} "
+                f"grid={bool(dialog.interval_spinbox.grid_info())}",
+                flush=True,
+            )
             width, height = dialog.winfo_width(), dialog.winfo_height()
             print(f"CTK_SCHEDULE_GEOMETRY={width}x{height}", flush=True)
             self.assertGreaterEqual(width, 470, "Schedule dialog too narrow for the selector")
