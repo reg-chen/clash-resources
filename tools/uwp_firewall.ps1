@@ -118,14 +118,14 @@ function AppIso-Records {
     $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey($AppIsoKey, $false)
     if ($null -eq $key) {
         if ($AllowEmpty) { return @() }
-        throw "找不到或無法讀取 UWP AppIso 防火牆登錄機碼：HKLM:\$AppIsoKey。備份未完成。"
+        throw "UWP AppIso registry key is missing or unreadable: HKLM:\$AppIsoKey. Backup aborted."
     }
     $records = [System.Collections.Generic.List[object]]::new()
     try {
         foreach ($name in $key.GetValueNames()) {
             $kind = $key.GetValueKind($name)
             if ($kind -ne [Microsoft.Win32.RegistryValueKind]::String) {
-                throw "AppIso 防火牆包含不支援的登錄類型：$name ($kind)。備份未完成，以免遺漏規則。"
+                throw "Unsupported AppIso registry value type: $name ($kind). Backup aborted to prevent omissions."
             }
             $raw = [string]$key.GetValue(
                 $name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames
@@ -178,7 +178,7 @@ if ($Mode -eq "backup") {
     }
     $reportData.Total = $rules.Count + $appIsoRules.Count
     if ($reportData.Total -eq 0 -and -not $AllowEmpty) {
-        $reportData.Errors += "查詢結果為 0 條；已檢查 PersistentStore、ConfigurableServiceStore 與 AppIso 登錄規則。未產生空白備份，請確認防火牆服務／讀取權限。"
+        $reportData.Errors += "No UWP firewall rules found in PersistentStore, ConfigurableServiceStore, or AppIso registry. Empty backup was not written."
         $reportData | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $Report -Encoding UTF8
         exit 3
     }
@@ -209,7 +209,7 @@ if ($Mode -eq "backup") {
         $reportData.Total += $appIsoCount
         $reportData.Unsupported += $appIsoCount
         if ($appIsoCount -gt 0) {
-            $reportData.Warnings += "AppIso 登錄規則 $appIsoCount 條已保存在 JSON，但尚不支援安全自動還原；沒有修改登錄機碼。"
+            $reportData.Warnings += "AppIso registry entries ($appIsoCount) were backed up but not restored; direct writes to Windows-managed AppIso registry are intentionally unsupported."
         }
     }
     $existing = @{}
