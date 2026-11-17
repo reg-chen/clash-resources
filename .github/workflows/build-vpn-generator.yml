@@ -10,6 +10,12 @@ on:
       - "tests/test_uwp_firewall.py"
       - "tests/test_vpn_gui.py"
       - ".github/workflows/build-vpn-generator.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "tools/vpn-generator-gui.py"
+      - "tests/test_vpn_gui.py"
+      - ".github/workflows/build-vpn-generator.yml"
   workflow_dispatch:
 
 permissions:
@@ -44,14 +50,14 @@ jobs:
       - name: Install build dependencies
         shell: pwsh
         run: |
-          python -m pip install PySide6 PyInstaller cryptography
+          python -m pip install ttkbootstrap==2.2.7 PyInstaller cryptography
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Restore PyInstaller build cache
         uses: actions/cache/restore@v5
         with:
           path: build/VPN-Mihomo-Generator
-          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
+          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-ttk2-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
           restore-keys: |
             vpn-generator-pyinstaller-${{ runner.os }}-py314-
 
@@ -59,6 +65,7 @@ jobs:
         shell: pwsh
         run: |
           python -m py_compile `
+            tools/vpn-generator-gui.py `
             tools/vpn_generator_core.py `
             tools/mihomo_doh.py `
             tools/safe_paths.py `
@@ -72,10 +79,17 @@ jobs:
       - name: Test generators and GUI provider state
         shell: pwsh
         env:
-          QT_QPA_PLATFORM: offscreen
+          PYTHONIOENCODING: utf-8
         # All tests deliberately run, including cross-feature MRS config
         # tests, so the packaged GUI always corresponds to a consistent repo.
         run: python -m unittest discover -s tests -v
+
+      - name: Smoke-test ttkbootstrap Windows UI
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = (Resolve-Path "tools").Path
+          python -c "import importlib.util; p='tools/vpn-generator-gui.py'; s=importlib.util.spec_from_file_location('vpn_gui',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); w=m.MainWindow(); w.update(); w.destroy(); print('Tk smoke passed')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Smoke-test UWP firewall backup on Windows (read-only)
         shell: pwsh
@@ -115,6 +129,7 @@ jobs:
             --windowed `
             --name VPN-Mihomo-Generator `
             --collect-all cryptography `
+            --collect-all ttkbootstrap `
             --hidden-import urllib.request `
             --hidden-import urllib.error `
             --add-data "tools/pia-openvpn-generator.py;." `
@@ -131,6 +146,7 @@ jobs:
           key: vpn-generator-pyinstaller-${{ runner.os }}-py314-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
 
       - name: Upload executable
+        if: github.event_name != 'pull_request'
         id: uploaded_artifact
         uses: actions/upload-artifact@v7
         with:
@@ -141,6 +157,7 @@ jobs:
           retention-days: 30
 
       - name: Keep only the latest successful build artifact
+        if: github.event_name != 'pull_request'
         uses: actions/github-script@v8
         with:
           script: |
