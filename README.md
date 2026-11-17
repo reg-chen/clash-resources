@@ -13,6 +13,20 @@
 - **Windows GUI／EXE**：現行版本採 **CustomTkinter 6.0.0（MIT）** 與 Tkinter／Tcl/Tk，使用 PyInstaller `--onefile` 建置；Pillow、cryptography 等隨附依賴仍適用各自授權。過去曾使用 PySide6／Qt、ttkbootstrap；**舊版 EXE Artifact 已清理，目前只提供 CustomTkinter 版**。詳見第三方聲明。
 - **UWP Loopback**：僅備份 Windows UWP Loopback／WinConfig 已勾選的 AppContainer 豁免；還原時逐項預覽與勾選，未安裝的 App 跳過、已存在的豁免保留，不修改其他 Windows 防火牆規則。**JSON Schema 2 使用 Package Family Name（PFN）與 AppContainer 名稱辨識 App，不保存來源 SID；重灌／換電腦後會重新查詢目標 SID。** 舊 Schema 1 可讀，但缺少可辨識名稱的項目不會自動還原。先前的一般防火牆規則 JSON 不適用此功能。 **備份／還原須由目前登入的 Windows 帳號本身具備管理員身分；其中備份還須先以同一帳號提升程式權限，不支援標準使用者借用其他管理員帳號的 UAC 認證。** 還原時會核對提升權限前後的 Windows 使用者 SID，若發生帳號切換即中止，不會誤以另一個管理員帳號的 App 清單判斷安裝狀態。
 
+## MRS Action 觸發規則
+
+`.github/workflows/update-third-party-mrs.yml` 僅在 `main` 的 MRS 來源／建置／相關測試檔變更時由 push 觸發；另保留每小時 UTC 第 32 分的排程、Owner-only `workflow_dispatch`，以及 **Owner-only 的 `mrs-refresh-*` Tag push** 作為不修改檔案的強制補跑入口。一般 EXE 或 README 修改不會啟動 MRS Action；先前的 `build: refresh mrs` 空 commit 已不再有效。
+
+需要手動強制重建時，使用**唯一、不可重用**的時間戳記 Tag，指向最新的 `origin/main`（例如 `mrs-refresh-20261117-125200`）：
+
+```bash
+git fetch origin main
+git tag mrs-refresh-20261117-125200 origin/main
+git push origin refs/tags/mrs-refresh-20261117-125200
+```
+
+每次補跑請換用當下真實時間形成的新 Tag；勿覆蓋舊 Tag、勿將空 commit 推入 `main`。Tag 推送者若非 Repo Owner，workflow 的建置 job 會跳過。
+
 **僅使用本儲存庫的程式碼，與重新散布第三方規則、圖示或包含第三方函式庫的執行檔，授權義務並不相同。**
 
 **下載範圍**：`rules/**/mrs/` 透過公開 GitHub／CDN 供 Mihomo 更新，不設 Owner-only；Windows EXE 僅保存於 Actions Artifact（未建立 Release），但本 Repo 為公開，因此 Artifact **不是 Owner-only**。限制 `workflow_dispatch` 的執行者，只限制誰能觸發建置，不限制其他具有 Repo 讀取權限的人下載成果。詳見[存取與散布說明](docs/THIRD_PARTY_NOTICES.md#distribution-access)。
