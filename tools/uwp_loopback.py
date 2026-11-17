@@ -489,7 +489,7 @@ def elevated_child(selection_file: Path, report_file: Path) -> int:
             raise ValueError("無效的 Loopback 勾選項目。")
         expected_sid = data.get("RequestingUserSID")
         if not isinstance(expected_sid, str) or not re.fullmatch(
-                r"S-1-5-21-(?:\\d+-){3}\\d+", expected_sid, re.I):
+            r"S-[0-9]+(?:-[0-9]+)+", expected_sid, re.I):
             raise ValueError("缺少有效的來源 Windows 使用者身分。")
         actual_sid, _ = current_user_context()
         if actual_sid.casefold() != expected_sid.casefold():
