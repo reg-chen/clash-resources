@@ -25,14 +25,13 @@ for(let mask=0;mask<16;mask++) {
   const result = main(config);
   validate(result);
   if (mask === 15) {
-    // Trademark logos come from external source repositories, never this repo.
+    // Public override must not load or emit trademark logos by default.
     for (const vendor of VENDOR_DEFS) {
       const group = result['proxy-groups'].find(g => g.name ===
         (vendor.key === 'PIA' ? 'PIA-ALL' : 'SS-ALL'));
       assert.ok(group, vendor.key + ' ALL group not generated');
-      assert.equal(group.icon, vendor.icon, vendor.key + ' must use the external URL directly');
-      assert.match(group.icon, /^https:\/\/raw\.githubusercontent\.com\//);
-      assert.ok(!group.icon.includes('icons.reginald.win/'));
+      assert.equal(Object.hasOwn(group, 'icon'), false, vendor.key + ' must be opt-in');
+      assert.equal(vendor.icon, undefined, vendor.key + ' logo must remain commented');
     }
   }
   const once = JSON.stringify(result);
@@ -43,6 +42,26 @@ for(let mask=0;mask<16;mask++) {
   if(mask===15) console.log('All enabled:', result['proxy-groups'].length, 'unique groups;',Object.keys(result['proxy-providers']).length,'providers');
 }
 console.log('PASS: all 16 toggle combinations, references and repeat application');
+
+// Users can opt into the suggested logos by uncommenting exactly two JS lines.
+const optInSource = source.replaceAll('    // icon: ', '    icon: ');
+const optInContext = vm.createContext({});
+vm.runInContext(optInSource + '\nglobalThis.api = {main, VENDOR_DEFS};', optInContext);
+const optInConfig = {
+  'x-vpn-provider-override': true,
+  ...flags(15),
+  'proxy-groups': [{name:'PROXY',type:'select',proxies:['DIRECT']}]
+};
+const optInResult = optInContext.api.main(optInConfig);
+for (const vendor of optInContext.api.VENDOR_DEFS) {
+  const group = optInResult['proxy-groups'].find(g =>
+    g.name === (vendor.key === 'PIA' ? 'PIA-ALL' : 'SS-ALL'));
+  assert.ok(group, vendor.key + ' opt-in group not generated');
+  assert.equal(group.icon, vendor.icon);
+  assert.match(group.icon, /^https:\/\/raw\.githubusercontent\.com\//);
+}
+console.log('PASS: commented trademark logos default-off; uncommenting works');
+
 
 // Route groups must expose all locations from both enabled vendors.
 for (const mask of [0, 3, 12, 15]) {

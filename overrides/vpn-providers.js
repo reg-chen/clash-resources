@@ -442,7 +442,8 @@ function flagFilter(countries) {
 const VENDOR_DEFS = [
   {
     key: 'PIA',
-    icon: 'https://raw.githubusercontent.com/glincker/thesvg/bec352dd80ed68c597d57f3aa599b40eb9ecd4ee/public/icons/private-internet-access/default.svg',
+    // 推薦圖示（自行使用時取消下一行註解；預設不載入品牌 Logo）
+    // icon: 'https://raw.githubusercontent.com/glincker/thesvg/bec352dd80ed68c597d57f3aa599b40eb9ecd4ee/public/icons/private-internet-access/default.svg',
     locations: buildLocations('PIA', PIA_OV_PATHS, PIA_WG_PATHS),
     protocols: [
       { toggle: 'x-pia-wireguard', type: 'wireguard', providerPrefix: 'wg-pia', filename: 'pia-wg.yaml', paths: new Set(PIA_WG_PATHS) },
@@ -451,7 +452,8 @@ const VENDOR_DEFS = [
   },
   {
     key: 'SS',
-    icon: 'https://raw.githubusercontent.com/glincker/thesvg/bec352dd80ed68c597d57f3aa599b40eb9ecd4ee/public/icons/surfshark/default.svg',
+    // 推薦圖示（自行使用時取消下一行註解；預設不載入品牌 Logo）
+    // icon: 'https://raw.githubusercontent.com/glincker/thesvg/bec352dd80ed68c597d57f3aa599b40eb9ecd4ee/public/icons/surfshark/default.svg',
     locations: buildLocations('SS', SURFSHARK_OV_PATHS),
     protocols: [
       { toggle: 'x-ss-openvpn', type: 'openvpn', providerPrefix: 'ov-ss', filename: 'surfshark-ov.yaml', paths: new Set(SURFSHARK_OV_PATHS) },
@@ -583,7 +585,8 @@ function cleanManagedRefs(group) {
 }
 
 function makeVendorGroup(name, icon, proxies = [], use = []) {
-  const group = { name, type: 'select', icon };
+  const group = { name, type: 'select' };
+  if (icon) group.icon = icon;
   if (proxies.length > 0) group.proxies = proxies;
   if (use.length > 0) group.use = use;
   return group;
