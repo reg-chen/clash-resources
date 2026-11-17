@@ -255,8 +255,12 @@ def ui_frame(parent, *, padding=0, panel=False):
 
 
 def ui_group(parent, *, text: str, padding=0):
-    return ctk.CTkFrame(parent, width=1, height=1, corner_radius=8,
+    card = ctk.CTkFrame(parent, width=1, height=1, corner_radius=8,
                         fg_color=PANEL, border_color=BORDER, border_width=1)
+    ctk.CTkLabel(card, text=text, text_color=MUTED,
+                 font=("Segoe UI", 11, "bold"),
+                 fg_color="transparent", height=23).place(x=11, y=3)
+    return card
 
 
 def ui_label(parent, *, width=None, foreground=None, **kwargs):
@@ -680,7 +684,7 @@ class MainWindow(ctk.CTk):
         logbox.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
         self.log = DarkScrolledText(logbox, height=10, state="disabled",
                                             font=("Consolas", 10), wrap="word")
-        self.log.pack(fill="both", expand=True)
+        self.log.pack(fill="both", expand=True, padx=8, pady=(28, 8))
 
     def _restore_provider(self, provider):
         data = self.provider_data.get(provider, {})
@@ -861,38 +865,40 @@ class MainWindow(ctk.CTk):
         group = ui_group(frm, text="TLS 憑證", padding=12)
         group.grid(row=0, column=0, sticky="ew")
         group.columnconfigure(1, weight=1)
-        ui_label(group, text="憑證目錄", width=18).grid(row=0, column=0, sticky="w")
+        group.grid_rowconfigure(0, minsize=28)
+        ui_label(group, text="憑證目錄", width=18).grid(row=1, column=0, sticky="w")
         pathrow = ui_frame(group)
-        pathrow.grid(row=0, column=1, sticky="ew", pady=5)
+        pathrow.grid(row=1, column=1, sticky="ew", pady=5)
         ui_entry(pathrow, textvariable=self.cert_dir).pack(side="left", fill="x", expand=True)
         styled_button(pathrow, text="瀏覽", command=self._pick_cert_root).pack(side="left", padx=6)
-        ui_label(group, text="DoH 主機", width=18).grid(row=1, column=0, sticky="w")
-        ui_entry(group, textvariable=self.doh_host).grid(row=1, column=1, sticky="ew", pady=5)
+        ui_label(group, text="DoH 主機", width=18).grid(row=2, column=0, sticky="w")
+        ui_entry(group, textvariable=self.doh_host).grid(row=2, column=1, sticky="ew", pady=5)
         actions = ui_frame(group)
-        actions.grid(row=2, column=1, sticky="w", pady=6)
+        actions.grid(row=3, column=1, sticky="w", pady=6)
         styled_button(actions, text="產生／更新", command=self._generate_certs,
                    variant="primary").pack(side="left")
         self.trust_button = styled_button(actions, text="信任 CA", command=self._trust_ca, state="disabled")
         self.trust_button.pack(side="left", padx=8)
-        ui_label(group, textvariable=self.doh_status).grid(row=3, column=1, sticky="w")
+        ui_label(group, textvariable=self.doh_status).grid(row=4, column=1, sticky="w")
         config = ui_group(frm, text="Mihomo 設定", padding=12)
         config.grid(row=1, column=0, sticky="nsew", pady=12)
         config.columnconfigure(1, weight=1)
+        config.grid_rowconfigure(0, minsize=28)
         self.doh_yaml = DarkScrolledText(config, height=7, wrap="word",
                                                  font=("Consolas", 10), state="disabled")
-        self.doh_yaml.grid(row=0, column=0, columnspan=3, sticky="ew")
+        self.doh_yaml.grid(row=1, column=0, columnspan=3, sticky="ew")
         self.copy_yaml = styled_button(config, text="複製 YAML", command=lambda: self._copy(
             self.doh_yaml.get("1.0", "end-1c")), state="disabled")
-        self.copy_yaml.grid(row=1, column=2, sticky="e", pady=7)
-        ui_label(config, text="Firefox DoH", width=18).grid(row=2, column=0, sticky="w")
+        self.copy_yaml.grid(row=2, column=2, sticky="e", pady=7)
+        ui_label(config, text="Firefox DoH", width=18).grid(row=3, column=0, sticky="w")
         ui_entry(config, textvariable=self.doh_endpoint, state="readonly").grid(
-            row=2, column=1, sticky="ew")
+            row=3, column=1, sticky="ew")
         self.copy_url = styled_button(config, text="複製網址",
                                    command=lambda: self._copy(self.doh_endpoint.get()))
-        self.copy_url.grid(row=2, column=2, padx=6)
-        ui_label(config, text="Party Hosts", width=18).grid(row=3, column=0, sticky="w", pady=6)
+        self.copy_url.grid(row=3, column=2, padx=6)
+        ui_label(config, text="Party Hosts", width=18).grid(row=4, column=0, sticky="w", pady=6)
         ui_entry(config, textvariable=self.doh_hosts, state="readonly").grid(
-            row=3, column=1, sticky="ew", pady=6)
+            row=4, column=1, sticky="ew", pady=6)
         frm.rowconfigure(1, weight=1)
         self.doh_host.trace_add("write", lambda *_: self._refresh_doh_endpoint())
         self.cert_dir.trace_add("write", lambda *_: self._refresh_doh_endpoint())
@@ -958,9 +964,9 @@ class MainWindow(ctk.CTk):
         buttons = ui_group(frm, text="UWP 防火牆規則", padding=14)
         buttons.pack(fill="x")
         self.uwp_backup = styled_button(buttons, text="備份 JSON", command=self._uwp_backup)
-        self.uwp_backup.pack(side="left", padx=5)
+        self.uwp_backup.pack(side="left", padx=8, pady=(27, 10))
         self.uwp_restore = styled_button(buttons, text="套用備份", command=self._uwp_restore)
-        self.uwp_restore.pack(side="left", padx=5)
+        self.uwp_restore.pack(side="left", padx=8, pady=(27, 10))
         self.uwp_status = tk.StringVar()
         ui_label(frm, textvariable=self.uwp_status).pack(anchor="w", pady=12)
 
