@@ -1,332 +1,219 @@
-"""Exercise real Qt provider switches with isolated settings and no network."""
-import os
-from pathlib import Path
+"""Regression tests for the ttkbootstrap frontend and headless Windows entry points."""
+from __future__ import annotations
+
+import importlib.util
+import json
 import sys
 import tempfile
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+GUI = ROOT / "tools" / "vpn-generator-gui.py"
+spec = importlib.util.spec_from_file_location("vpn_generator_gui_ttk", GUI)
+assert spec and spec.loader
+gui = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = gui
+spec.loader.exec_module(gui)
 
-from PySide6.QtCore import QPoint, QSettings, Qt
-from PySide6.QtWidgets import QApplication, QScrollArea
-import vpn_generator_core as core
 
-gui = core.load_sibling("vpn-generator-gui.py", "vpn_gui_under_test")
+def options(**kwargs):
+    data = {
+        "provider": "pia", "openvpn": False, "wireguard": True,
+        "udp_zip": "", "tcp_zip": "", "username": "user", "password": "password",
+        "out_dir": r"P:\Clash", "single_file": False, "exclude_streaming": True,
+    }
+    data.update(kwargs)
+    return data
 
 
-class ProviderStateTests(unittest.TestCase):
+class ConfigAndValidationTests(unittest.TestCase):
+    def test_no_qsettings_migration(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "new.json"
+            self.assertEqual(gui.load_settings(path), {})
+            data = {"provider": "warp", "providers": {"warp": {"out_dir": r"P:\Clash"}}}
+            gui.save_settings(data, path)
+            self.assertEqual(gui.load_settings(path), data)
+            self.assertNotIn("password", path.read_text(encoding="utf-8"))
+
+    def test_corrupt_settings_safe(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "bad.json"
+            path.write_text("[broken", encoding="utf-8")
+            self.assertEqual(gui.load_settings(path), {})
+            path.write_text("[]", encoding="utf-8")
+            self.assertEqual(gui.load_settings(path), {})
+
+    def test_warp_requires_no_pia_credentials_or_zips(self):
+        self.assertEqual(gui.validate_generation(options(
+            provider="warp", openvpn=True, wireguard=False, username="", password="")), [])
+
+    def test_no_unsupported_surfshark_wireguard(self):
+        self.assertIn("至少選擇", "".join(gui.validate_generation(options(
+            provider="surfshark", openvpn=False, wireguard=True))))
+
+    def test_pia_wireguard_requires_credentials(self):
+        self.assertIn("帳號", "".join(gui.validate_generation(options(
+            username="", password=""))))
+
+    def test_missing_openvpn_bundles_rejected(self):
+        errors = gui.validate_generation(options(openvpn=True, username="u"))
+        self.assertGreaterEqual(sum("ZIP" in error for error in errors), 2)
+
+    def test_unknown_provider_rejected(self):
+        self.assertTrue(gui.validate_generation(options(provider="invalid")))
+
+
+class ProviderDispatchTests(unittest.TestCase):
+    def test_pia_openvpn_and_wireguard_order_and_parameters(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_ov = SimpleNamespace(generate_openvpn=mock.Mock())
+            fake_wg = SimpleNamespace(generate_wireguard=mock.Mock())
+            calls = []
+            def load(name, module):
+                calls.append(name)
+                return fake_ov if "openvpn" in name else fake_wg
+            with mock.patch.object(gui.core, "load_sibling", side_effect=load):
+                gui.generate_provider(options(
+                    out_dir=tmp, openvpn=True, wireguard=True,
+                    udp_zip="udp.zip", tcp_zip="tcp.zip", single_file=True,
+                    exclude_streaming=False))
+            self.assertEqual(calls, ["pia-openvpn-generator.py", "pia-wireguard-generator.py"])
+            self.assertEqual(fake_ov.generate_openvpn.call_args.kwargs["tcp_zip"], Path("tcp.zip"))
+            self.assertFalse(fake_wg.generate_wireguard.call_args.kwargs["exclude_streaming"])
+
+    def test_surfshark_uses_own_filter_and_zip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = SimpleNamespace(generate_openvpn=mock.Mock())
+            with mock.patch.object(gui.core, "load_sibling", return_value=fake) as loader:
+                gui.generate_provider(options(
+                    provider="surfshark", out_dir=tmp, openvpn=True, wireguard=False,
+                    udp_zip="surfshark.zip", exclude_streaming=False))
+            loader.assert_called_once_with("surfshark-openvpn-generator.py",
+                                           "surfshark_openvpn_generator_gui")
+            self.assertEqual(fake.generate_openvpn.call_args.kwargs["bundle_zip"],
+                             Path("surfshark.zip"))
+            self.assertFalse(fake.generate_openvpn.call_args.kwargs["exclude_streaming"])
+
+    def test_warp_generates_existing_provider_filename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = SimpleNamespace(generate_warp=mock.Mock(
+                return_value=Path(tmp) / "providers" / "warp.yaml"))
+            with mock.patch.object(gui.core, "load_sibling", return_value=fake):
+                gui.generate_provider(options(provider="warp", out_dir=tmp,
+                                              openvpn=False, wireguard=True))
+            fake.generate_warp.assert_called_once_with(out_dir=Path(tmp))
+
+    def test_surfshark_wireguard_still_unsupported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(RuntimeError, "尚未實作"):
+                gui.generate_provider(options(provider="surfshark", out_dir=tmp,
+                                              openvpn=False, wireguard=True))
+
+
+class ScheduledWarpTests(unittest.TestCase):
+    def test_task_name_and_invocation_remain_stable(self):
+        self.assertEqual(gui.TASK_NAME, "Clash WARP Refresh")
+        self.assertIn("'--warp --out-dir \"' + $outDir + '\"'", gui.warp_schedule._SCRIPT)
+        self.assertIn("RegisterTaskDefinition($name, $definition, 6", gui.warp_schedule._SCRIPT)
+        self.assertEqual(gui.warp_schedule.MODES, {"monthly", "daily", "interval"})
+
+    def test_headless_warp_same_cli_and_log(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            fake = SimpleNamespace(generate_warp=mock.Mock(
+                return_value=out_dir / "providers" / "warp.yaml"))
+            with mock.patch.object(gui.core, "load_sibling", return_value=fake):
+                code = gui.run_warp_cli(["--warp", "--out-dir", str(out_dir)])
+            self.assertEqual(code, 0)
+            fake.generate_warp.assert_called_once_with(out_dir=out_dir, timeout=15.0)
+            self.assertIn("[OK]", (out_dir / "logs" / "warp-generator.log").read_text(encoding="utf-8"))
+
+    def test_headless_warp_returns_error_when_upstream_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = SimpleNamespace(generate_warp=mock.Mock(side_effect=RuntimeError("network")))
+            with mock.patch.object(gui.core, "load_sibling", return_value=fake):
+                self.assertEqual(gui.run_warp_cli(["--warp", "--out-dir", tmp]), 1)
+            self.assertIn("network", (Path(tmp) / "logs" / "warp-generator.log").read_text(encoding="utf-8"))
+
+    def test_main_handles_cli_before_gui(self):
+        with mock.patch.object(gui.sys, "argv", ["VPN-Mihomo-Generator.exe", "--warp",
+                                               "--out-dir", r"P:\Clash"]):
+            with mock.patch.object(gui, "run_warp_cli", return_value=0) as cli:
+                with mock.patch.object(gui, "MainWindow", side_effect=AssertionError("GUI started")):
+                    self.assertEqual(gui.main(), 0)
+        cli.assert_called_once_with(["--warp", "--out-dir", r"P:\Clash"])
+
+    def test_safe_paths_elevation_cli_remains(self):
+        with mock.patch.object(gui.sys, "argv",
+                               ["VPN-Mihomo-Generator.exe", "--safe-paths-append", r"P:\Clash\providers"]):
+            with mock.patch.object(gui.safe_paths, "append_machine_safe_path") as append:
+                self.assertEqual(gui.main(), 0)
+            append.assert_called_once_with(r"P:\Clash\providers")
+
+
+@unittest.skipUnless(sys.platform == "win32", "Tk GUI smoke checks run on Windows")
+class WindowsGuiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.app = QApplication.instance() or QApplication([])
+        cls.temp = tempfile.TemporaryDirectory()
+        cls.patch = mock.patch.object(gui, "settings_path", return_value=Path(cls.temp.name) / "gui.json")
+        cls.patch.start()
+        cls.window = gui.MainWindow()
+        cls.window.withdraw()
+        cls.window.update_idletasks()
 
-    def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
-        self.settings = QSettings(
-            str(Path(self.directory.name) / "settings.ini"), QSettings.IniFormat
-        )
-        self.settings.setFallbacksEnabled(False)
-        self.patch = mock.patch.object(gui, "QSettings", return_value=self.settings)
-        self.patch.start()
-        self.window = gui.MainWindow()
+    @classmethod
+    def tearDownClass(cls):
+        cls.window._closing = True
+        cls.window.destroy()
+        cls.patch.stop()
+        cls.temp.cleanup()
 
-    def tearDown(self):
-        self.window.close()
-        self.patch.stop()
-        self.settings.sync()
-        self.directory.cleanup()
+    def test_three_tabs_and_function_buttons_exist(self):
+        self.assertEqual(len(self.window.tabs.tabs()), 3)
+        self.assertTrue(self.window.uwp_backup.winfo_exists())
+        self.assertTrue(self.window.trust_button.winfo_exists())
+        self.assertTrue(self.window.warp_button.winfo_exists())
 
-    def test_credentials_restore_only_for_their_provider(self):
-        window = self.window
-        window.username_edit.setText("pia-user")
-        window.password_edit.setText("pia-password")
-        window.surfshark_radio.setChecked(True)
-        self.assertEqual(window.username_edit.text(), "")
-        self.assertEqual(window.password_edit.text(), "")
-        window.username_edit.setText("ss-user")
-        window.password_edit.setText("ss-password")
-        for _ in range(2):
-            window.pia_radio.setChecked(True)
-            self.assertEqual(window.username_edit.text(), "pia-user")
-            self.assertEqual(window.password_edit.text(), "pia-password")
-            window.surfshark_radio.setChecked(True)
-            self.assertEqual(window.username_edit.text(), "ss-user")
-            self.assertEqual(window.password_edit.text(), "ss-password")
-        window.save_settings()
-        self.assertFalse(any(
-            "username" in key or "password" in key
-            for key in self.settings.allKeys()
-        ))
-        window.close()
-        self.window = gui.MainWindow()
-        self.assertEqual(self.window.selected_provider(), "surfshark")
-        self.assertEqual(self.window.username_edit.text(), "")
-        self.assertEqual(self.window.password_edit.text(), "")
-        self.window.pia_radio.setChecked(True)
-        self.assertEqual(self.window.username_edit.text(), "")
-        self.assertEqual(self.window.password_edit.text(), "")
+    def test_provider_session_credentials_remain_separate(self):
+        self.window.provider.set("pia")
+        self.window.username.set("pia-user")
+        self.window.password.set("secret")
+        self.window.provider.set("warp")
+        self.window.provider.set("pia")
+        self.assertEqual(self.window.username.get(), "pia-user")
+        self.assertEqual(self.window.password.get(), "secret")
+        self.window._save()
+        self.assertNotIn("secret", Path(self.temp.name, "gui.json").read_text(encoding="utf-8"))
 
-    def test_streaming_preferences_are_independent_and_persist(self):
-        window = self.window
-        window.exclude_streaming.setChecked(False)
-        window.surfshark_radio.setChecked(True)
-        self.assertFalse(window.exclude_streaming.isHidden())
-        self.assertTrue(window.exclude_streaming.isChecked())
-        self.assertEqual(window.credentials_label.text(), "Surfshark 帳號 / 密碼")
-        self.assertEqual(window.udp_label.text(), "OpenVPN ZIP")
-        window.pia_radio.setChecked(True)
-        self.assertFalse(window.exclude_streaming.isChecked())
-        window.surfshark_radio.setChecked(True)
-        self.assertTrue(window.exclude_streaming.isChecked())
-        window.close()
-        self.window = gui.MainWindow()
-        self.assertEqual(self.window.selected_provider(), "surfshark")
-        self.assertTrue(self.window.exclude_streaming.isChecked())
-        self.window.pia_radio.setChecked(True)
-        self.assertFalse(self.window.exclude_streaming.isChecked())
+    def test_warp_forces_wireguard_and_disables_openvpn(self):
+        self.window.provider.set("warp")
+        self.assertFalse(self.window.openvpn.get())
+        self.assertTrue(self.window.wireguard.get())
+        self.assertEqual(str(self.window.ov_check.cget("state")), "disabled")
 
-    def test_all_providers_share_left_aligned_label_and_field_columns(self):
-        window = self.window
-        window.show()
-        QApplication.processEvents()
+    def test_doh_panel_is_provider_independent(self):
+        self.window.provider.set("surfshark")
+        self.assertTrue(self.window.doh_endpoint.get())
+        self.window.provider.set("warp")
+        self.assertTrue(self.window.doh_endpoint.get())
 
-        def field_x_positions():
-            origin = QPoint(0, 0)
-            return (
-                window.out_edit.mapTo(window, origin).x(),
-                window.safe_paths_checkbox.mapTo(window, origin).x(),
-                window.pia_radio.mapTo(window, origin).x(),
-            )
-
-        initial = field_x_positions()
-        self.assertEqual(len(set(initial)), 1)
-        self.assertTrue(window._provider_form_labels)
-        for label in window._provider_form_labels:
-            self.assertTrue(label.alignment() & Qt.AlignmentFlag.AlignLeft)
-        self.assertEqual(
-            len({label.width() for label in window._provider_form_labels}), 1
-        )
-
-        for provider_button in (
-            window.surfshark_radio,
-            window.warp_radio,
-            window.pia_radio,
-        ):
-            provider_button.setChecked(True)
-            QApplication.processEvents()
-            self.assertEqual(
-                field_x_positions(), initial,
-                f"field position shifted for {window.selected_provider()}"
-            )
-            self.assertTrue(window.safe_paths_checkbox.isVisible())
-
-        window.warp_radio.setChecked(True)
-        QApplication.processEvents()
-        self.assertTrue(window.mode_label.isHidden())
-        self.assertTrue(window.mode_row.isHidden())
-        self.assertEqual(window.selected_provider(), "warp")
-        window.surfshark_radio.setChecked(True)
-        QApplication.processEvents()
-        self.assertTrue(window.mode_label.isVisible())
-        self.assertEqual(window.exclude_streaming.text(), "排除 Streaming Optimized")
-
-    def test_doh_tab_controls_stay_aligned_on_hostname_changes(self):
-        window = self.window
-        window.show()
-        window.tabs.setCurrentWidget(window.doh_panel)
-        QApplication.processEvents()
-        panel = window.doh_panel
-        scroll = panel.layout().itemAt(0).widget()
-        self.assertIsInstance(scroll, QScrollArea)
-        self.assertTrue(scroll.widgetResizable())
-        self.assertEqual(scroll.horizontalScrollBarPolicy(), Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        before_output = panel.output.mapTo(window, QPoint(0, 0))
-        before_snippet = panel.snippet.mapTo(window, QPoint(0, 0))
-        panel.host_input.setText("a-very-long-but-valid-localhost-doh-endpoint.test")
-        QApplication.processEvents()
-        self.assertEqual(panel.output.mapTo(window, QPoint(0, 0)), before_output)
-        self.assertEqual(panel.snippet.mapTo(window, QPoint(0, 0)), before_snippet)
-        self.assertEqual(panel.endpoint_input.text(),
-                         "https://a-very-long-but-valid-localhost-doh-endpoint.test:9443/dns-query")
-        self.assertEqual(panel.hosts_input.text(),
-                         "'a-very-long-but-valid-localhost-doh-endpoint.test': 127.0.0.1")
-
-    def test_uwp_firewall_tab_uses_explicit_file_selection_and_confirmation(self):
-        panel = self.window.uwp_panel
-        self.assertIsNotNone(panel.backup_button)
-        self.assertIsNotNone(panel.restore_button)
-        backup = Path(self.directory.name) / "backup.json"
-        with mock.patch.object(gui.QFileDialog, "getSaveFileName", return_value=(str(backup), "")):
-            with mock.patch.object(panel, "_execute") as execute:
-                panel.backup()
-                execute.assert_called_once_with("backup", backup)
-
-        restore = Path(self.directory.name) / "backup.json"
-        with mock.patch.object(gui.QFileDialog, "getOpenFileName", return_value=(str(restore), "")):
-            with mock.patch.object(gui.uwp_firewall, "inspect_backup",
-                                   return_value={"total": 4, "allow": 3, "block": 1}):
-                with mock.patch.object(gui.QMessageBox, "question", return_value=gui.QMessageBox.No):
-                    with mock.patch.object(panel, "_execute") as execute:
-                        panel.restore()
-                        execute.assert_not_called()
-                with mock.patch.object(gui.QMessageBox, "question", return_value=gui.QMessageBox.Yes):
-                    with mock.patch.object(panel, "_execute") as execute:
-                        panel.restore()
-                        execute.assert_called_once_with("restore", restore)
-
-    def test_worker_passes_surfsharks_own_filter(self):
-        for exclude in (True, False):
-            with self.subTest(exclude=exclude):
-                generator = mock.Mock()
-                worker = gui.GenerateWorker(
-                    provider="surfshark", generate_openvpn=True,
-                    generate_wireguard=False, udp_zip=Path("mock.zip"), tcp_zip=None,
-                    username="ss-user", password="ss-password",
-                    out_dir=Path(self.directory.name), single_file=True,
-                    exclude_streaming=exclude,
-                )
-                completed = []
-                worker.completed.connect(lambda ok, detail: completed.append(ok))
-                with mock.patch.object(core, "load_sibling", return_value=generator):
-                    worker.run()
-                self.assertEqual(completed, [True])
-                generator.generate_openvpn.assert_called_once_with(
-                    bundle_zip=Path("mock.zip"), username="ss-user", password="ss-password",
-                    out_dir=Path(self.directory.name), single_file=True,
-                    exclude_streaming=exclude,
-                )
-
-    def test_safe_paths_checkbox_is_opt_in_and_only_writes_after_success(self):
-        window = self.window
-        self.assertFalse(window.safe_paths_checkbox.isChecked())
-        window.out_edit.setText(r"P:\Clash")
-
-        with mock.patch.object(window, "validate_inputs", return_value=[]):
-            with mock.patch.object(gui, "GenerateWorker") as worker:
-                with mock.patch.object(gui.safe_paths, "ensure_machine_safe_path", return_value=True) as ensure:
-                    with mock.patch.object(gui.QMessageBox, "information") as info:
-                        window.start_generation()
-                        worker.return_value.start.assert_called_once_with()
-                        self.assertIsNone(window._pending_safe_paths)
-                        window.generation_finished(True, "done")
-                        ensure.assert_not_called()
-
-                        window.safe_paths_checkbox.setChecked(True)
-                        window.start_generation()
-                        self.assertFalse(window.safe_paths_checkbox.isEnabled())
-                        self.assertEqual(window._pending_safe_paths, r"P:\Clash\providers")
-                        window.generation_finished(True, "done")
-                        ensure.assert_called_once_with(r"P:\Clash\providers")
-                        self.assertFalse(window.safe_paths_checkbox.isChecked())
-                        self.assertTrue(window.safe_paths_checkbox.isEnabled())
-                        self.assertIn("SAFE_PATHS 已加入", info.call_args.args[2])
-
-    def test_safe_paths_opt_in_applies_to_warp_provider_too(self):
-        window = self.window
-        window.warp_radio.setChecked(True)
-        window.out_edit.setText(r"P:\Clash")
-        window.safe_paths_checkbox.setChecked(True)
-        self.assertEqual(window.selected_provider(), "warp")
-        with mock.patch.object(window, "validate_inputs", return_value=[]):
-            with mock.patch.object(gui, "GenerateWorker") as worker:
-                with mock.patch.object(gui.safe_paths, "ensure_machine_safe_path", return_value=False) as ensure:
-                    with mock.patch.object(gui.QMessageBox, "information"):
-                        window.start_generation()
-                        self.assertEqual(window._pending_safe_paths, r"P:\Clash\providers")
-                        self.assertEqual(worker.call_args.kwargs["provider"], "warp")
-                        window.generation_finished(True, "warp output")
-                        ensure.assert_called_once_with(r"P:\Clash\providers")
-        self.assertFalse(window.safe_paths_checkbox.isChecked())
-
-    def test_safe_paths_not_modified_when_generation_fails(self):
-        window = self.window
-        window.out_edit.setText(r"P:\Clash")
-        window.safe_paths_checkbox.setChecked(True)
-        with mock.patch.object(window, "validate_inputs", return_value=[]):
-            with mock.patch.object(gui, "GenerateWorker"):
-                with mock.patch.object(gui.safe_paths, "ensure_machine_safe_path") as ensure:
-                    with mock.patch.object(gui.QMessageBox, "critical"):
-                        window.start_generation()
-                        window.generation_finished(False, "provider error")
-                    ensure.assert_not_called()
-        self.assertFalse(window.safe_paths_checkbox.isChecked())
-
-    def test_warp_provider_state_and_worker(self):
-        window = self.window
-        window.warp_radio.setChecked(True)
-        self.assertEqual(window.selected_provider(), "warp")
-        self.assertFalse(window.openvpn_checkbox.isEnabled())
-        self.assertFalse(window.openvpn_checkbox.isChecked())
-        self.assertFalse(window.wireguard_checkbox.isEnabled())
-        self.assertTrue(window.wireguard_checkbox.isChecked())
-        self.assertTrue(window.udp_row.isHidden())
-        self.assertTrue(window.tcp_row.isHidden())
-        self.assertTrue(window.credentials_row.isHidden())
-        self.assertTrue(window.exclude_streaming.isHidden())
-        self.assertEqual(window.validate_inputs(), ["請選擇輸出目錄。"])
-
-        generator = mock.Mock()
-        generator.generate_warp.return_value = Path(self.directory.name) / "providers" / "warp.yaml"
-        worker = gui.GenerateWorker(
-            provider="warp", generate_openvpn=False,
-            generate_wireguard=True, udp_zip=None, tcp_zip=None,
-            username="", password="",
-            out_dir=Path(self.directory.name), single_file=False,
-            exclude_streaming=True,
-        )
-        completed = []
-        worker.completed.connect(lambda ok, detail: completed.append(ok))
-        with mock.patch.object(core, "load_sibling", return_value=generator):
-            worker.run()
-        self.assertEqual(completed, [True])
-        generator.generate_warp.assert_called_once_with(out_dir=Path(self.directory.name))
-
-
-    def test_doh_tab_is_global_and_independent_of_selected_provider(self):
-        window = self.window
-        self.assertEqual(window.tabs.count(), 3)
-        self.assertEqual(window.tabs.tabText(2), "Windows 防火牆")
-        self.assertEqual(window.tabs.tabText(0), "VPN Provider")
-        self.assertEqual(window.tabs.tabText(1), "Mihomo DNS / TLS")
-        panel = window.doh_panel
-        self.assertFalse(panel.trust_button.isEnabled())
-        self.assertEqual(panel.output.text(), panel._default_cert_root())
-        self.assertEqual(panel.host_input.text(), "127.0.0.1")
-
-        panel.output.setText(self.directory.name)
-        panel.host_input.setText("dns.mihomo.test")
-        with mock.patch.object(gui.mihomo_doh, "generate_certificates") as generate:
-            window.surfshark_radio.setChecked(True)
-            window.out_edit.setText(str(Path(self.directory.name) / "surfshark"))
-            window.warp_radio.setChecked(True)
-            window.pia_radio.setChecked(True)
-            self.assertEqual(panel.output.text(), self.directory.name)
-            generate.assert_not_called()
-
-        files = gui.mihomo_doh.CertificateFiles(
-            Path(self.directory.name) / "certs" / "root-ca.crt",
-            Path(self.directory.name) / "certs" / "mihomo-localhost.crt",
-            Path(self.directory.name) / "certs" / "mihomo-localhost.key",
-            True,
-        )
-        with mock.patch.object(gui.mihomo_doh, "generate_certificates", return_value=files) as generate:
-            window.tabs.setCurrentWidget(panel)
-            panel.generate()
-        generate.assert_called_once_with(Path(self.directory.name), "dns.mihomo.test")
-        self.assertTrue(panel.trust_button.isEnabled())
-        self.assertIn("external-doh-server: /dns-query", panel.snippet.toPlainText())
-        self.assertEqual(self.settings.value("doh/cert_root"), self.directory.name)
-        self.assertEqual(self.settings.value("doh/host"), "dns.mihomo.test")
-        self.assertEqual(window.tabs.currentWidget(), panel)
-
-        panel.host_input.setText("127.0.0.1")
-        self.assertFalse(panel.copy_button.isEnabled())
-        self.assertFalse(panel.trust_button.isEnabled())
-        self.assertEqual(panel.hosts_input.text(), "")
-
-
+    def test_schedule_dialog_uses_same_task_and_updates(self):
+        dlg = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
+        dlg.mode.set("interval")
+        dlg.interval.set("7")
+        dlg.clock.set("03:20")
+        with mock.patch.object(gui.warp_schedule, "configure_schedule", return_value="Installed") as run:
+            with mock.patch.object(gui.messagebox, "showinfo"):
+                dlg.install()
+        run.assert_called_once_with(action="install", out_dir=Path(r"P:\Clash"),
+                                    mode="interval", interval_days=7, time="03:20")
+        dlg.destroy()
 
 
 if __name__ == "__main__":
