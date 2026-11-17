@@ -137,11 +137,12 @@ def _installed_package_ids() -> tuple[dict[str, str], set[str]]:
     package family from a machine/user SID or by splitting package names.
     """
     require_windows()
-    elevated = bool(ctypes.windll.shell32.IsUserAnAdmin())
-    scope = "-AllUsers " if elevated else ""
+    # Scope to the *current account*, not -AllUsers. Under an alternate
+    # administrator's UAC account, an absent app must be skipped instead of
+    # accidentally applying an exemption on behalf of another Windows user.
     script = (
         "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); "
-        f"@(Get-AppxPackage {scope}-ErrorAction Stop | "
+        "@(Get-AppxPackage -ErrorAction Stop | "
         "Select-Object PackageFullName,PackageFamilyName) | ConvertTo-Json -Compress"
     )
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
