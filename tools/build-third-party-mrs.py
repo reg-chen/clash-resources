@@ -10,7 +10,7 @@ import urllib.request
 
 from mrs_overlap import parse_domain_keys, write_report
 from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, build_merged_mrs
-from mrs_provenance import pin_source_url
+from mrs_provenance import pin_source_url, save_source_snapshot, verify_source_snapshots, commit_page
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
@@ -40,18 +40,24 @@ for item in SOURCES:
     if not raw or len(raw) < 10:
         raise RuntimeError(f"Empty or suspicious source: {item['name']}")
     digest = hashlib.sha256(raw).hexdigest()
+    archived = save_source_snapshot(ROOT, item["name"], item["format"], raw)
+    archive_rel = archived.relative_to(ROOT).as_posix()
     record = {
         "name": item["name"], "target": item["target"], "format": item["format"],
         "source_url": url, "source_commit_sha": commit_sha,
         "pinned_source_url": pinned_url,
         "source_sha256": digest, "source_size_bytes": len(raw),
+        "source_snapshot_path": archive_rel,
+        "source_commit_url": commit_page(url, commit_sha),
     }
     old_record = previous_inputs.get(item["name"], {})
     # Avoid a new provenance commit when a branch advances but its file bytes
     # have not changed. The older immutable URL still points at those bytes.
     if (all(old_record.get(k) == record[k] for k in
             ("name", "target", "format", "source_url", "source_sha256", "source_size_bytes"))
-            and old_record.get("pinned_source_url") and old_record.get("source_commit_sha")):
+            and old_record.get("pinned_source_url") and old_record.get("source_commit_sha")
+            and old_record.get("source_snapshot_path") == archive_rel
+            and old_record.get("source_commit_url")):
         record = old_record
     provenance_inputs.append(record)
     # Stats come from the same downloaded source bytes used for this MRS build.
@@ -105,7 +111,6 @@ for item in SOURCES:
         print(f"UNCHANGED {item['name']}")
         continue
     target.parent.mkdir(parents=True, exist_ok=True)
-    source = target.with_suffix(".source.tmp")
     temp = target.with_suffix(".mrs.tmp")
     try:
         if item["format"] == "mrs":
@@ -114,8 +119,8 @@ for item in SOURCES:
                 raise RuntimeError(f"Invalid upstream MRS response: {item['name']}")
             temp.write_bytes(raw)
         else:
-            source.write_bytes(raw)
-            subprocess.run(["./mihomo", "convert-ruleset", "domain", item["format"], str(source), str(temp)], check=True)
+            # Read the exact archived bytes, not an independently re-fetched URL.
+            subprocess.run(["./mihomo", "convert-ruleset", "domain", item["format"], str(archived), str(temp)], check=True)
         if not temp.is_file() or temp.stat().st_size < 8:
             raise RuntimeError(f"No MRS output: {item['name']}")
         os.replace(temp, target)
@@ -123,7 +128,6 @@ for item in SOURCES:
         new[item["name"]] = digest
         print(f"BUILT {item['name']} {target} {target.stat().st_size} bytes")
     finally:
-        source.unlink(missing_ok=True)
         temp.unlink(missing_ok=True)
 
 # Merge repository-owned custom domains with their own category. Keep
@@ -163,8 +167,19 @@ try:
 except Exception as exc:
     print(f"WARNING: overlap report failed: {exc}", file=sys.stderr)
 
+# All saved inputs must match the *actual* bytes used by the converter.
+verify_source_snapshots(ROOT, provenance_inputs)
+# Clean up only previous snapshots listed in the old manifest that are no
+# longer current. Never touch arbitrary files outside this managed directory.
+active_archives = {entry["source_snapshot_path"] for entry in provenance_inputs}
+for old_entry in previous_inputs.values():
+    old_path = old_entry.get("source_snapshot_path")
+    if (isinstance(old_path, str) and old_path not in active_archives
+            and old_path.startswith("sources/mrs/")
+            and pathlib.PurePosixPath(old_path).parent == pathlib.PurePosixPath("sources/mrs")):
+        (ROOT / old_path).unlink(missing_ok=True)
 STATE.write_text(json.dumps(new, indent=2, sort_keys=True) + "\n")
-# Commit this manifest atomically with compiled MRS, not in a follow-up commit.
+# Commit the current source files, manifest and compiled MRS atomically.
 paths = sorted({*(s["target"] for s in SOURCES),
                 *(str(output.relative_to(ROOT)) for output in outputs)})
 provenance_outputs = [

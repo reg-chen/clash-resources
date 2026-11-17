@@ -50,9 +50,11 @@
 
 **修改聲明：** 本專案使用腳本自動下載、擷取網域、過濾不能轉換的格式、分類／去重／合併並以 Mihomo 編譯為 `.mrs`，屬於對原始規則的格式轉換及編輯（2026 年起持續更新）。原始來源清單見 [third-party-mrs-sources.json](../tools/third-party-mrs-sources.json)，建置程序見 [MRS workflow](../.github/workflows/update-third-party-mrs.yml)、[build script](../tools/build-third-party-mrs.py)、[merge script](../tools/mrs_merge.py)。
 
-**來源追溯機制：** MRS 建置先解析各上游 GitHub commit，再下載該 commit 對應的固定 Raw URL。每次更新時，Action 將 [來源追溯清單](../tools/third-party-mrs-provenance.json) **與 MRS 產物放進同一個 commit**；清單包含原始 URL、固定版本 URL、上游 commit SHA、原始檔 SHA-256／位元組數與產物 SHA-256。未變更的來源會保留原本驗證過的固定版本，避免每小時無謂提交。
+**來源追溯機制：** MRS 建置先解析上游 GitHub commit，再從該 commit 對應的固定 Raw URL 下載原始輸入。Action 將 [來源追溯清單](../tools/third-party-mrs-provenance.json) **與當前原始來源及 MRS 產物放進同一個 commit**；清單包含原始 URL、固定版本 URL、上游 Commit 頁面、Commit SHA、當前來源檔路徑與 SHA-256、對應產物 SHA-256。來源內容未變時不重寫舊檔案，避免每小時無謂提交。
 
-**GPL 對應來源的剩餘風險：** 固定 URL 和 SHA-256 能追溯版本，卻不能保證第三方 GitHub 儲存庫永久可取用。若適用 GPL-3.0 的「對應來源」交付義務，**僅有雜湊及連結未必充分**；仍應評估保存原始輸入快照或其他可持續提供相同來源的方式。
+**目前版本的原始來源：** 每次下載的 17 份第三方輸入檔會以**原始位元組**保存於 [sources/mrs/](../sources/mrs/)，並由相同輸入檔轉換為 MRS。Action 驗證檔案雜湊後，將來源檔、來源 commit 連結、追溯清單與編譯產物在**同一個 Git Commit** 發布。檔案以固定名稱覆蓋更新，不另建 Release、Tag 或逐次歷史封存。Git 歷史可能包含舊版，但不是額外維護的來源封存服務；倘若將來重建儲存庫，應先確認仍對外提供的舊版產物是否具有相應來源。
+
+**授權邊界：** 保存本次下載輸入，有助於滿足可驗證的來源交付；但仍須依第三方作品實際 GPL 適用情況，確認「對應來源」是否還包含其他上游建置腳本、修改資訊或必要元件。
 
 ## Tools, build dependencies and downloaded inputs
 

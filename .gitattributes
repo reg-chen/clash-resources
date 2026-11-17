@@ -1,0 +1,2 @@
+# Preserve byte-for-byte upstream MRS source inputs; never CRLF-convert.
+sources/mrs/** -text
