@@ -15,17 +15,9 @@
 
 ## MRS Action 觸發規則
 
-`.github/workflows/update-third-party-mrs.yml` 僅在 `main` 的 MRS 來源／建置／相關測試檔變更時由 push 觸發；另保留每小時 UTC 第 32 分的排程、Owner-only `workflow_dispatch`，以及 **Owner-only 的 `mrs-refresh-*` Tag push** 作為不修改檔案的強制補跑入口。一般 EXE 或 README 修改不會啟動 MRS Action；先前的 `build: refresh mrs` 空 commit 已不再有效。
+`.github/workflows/update-third-party-mrs.yml` 僅在 `main` 的 MRS 來源／建置／相關測試檔變更時由 push 觸發；另保留每小時 UTC 第 32 分的排程與 **Owner-only `workflow_dispatch`**。一般 EXE 或 README 修改不會啟動 MRS Action。先前的 `build: refresh mrs` 空 commit 及 `mrs-refresh-*` Tag 觸發均已停用。
 
-需要手動強制重建時，使用**唯一、不可重用**的時間戳記 Tag，指向最新的 `origin/main`（例如 `mrs-refresh-20261117-125200`）：
-
-```bash
-git fetch origin main
-git tag mrs-refresh-20261117-125200 origin/main
-git push origin refs/tags/mrs-refresh-20261117-125200
-```
-
-每次補跑請換用當下真實時間形成的新 Tag；勿覆蓋舊 Tag、勿將空 commit 推入 `main`。請只推送指定的單一 Tag（`refs/tags/名稱`），不要用 `git push --tags` 將其他既存 Tag 一起推送，以免重複觸發。Tag 推送者若非 Repo Owner，workflow 的建置 job 會跳過。
+需要自行補跑時，前往 [Update third-party MRS Actions](https://github.com/reg-chen/clash-resources/actions/workflows/update-third-party-mrs.yml)，選擇 **Run workflow**，指定 `main` 後執行；GPT 排程僅檢查 cron 健康狀態並提醒，不會代為觸發或修改儲存庫。
 
 **僅使用本儲存庫的程式碼，與重新散布第三方規則、圖示或包含第三方函式庫的執行檔，授權義務並不相同。**
 
