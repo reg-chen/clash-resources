@@ -157,46 +157,87 @@ def colorref(value: str) -> int:
 
 
 def set_dark_titlebar(window: tk.Misc, colors) -> bool:
-    """Darken the *native Windows frame*, not just ttk widgets.
-
-    Tk's winfo_id() is its inner HWND. GetParent resolves the top-level
-    decorated window that owns the DWM non-client/title-bar region.
-    Other platforms and unsupported Windows builds keep their native frame.
-    """
+    """Apply and verify DWM colors on Tk's decorated outer Win32 window."""
     if sys.platform != "win32":
         return False
     try:
         import ctypes
         from ctypes import wintypes
 
+        window.update_idletasks()
         user32 = ctypes.WinDLL("user32", use_last_error=True)
         dwmapi = ctypes.WinDLL("dwmapi", use_last_error=True)
         user32.GetParent.argtypes = [wintypes.HWND]
         user32.GetParent.restype = wintypes.HWND
-        handle = window.winfo_id()
-        hwnd = user32.GetParent(handle) or handle
+        user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+        user32.GetWindowLongW.restype = ctypes.c_long
+        user32.SetWindowPos.argtypes = [
+            wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+            ctypes.c_int, ctypes.c_int, wintypes.UINT,
+        ]
+        user32.SetWindowPos.restype = wintypes.BOOL
         dwmapi.DwmSetWindowAttribute.argtypes = [
             wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
         ]
         dwmapi.DwmSetWindowAttribute.restype = ctypes.c_long
+        dwmapi.DwmGetWindowAttribute.argtypes = [
+            wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+        ]
+        dwmapi.DwmGetWindowAttribute.restype = ctypes.c_long
 
-        def set_attribute(attribute: int, value: int) -> bool:
-            data = ctypes.c_uint32(value)
-            return dwmapi.DwmSetWindowAttribute(
-                hwnd, attribute, ctypes.byref(data), ctypes.sizeof(data)
-            ) == 0
+        # Python/Tk exposes the native top-level frame directly.  The earlier
+        # implementation used GetParent(winfo_id) before the frame was mapped.
+        frame = str(window.wm_frame()).strip()
+        outer = int(frame, 16) if frame.lower().startswith("0x") else int(frame) if frame else 0
+        child = window.winfo_id()
+        candidates = (outer, user32.GetParent(child))
+        target = colorref(colors.bg)
+        for hwnd in dict.fromkeys(int(v) for v in candidates if v):
+            # WS_CAPTION identifies the window that actually draws the titlebar.
+            if not (user32.GetWindowLongW(hwnd, -16) & 0x00C00000):
+                continue
 
-        # DWMWA_USE_IMMERSIVE_DARK_MODE (20), available on Windows 11.
-        success = set_attribute(20, 1)
-        # Explicit dark caption, border and text even if the OS app theme is light.
-        # Windows 11: DWMWA_CAPTION_COLOR=35, BORDER_COLOR=34, TEXT_COLOR=36.
-        set_attribute(35, colorref(colors.bg))
-        set_attribute(34, colorref(colors.border))
-        set_attribute(36, colorref(colors.fg))
-        return success
-    except (AttributeError, OSError, ValueError):
-        # A non-critical cosmetic feature must not prevent GUI launch.
+            def set_attr(attribute: int, value: int) -> bool:
+                data = ctypes.c_uint32(value)
+                return dwmapi.DwmSetWindowAttribute(
+                    hwnd, attribute, ctypes.byref(data), ctypes.sizeof(data)) == 0
+
+            if not set_attr(20, 1):
+                set_attr(19, 1)  # legacy immersive dark mode attribute
+            if not set_attr(35, target):
+                continue
+            set_attr(34, colorref(colors.border))
+            set_attr(36, colorref(colors.fg))
+            actual = ctypes.c_uint32()
+            verified = (
+                dwmapi.DwmGetWindowAttribute(
+                    hwnd, 35, ctypes.byref(actual), ctypes.sizeof(actual)) == 0
+                and actual.value == target
+            )
+            if verified:
+                # SWP_FRAMECHANGED | NOACTIVATE | NOZORDER | NOMOVE | NOSIZE
+                user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x0037)
+                return True
         return False
+    except (AttributeError, OSError, ValueError, tk.TclError):
+        return False
+
+
+def show_with_dark_titlebar(window: tk.Misc, colors) -> None:
+    """Force DWM to repaint after mapping a Tk top-level window."""
+    if sys.platform != "win32" or not window.winfo_exists():
+        return
+    window.update_idletasks()
+    if not window.winfo_ismapped():
+        window.deiconify()
+        window.update_idletasks()
+    if set_dark_titlebar(window, colors):
+        # Tk draws its original light frame on first map. Recomposition is
+        # necessary even if DwmSetWindowAttribute returned S_OK.
+        window.withdraw()
+        window.deiconify()
+        window.after(80, lambda: set_dark_titlebar(window, colors)
+                     if window.winfo_exists() else None)
 
 
 class DarkScrolledText(ttk.Frame):
@@ -346,7 +387,7 @@ class MainWindow(ttk.Window):
         super().__init__(themename="darkly")
         self.title("VPN / Mihomo Generator")
         self.configure(background=self.style.colors.bg)
-        self.after(0, lambda: set_dark_titlebar(self, self.style.colors))
+        self.after(100, lambda: show_with_dark_titlebar(self, self.style.colors))
         self.geometry("900x720")
         self.minsize(740, 580)
         self.config_data = load_settings()
