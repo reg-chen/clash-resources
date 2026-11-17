@@ -53,10 +53,11 @@ class ButtonContrastTests(unittest.TestCase):
         a, b = sorted((lightness(foreground), lightness(background)), reverse=True)
         return (a + .05) / (b + .05)
 
-    def test_action_styles_do_not_require_generated_bitmap_assets(self):
+    def test_no_generated_bitmap_assets(self):
         self.assertFalse(hasattr(gui, "render_button_surface"))
         self.assertFalse(hasattr(gui, "BUTTON_BORDERS"))
         self.assertFalse(hasattr(gui, "configure_rounded_buttons"))
+        self.assertTrue(issubclass(gui.DarkScrolledText, gui.ctk.CTkTextbox))
 
     def test_white_label_contrast_at_normal_and_hover_is_wcag_aa(self):
         for variant, (base, hover, pressed) in gui.BUTTON_PALETTE.items():
@@ -210,78 +211,67 @@ class WindowsGuiTests(unittest.TestCase):
         cls.patch.stop()
         cls.temp.cleanup()
 
-    def test_uses_current_ttkbootstrap_dark_theme(self):
-        self.assertEqual(self.window.style.theme_use(), "bootstrap-dark")
-        self.assertEqual(self.window.style.theme_mode, "dark")
+    def test_native_ctk_theme_and_controls(self):
+        self.assertIsInstance(self.window, gui.ctk.CTk)
+        self.assertEqual(gui.ctk.get_appearance_mode().lower(), "dark")
+        self.assertEqual(self.window.cget("fg_color"), gui.BG)
+        self.assertIsInstance(self.window.tabs, gui.ctk.CTkTabview)
+        self.assertEqual(set(self.window.tabs._tab_dict),
+                         {"VPN Provider", "Mihomo DNS / TLS", "Windows 防火牆"})
+        self.assertIsInstance(self.window.ov_check, gui.ctk.CTkCheckBox)
+        self.assertIsInstance(self.window.wg_check, gui.ctk.CTkCheckBox)
+        self.assertIsInstance(self.window.password_entry, gui.ctk.CTkEntry)
 
-    def test_native_text_panes_use_dark_palette_and_ttk_scrollbars(self):
-        colors = self.window.style.colors
+    def test_native_ctk_textbox_and_dark_scrollbar(self):
         for widget in (self.window.log, self.window.doh_yaml):
-            self.assertIsInstance(widget, gui.DarkScrolledText)
-            self.assertEqual(widget.text.cget("background").lower(), colors.inputbg.lower())
-            self.assertEqual(widget.text.cget("foreground").lower(), colors.inputfg.lower())
-            self.assertEqual(widget.text.cget("insertbackground").lower(), colors.inputfg.lower())
-            self.assertEqual(widget.scrollbar.winfo_class(), "TScrollbar")
-        self.assertEqual(self.window.cget("background").lower(), colors.bg.lower())
+            self.assertIsInstance(widget, gui.ctk.CTkTextbox)
+            self.assertEqual(widget.cget("fg_color"), gui.INPUT)
+            self.assertEqual(widget.cget("text_color"), gui.TEXT)
+            self.assertIsInstance(widget._y_scrollbar, gui.ctk.CTkScrollbar)
 
-    def test_buttons_are_compact_and_have_no_custom_bitmap_backplates(self):
-        style = self.window.style
+    def test_compact_buttons_genuinely_rounded_without_backplates(self):
         self.window.deiconify()
         try:
             self.window.update_idletasks()
             entry_height = self.window.password_entry.winfo_reqheight()
             for widget in (
-                self.window.run_button,
-                self.window.warp_button,
-                self.window.trust_button,
-                self.window.uwp_backup,
+                self.window.run_button, self.window.warp_button,
+                self.window.trust_button, self.window.uwp_backup,
                 self.window.uwp_restore,
             ):
                 with self.subTest(text=widget.cget("text")):
-                    self.assertLessEqual(
-                        widget.winfo_reqheight(), int(entry_height * 1.65),
-                        f"Button '{widget.cget('text')}' taller than a normal form control",
-                    )
-                    style_name = widget.cget("style")
-                    self.assertIn(style_name, gui.BUTTON_STYLES.values())
-                    # The former custom image element forced a 112x44 minimum
-                    # and left rectangular alpha backplates behind each button.
-                    self.assertNotIn(style_name + ".background", str(style.layout(style_name)))
-            self.assertLess(self.window.run_button.winfo_reqheight(), 45)
+                    self.assertIsInstance(widget, gui.ctk.CTkButton)
+                    self.assertEqual(widget.cget("height"), 30)
+                    self.assertEqual(widget.cget("corner_radius"), 7)
+                    self.assertEqual(widget.cget("bg_color"), "transparent")
+                    self.assertLessEqual(widget.winfo_reqheight(), int(entry_height * 1.5))
+                    self.assertLess(widget.cget("width"), 250)
+            self.assertLess(self.window.run_button.cget("width"), 100)
         finally:
             self.window.withdraw()
 
-    def test_native_button_state_colors_and_keyboard_behavior(self):
-        style = self.window.style
-        for variant, name in gui.BUTTON_STYLES.items():
-            with self.subTest(variant=variant):
-                self.assertTrue(style.layout(name))
-                self.assertEqual(style.lookup(name, "background"),
-                                 gui.BUTTON_PALETTE[variant][0])
-                self.assertEqual(
-                    style.lookup(name, "background", state=("active",)),
-                    gui.BUTTON_PALETTE[variant][1],
-                )
-                self.assertEqual(
-                    style.lookup(name, "background", state=("pressed",)),
-                    gui.BUTTON_PALETTE[variant][2],
-                )
-        self.assertEqual(self.window.run_button.cget("style"), gui.BUTTON_STYLES["primary"])
-        self.assertEqual(self.window.warp_button.cget("style"), gui.BUTTON_STYLES["secondary"])
-        self.assertEqual(self.window.trust_button.cget("style"), gui.BUTTON_STYLES["secondary"])
+    def test_muted_button_palettes_remain_consistent(self):
+        self.assertEqual(self.window.run_button.cget("fg_color"),
+                         gui.BUTTON_PALETTE["primary"][0])
+        self.assertEqual(self.window.run_button.cget("hover_color"),
+                         gui.BUTTON_PALETTE["primary"][1])
+        self.assertEqual(self.window.warp_button.cget("fg_color"),
+                         gui.BUTTON_PALETTE["secondary"][0])
+        self.assertEqual(self.window.trust_button.cget("fg_color"),
+                         gui.BUTTON_PALETTE["secondary"][0])
 
     def test_alert_body_titlebar_and_confirmation_are_dark(self):
         self.window.deiconify()
         self.window.update()
-        colors = self.window.style.colors
+        colors = gui.UI_COLORS
         try:
             # A closed / cancelled warning is not affirmative.
             dialog = gui.DarkAlertDialog(
                 self.window, title="排程確認", message="要移除現有排程嗎？",
                 kind="question", confirm=True)
-            self.assertEqual(dialog.cget("background").lower(), colors.bg.lower())
-            self.assertEqual(dialog.ok_button.cget("style"), gui.BUTTON_STYLES["primary"])
-            self.assertEqual(dialog.cancel_button.cget("style"), gui.BUTTON_STYLES["secondary"])
+            self.assertEqual(dialog.cget("fg_color").lower(), colors.bg.lower())
+            self.assertEqual(dialog.ok_button.cget("fg_color"), gui.BUTTON_PALETTE["primary"][0])
+            self.assertEqual(dialog.cancel_button.cget("fg_color"), gui.BUTTON_PALETTE["secondary"][0])
             self.assertTrue(gui.set_dark_titlebar(dialog, colors))
             self.assertTrue(dialog.grab_current() == dialog)
             dialog.after(20, lambda: dialog._finish(False))
@@ -297,7 +287,7 @@ class WindowsGuiTests(unittest.TestCase):
             self.window.withdraw()
 
     def test_three_tabs_and_function_buttons_exist(self):
-        self.assertEqual(len(self.window.tabs.tabs()), 3)
+        self.assertEqual(len(self.window.tabs._tab_dict), 3)
         self.assertTrue(self.window.uwp_backup.winfo_exists())
         self.assertTrue(self.window.trust_button.winfo_exists())
         self.assertTrue(self.window.warp_button.winfo_exists())
@@ -328,7 +318,7 @@ class WindowsGuiTests(unittest.TestCase):
     def test_schedule_shows_exact_original_two_frequency_choices(self):
         dlg = gui.WarpScheduleDialog(self.window, r"P:\Clash", {})
         try:
-            values = tuple(dlg.frequency_combo["values"])
+            values = tuple(dlg.frequency_combo.cget("values"))
             self.assertEqual(values, (
                 "每月 5、10、15、20、25、30 日（預設）",
                 "每 N 天",
@@ -357,9 +347,9 @@ class WindowsGuiTests(unittest.TestCase):
             outer = int(frame, 16) if frame.lower().startswith("0x") else int(frame)
             self.assertNotEqual(inner, outer, "Expected the decorated Tk wrapper HWND")
             self.assertTrue(
-                gui.set_dark_titlebar(self.window, self.window.style.colors),
+                gui.set_dark_titlebar(self.window, gui.UI_COLORS),
                 "DWM refused to set the color on Tk's outer HWND")
-            gui.show_with_dark_titlebar(self.window, self.window.style.colors)
+            gui.show_with_dark_titlebar(self.window, gui.UI_COLORS)
             self.window.update()
             self.assertTrue(self.window.winfo_ismapped())
 
@@ -382,8 +372,8 @@ class WindowsGuiTests(unittest.TestCase):
             try:
                 image = ImageGrab.grab(bbox=box).convert("RGB")
                 rgb = image.getpixel((image.width // 2, image.height // 2))
-                print(f"WINDOW_TITLEBAR_CAPTURE outer={outer:#x} rect={tuple((rect.left, rect.top, rect.right, rect.bottom))} center_rgb={rgb} expected={self.window.style.colors.bg}", flush=True)
-                expected = self.window.style.colors.bg.lstrip("#")
+                print(f"WINDOW_TITLEBAR_CAPTURE outer={outer:#x} rect={tuple((rect.left, rect.top, rect.right, rect.bottom))} center_rgb={rgb} expected={gui.UI_COLORS.bg}", flush=True)
+                expected = gui.UI_COLORS.bg.lstrip("#")
                 expected_rgb = tuple(int(expected[i:i+2], 16) for i in (0, 2, 4))
                 self.assertTrue(
                     all(abs(actual - desired) <= 24 for actual, desired in zip(rgb, expected_rgb)),
