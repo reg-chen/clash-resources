@@ -148,6 +148,8 @@ def current_process_matches_login_shell() -> bool:
     kernel.OpenProcess.restype = wintypes.HANDLE
     kernel.CloseHandle.argtypes = [wintypes.HANDLE]
     kernel.CloseHandle.restype = wintypes.BOOL
+    # Compare against this desktop's shell, not against an arbitrary admin
+    # process whose token might represent a different logged-in account.
     shell_window = user32.GetShellWindow()
     if not shell_window:
         raise RuntimeError("無法確認目前桌面登入帳號（找不到 Windows Shell）。")
