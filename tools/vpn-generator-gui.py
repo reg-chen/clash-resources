@@ -1142,7 +1142,7 @@ class MainWindow(ctk.CTk):
                     result = uwp_loopback.restore_selected(path, selected)
                 self.events.put(("uwp_finished", (mode, path, True, result)))
             except Exception as exc:
-                self.events.put(("uwp_finished", (mode, path, False, str(exc)))
+                self.events.put(("uwp_finished", (mode, path, False, str(exc))))
         threading.Thread(target=task, daemon=True,
                          name="uwp-loopback").start()
 
