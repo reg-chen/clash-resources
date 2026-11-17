@@ -100,6 +100,45 @@ class LoopbackBackupTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "不屬於"):
                 loopback.restore_selected(self.target, [SID_C])
 
+    def test_restore_prompts_for_elevation_only_after_explicit_selection(self):
+        import base64
+        from types import SimpleNamespace
+
+        self.write([self.apps[SID_A]])
+        operations = []
+
+        def fake_process(command, **_kwargs):
+            self.assertEqual(command[:3], ["powershell.exe", "-NoProfile", "-NonInteractive"])
+            self.assertEqual(command[3], "-EncodedCommand")
+            outer = base64.b64decode(command[4]).decode("utf-16-le")
+            self.assertIn("-Verb RunAs", outer)
+            encoded = outer.split("'-EncodedCommand','", 1)[1].split("'", 1)[0]
+            inner = base64.b64decode(encoded).decode("utf-16-le")
+            self.assertIn("--uwp-loopback-apply", inner)
+            self.assertNotIn("LoopbackExempt -c", inner)
+            report = inner.split(" '--report' '", 1)[1].split("'", 1)[0]
+            selection = inner.split(" '--uwp-loopback-apply' '", 1)[1].split("'", 1)[0]
+            payload = json.loads(Path(selection).read_text(encoding="utf-8"))
+            operations.extend(payload["SelectedSids"])
+            Path(report).write_text(json.dumps({
+                "Total": 1, "Added": 1, "Existing": 0,
+                "MissingPackage": 0, "Errors": [],
+            }), encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(loopback, "require_windows"):
+            with mock.patch.object(loopback.subprocess, "run",
+                                   side_effect=fake_process) as spawn:
+                self.assertEqual(loopback.restore_selected(self.target, []), {
+                    "Total": 0, "Added": 0, "Existing": 0,
+                    "MissingPackage": 0, "Errors": [],
+                })
+                spawn.assert_not_called()
+                result = loopback.restore_selected(self.target, [SID_A])
+                self.assertEqual(result["Added"], 1)
+                self.assertEqual(operations, [SID_A])
+                self.assertEqual(spawn.call_count, 1)
+
     def test_unsupported_platform_does_not_call_windows(self):
         with mock.patch.object(loopback.sys, "platform", "linux"):
             with self.assertRaisesRegex(RuntimeError, "Windows"):
