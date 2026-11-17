@@ -1,10 +1,15 @@
 # clash-resources
 
-個人使用的 Mihomo／Clash 設定、分流規則與圖示資源。
+個人使用的 Mihomo／Clash 設定、分流規則、圖示與輔助工具。
 
-## 第三方素材與授權
+## 第三方素材、授權與商標
 
-- **Fluent Emoji Flat**：`icons/fluent-emoji-flat/` 中的 SVG 來自 [Microsoft Fluent UI Emoji](https://github.com/microsoft/fluentui-emoji)，經由 [Iconify Fluent Emoji Flat](https://icon-sets.iconify.design/fluent-emoji-flat/) 提供。原作者為 Microsoft Corporation，採 **MIT License**。完整著作權聲明及授權條款請見 [Fluent Emoji 授權與來源](docs/FLUENT_EMOJI_ATTRIBUTION.md)。
-- **品牌圖示**：`icons/` 根目錄中的品牌標誌與相關圖樣不屬於上述 Microsoft MIT 授權範圍；相關商標及圖樣權利仍歸各自權利人。
+本儲存庫包含自行維護的設定與工具，也引用或重新發布不同授權的第三方素材。**請依資源類別分別適用其原始授權；本聲明不代表整個儲存庫均採 MIT 或 GPL。**
 
-以上授權聲明針對指定的第三方素材，**不代表本儲存庫所有內容均採 MIT 授權**。
+- **完整第三方聲明**：[第三方素材、相依套件與商標](docs/THIRD_PARTY_NOTICES.md) — 涵蓋品牌圖示、規則來源、下載型建置工具、Windows EXE 相依套件，以及相應授權注意事項。
+- **Fluent Emoji Flat**：`icons/fluent-emoji-flat/` 來自 [Microsoft Fluent UI Emoji](https://github.com/microsoft/fluentui-emoji)，透過 [Iconify](https://icon-sets.iconify.design/fluent-emoji-flat/) 取得；採 **MIT License**。原作者及完整授權條款見 [Fluent Emoji 聲明](docs/FLUENT_EMOJI_ATTRIBUTION.md)。
+- **第三方規則**：自動整合來源包含 **GPL-3.0** 的 HaGeZi、Loyalsoldier，以及 **MIT** 的 Phishing.Database、anti-AD。規則經轉換、分類或合併後發布，請見[規則來源與授權說明](docs/THIRD_PARTY_NOTICES.md#third-party-rule-sources)。
+- **品牌圖示／商標**：GitHub、Cloudflare／WARP、Private Internet Access、Surfshark、OpenVPN 等名稱及相關標誌權利歸各自權利人；使用並不表示其對本儲存庫有任何贊助、合作或認可，也**不表示**這些品牌圖示獲得 MIT 授權。
+- **執行及建置工具**：如 Mihomo、PySide6／Qt、PyInstaller、cryptography、Iconify 工具及各服務的下載設定檔，保留各自授權及服務條款；尤其對已發布的 Windows 執行檔，須另行確認 Qt／LGPL 的二進位散布要求。
+
+**僅使用本儲存庫的程式碼，與重新散布第三方規則、圖示或包含第三方函式庫的執行檔，授權義務並不相同。**
