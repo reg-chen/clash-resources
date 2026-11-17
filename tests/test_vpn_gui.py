@@ -110,6 +110,66 @@ class ConfigAndValidationTests(unittest.TestCase):
             gui.center_main_window(window, 900, 720)
         geometry.assert_called_once_with(window, "+397+150")
 
+    def test_windows_first_show_never_exposes_unstyled_titlebar(self):
+        events = []
+
+        class FakeWindow:
+            alpha = 1.0
+
+            def update_idletasks(self):
+                events.append("idle")
+
+            def attributes(self, key, *values):
+                self_key = key
+                self_is_alpha = self_key == "-alpha"
+                if not self_is_alpha:
+                    raise AssertionError("Unexpected window attribute")
+                if not values:
+                    return self.alpha
+                self.alpha = values[0]
+                events.append(("alpha", self.alpha))
+
+            def deiconify(self):
+                events.append("map")
+
+        window = FakeWindow()
+        with mock.patch.object(gui.sys, "platform", "win32"):
+            with mock.patch.object(gui, "set_dark_titlebar",
+                                   side_effect=lambda *_: events.append("dwm") or True):
+                gui.present_dark_window(window, gui.UI_COLORS)
+        self.assertEqual(events, [
+            "idle", ("alpha", 0.0), "map", "idle", "dwm", ("alpha", 1.0),
+        ])
+        self.assertEqual(window.alpha, 1.0)
+
+    def test_windows_opacity_restored_even_on_dwm_failure(self):
+        events = []
+
+        class FakeWindow:
+            opacity = 0.85
+
+            def update_idletasks(self):
+                pass
+
+            def attributes(self, key, *args):
+                assert key == "-alpha"
+                if not args:
+                    return self.opacity
+                self.opacity = args[0]
+                events.append(self.opacity)
+
+            def deiconify(self):
+                events.append("map")
+
+        window = FakeWindow()
+        with mock.patch.object(gui.sys, "platform", "win32"):
+            with mock.patch.object(gui, "set_dark_titlebar",
+                                   side_effect=RuntimeError("DWM failed")):
+                with self.assertRaisesRegex(RuntimeError, "DWM failed"):
+                    gui.present_dark_window(window, gui.UI_COLORS)
+        self.assertEqual(events, [0.0, "map", 0.85])
+        self.assertEqual(window.opacity, 0.85)
+
     def test_dwm_color_does_not_force_window_remapping(self):
         import inspect
         self.assertNotIn("window.withdraw()", inspect.getsource(gui.show_with_dark_titlebar))

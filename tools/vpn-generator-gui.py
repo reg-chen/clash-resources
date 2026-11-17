@@ -232,6 +232,30 @@ def show_with_dark_titlebar(window: tk.Misc, colors) -> None:
     set_dark_titlebar(window, colors)
 
 
+def present_dark_window(window: tk.Misc, colors) -> None:
+    """Reveal a fully laid-out Windows window only after its DWM titlebar is dark.
+
+    CustomTkinter 6.0.0 normally withdraws and remaps windows to update the
+    Windows caption. This app disables that behavior to avoid desktop flashes.
+    Hiding the *new* window with zero opacity while its native frame is mapped
+    lets DWM apply the colors synchronously, without a visible white frame or
+    an 80-100 ms post-display recoloring delay. Never call Tk.update() here.
+    """
+    window.update_idletasks()
+    if sys.platform != "win32":
+        window.deiconify()
+        return
+
+    original_alpha = window.attributes("-alpha")
+    window.attributes("-alpha", 0.0)
+    try:
+        window.deiconify()
+        window.update_idletasks()
+        set_dark_titlebar(window, colors)
+    finally:
+        window.attributes("-alpha", original_alpha)
+
+
 def center_main_window(window: ctk.CTk, width: int, height: int) -> None:
     """Center the initial window on the primary display before first mapping.
 
@@ -410,9 +434,7 @@ class DarkAlertDialog(StableDarkToplevel):
         width = 540
         height = max(168, min(520, self.message_label.winfo_reqheight() + 120))
         center_dialog(self, parent, width, height)
-        self.deiconify()
-        self.after(80, lambda: set_dark_titlebar(self, UI_COLORS)
-                   if self.winfo_exists() else None)
+        present_dark_window(self, UI_COLORS)
         self._previous_grab = parent.grab_current()
         self.grab_set()
         self.ok_button.focus_set()
@@ -559,10 +581,8 @@ class UwpLoopbackRestoreDialog(StableDarkToplevel):
 
         self.update_idletasks()
         center_dialog(self, parent, 770, 610)
-        self.deiconify()
+        present_dark_window(self, UI_COLORS)
         self.grab_set()
-        self.after(100, lambda: set_dark_titlebar(self, UI_COLORS)
-                   if self.winfo_exists() else None)
 
     def _select_all(self):
         for row in self.rows:
@@ -665,9 +685,8 @@ class WarpScheduleDialog(StableDarkToplevel):
         self._update_interval_visibility()
         self.update_idletasks()
         center_dialog(self, parent, 570, 330)
-        self.deiconify()
+        present_dark_window(self, UI_COLORS)
         self.grab_set()
-        self.after(90, lambda: set_dark_titlebar(self, UI_COLORS) if self.winfo_exists() else None)
 
     def _frequency_selected(self, _event=None):
         self.mode.set(self.FREQUENCIES[self.frequency_label.get()])
@@ -708,8 +727,8 @@ class WarpScheduleDialog(StableDarkToplevel):
 
 
 class MainWindow(ctk.CTk):
-    # Prevent CTk's own withdraw/update cycle on startup; manual DWM styling
-    # still runs after the first display, without forcibly remapping it.
+    # Prevent CTk's own withdraw/update cycle on startup. Instead, show the
+    # prepared frame transparently, apply the DWM colors, then reveal it.
     _deactivate_windows_window_header_manipulation = True
 
     def __init__(self):
@@ -719,7 +738,6 @@ class MainWindow(ctk.CTk):
         self.withdraw()
         self.title("VPN Network Toolkit")
         self.configure(fg_color=BG)
-        self.after(100, lambda: set_dark_titlebar(self, UI_COLORS))
         self.geometry("900x720")
         self.minsize(740, 580)
         self.config_data = load_settings()
@@ -775,7 +793,7 @@ class MainWindow(ctk.CTk):
             show="" if self.show_password.get() else "●"))
         self.protocol("WM_DELETE_WINDOW", self._close)
         center_main_window(self, 900, 720)
-        self.deiconify()
+        present_dark_window(self, UI_COLORS)
         self.after(100, self._pump)
 
     def _build_licenses(self):
