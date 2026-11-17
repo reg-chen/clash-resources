@@ -1,4 +1,4 @@
-"""Regression tests for the ttkbootstrap frontend and headless Windows entry points."""
+"""Regression tests for the CustomTkinter frontend and headless Windows entry points."""
 from __future__ import annotations
 
 import importlib.util
