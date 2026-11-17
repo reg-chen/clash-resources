@@ -1102,6 +1102,22 @@ class MainWindow(ctk.CTk):
                 "無法確認管理員權限", str(exc), parent=self)
             return False
         if is_admin:
+            try:
+                same_user = uwp_loopback.current_process_matches_login_shell()
+            except Exception as exc:
+                self.uwp_status.set("無法確認 GUI 與登入帳號是否相同。")
+                messagebox.showerror(
+                    "無法核對登入帳號", str(exc), parent=self)
+                return False
+            if not same_user:
+                self.uwp_status.set("GUI 使用了另一個管理員帳號，已取消。")
+                messagebox.showwarning(
+                    "Windows 使用者不一致",
+                    "目前程式不是以登入桌面的 Windows 使用者身分執行。"
+                    "\n請勿以其他管理員帳號代為啟動 EXE；"
+                    "這會讀取錯誤帳號的 UWP App 清單。",
+                    parent=self)
+                return False
             return True
         self.uwp_status.set("目前登入帳號不是管理員，已取消 UWP Loopback 操作。")
         messagebox.showwarning(
