@@ -379,11 +379,13 @@ class DarkAlertDialog(ctk.CTkToplevel):
             command=lambda: self._finish(True))
         self.ok_button.pack(side="left")
         self.update_idletasks()
-        width = max(320, self.winfo_reqwidth())
-        height = self.winfo_reqheight()
+        # CTkToplevel starts at 200x200 regardless of the form's children.
+        # Size explicitly from the wrapped message; keep it readable.
+        width = 540
+        height = max(168, min(520, self.message_label.winfo_reqheight() + 120))
         x = parent.winfo_rootx() + max(0, (parent.winfo_width() - width) // 2)
         y = parent.winfo_rooty() + max(0, (parent.winfo_height() - height) // 2)
-        self.geometry(f"+{x}+{y}")
+        self.geometry(f"{width}x{height}+{x}+{y}")
         self.deiconify()
         self.after(80, lambda: set_dark_titlebar(self, UI_COLORS)
                    if self.winfo_exists() else None)
@@ -452,6 +454,10 @@ class WarpScheduleDialog(ctk.CTkToplevel):
         self.configure(fg_color=BG)
         self.transient(parent)
         self.resizable(False, False)
+        # CTkToplevel defaults to a fixed 200x200 geometry; set an explicit
+        # dialog size so the original frequency selector is not clipped.
+        self.geometry("570x330")
+        self.minsize(570, 330)
         self.out = tk.StringVar(value=out_dir or r"P:\Clash")
         selected = config.get("mode", "monthly")
         if selected not in ("monthly", "interval"):
