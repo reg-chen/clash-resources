@@ -318,6 +318,9 @@ class WindowsGuiTests(unittest.TestCase):
                 self.window, title="排程確認", message="要移除現有排程嗎？",
                 kind="question", confirm=True)
             self.assertEqual(dialog.cget("fg_color").lower(), colors.bg.lower())
+            dialog.update_idletasks()
+            self.assertGreaterEqual(dialog.winfo_width(), 500)
+            self.assertGreaterEqual(dialog.winfo_height(), 160)
             self.assertEqual(dialog.ok_button.cget("fg_color"), gui.BUTTON_PALETTE["primary"][0])
             self.assertEqual(dialog.cancel_button.cget("fg_color"), gui.BUTTON_PALETTE["secondary"][0])
             self.assertTrue(gui.set_dark_titlebar(dialog, colors))
