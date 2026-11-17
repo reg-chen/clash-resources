@@ -49,7 +49,7 @@
 
 | 專案／服務 | 使用位置與方式 | 來源及授權／權利狀態 |
 | --- | --- | --- |
-| [Mihomo](https://github.com/MetaCubeX/mihomo) | MRS Action 於建置時下載 Linux release，使用 `convert-ruleset`；**此工作流程不把 Linux Mihomo binary 加入 Repo** | 上游 **MIT**；若另行重新散布 binary 須留意其實際套件所含授權及告知 |
+| [Mihomo](https://github.com/MetaCubeX/mihomo) | MRS Action 於建置時下載 Linux release，使用 `convert-ruleset`；**此工作流程不把 Linux Mihomo binary 加入 Repo** | 上游核心 **GPL-3.0**（非 MIT）；本專案僅在 CI 下載並執行上游 binary，不把該 binary 加入 Repo。若另行重新散布 binary，須履行適用的 GPL 授權義務與來源告知 |
 | [Iconify Utils](https://www.npmjs.com/package/@iconify/utils)／[@iconify-json/fluent-emoji-flat](https://www.npmjs.com/package/@iconify-json/fluent-emoji-flat) | SVG Action 的 `npm install` 安裝於 Runner，轉換並提交 SVG；**不提交 node_modules** | 工具及圖示資料為 **MIT**；產出圖示另見 Microsoft 授權 |
 | [CustomTkinter 6](https://github.com/TomSchimansky/CustomTkinter) | 現行 Windows GUI：`customtkinter==6.0.0`，隨 EXE 打包 | **MIT**，Copyright (c) 2023 Tom Schimansky；依 [上游 LICENSE](https://github.com/TomSchimansky/CustomTkinter/blob/master/LICENSE) 保留授權與著作權告知 |
 | [Tkinter／Tcl/Tk](https://www.tcl-lang.org/software/tcltk/license.html) | Python GUI 介面與 Windows 上的 Tcl/Tk runtime | Tcl/Tk 寬鬆自由軟體授權，請核對打包版本包含的原始授權及歸屬 |

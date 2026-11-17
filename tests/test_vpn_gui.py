@@ -77,6 +77,19 @@ class ButtonContrastTests(unittest.TestCase):
 
 
 class ConfigAndValidationTests(unittest.TestCase):
+    def test_renamed_app_reads_old_json_settings_without_overwriting(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with mock.patch.dict(gui.os.environ, {"APPDATA": folder}):
+                old_path = Path(folder) / "reg-chen" / gui.LEGACY_APP_NAME / "settings.json"
+                old_path.parent.mkdir(parents=True)
+                data = {"provider": "warp", "interval": 5}
+                old_path.write_text(json.dumps(data), encoding="utf-8")
+                self.assertEqual(gui.load_settings(), data)
+                gui.save_settings(data)
+                self.assertEqual(gui.settings_path().parent.name, gui.APP_NAME)
+                self.assertEqual(gui.load_settings(), data)
+                self.assertEqual(json.loads(old_path.read_text(encoding="utf-8")), data)
+
     def test_no_qsettings_migration(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "new.json"
@@ -187,7 +200,7 @@ class ScheduledWarpTests(unittest.TestCase):
             self.assertIn("network", (Path(tmp) / "logs" / "warp-generator.log").read_text(encoding="utf-8"))
 
     def test_main_handles_cli_before_gui(self):
-        with mock.patch.object(gui.sys, "argv", ["VPN-Mihomo-Generator.exe", "--warp",
+        with mock.patch.object(gui.sys, "argv", ["VPN-Network-Toolkit.exe", "--warp",
                                                "--out-dir", r"P:\Clash"]):
             with mock.patch.object(gui, "run_warp_cli", return_value=0) as cli:
                 with mock.patch.object(gui, "MainWindow", side_effect=AssertionError("GUI started")):
@@ -197,7 +210,7 @@ class ScheduledWarpTests(unittest.TestCase):
     def test_loopback_apply_cli_runs_without_gui(self):
         with mock.patch.object(
             gui.sys, "argv",
-            ["VPN-Mihomo-Generator.exe", "--uwp-loopback-apply",
+            ["VPN-Network-Toolkit.exe", "--uwp-loopback-apply",
              "selected.json", "--report", "report.json"],
         ):
             with mock.patch.object(gui.uwp_loopback, "elevated_child", return_value=0) as child:
@@ -208,7 +221,7 @@ class ScheduledWarpTests(unittest.TestCase):
 
     def test_safe_paths_elevation_cli_remains(self):
         with mock.patch.object(gui.sys, "argv",
-                               ["VPN-Mihomo-Generator.exe", "--safe-paths-append", r"P:\Clash\providers"]):
+                               ["VPN-Network-Toolkit.exe", "--safe-paths-append", r"P:\Clash\providers"]):
             with mock.patch.object(gui.safe_paths, "append_machine_safe_path") as append:
                 self.assertEqual(gui.main(), 0)
             append.assert_called_once_with(r"P:\Clash\providers")

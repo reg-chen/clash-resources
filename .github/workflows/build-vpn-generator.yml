@@ -1,4 +1,4 @@
-name: Build VPN Mihomo Generator
+name: Build VPN Network Toolkit
 
 on:
   push:
@@ -59,7 +59,7 @@ jobs:
       - name: Restore PyInstaller build cache
         uses: actions/cache/restore@v5
         with:
-          path: build/VPN-Mihomo-Generator
+          path: build/VPN-Network-Toolkit
           key: vpn-generator-pyinstaller-${{ runner.os }}-py314-ctk6-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
           restore-keys: |
             vpn-generator-pyinstaller-${{ runner.os }}-py314-ctk6-
@@ -123,7 +123,7 @@ jobs:
             --noconfirm `
             --onefile `
             --windowed `
-            --name VPN-Mihomo-Generator `
+            --name VPN-Network-Toolkit `
             --collect-all cryptography `
             --collect-all customtkinter `
             --add-data "tools/EXE_THIRD_PARTY_LICENSES.generated.txt;." `
@@ -138,7 +138,7 @@ jobs:
       - name: Smoke-test frozen headless WARP entry point
         shell: pwsh
         run: |
-          $exe = (Resolve-Path "dist/VPN-Mihomo-Generator.exe").Path
+          $exe = (Resolve-Path "dist/VPN-Network-Toolkit.exe").Path
           # --help never opens a GUI or touches live WARP credentials/API.
           $process = Start-Process -FilePath $exe -ArgumentList @("--warp", "--help") -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Frozen WARP CLI failed: $($process.ExitCode)" }
@@ -146,7 +146,7 @@ jobs:
       - name: Smoke-test frozen headless Loopback restore entry point
         shell: pwsh
         run: |
-          $exe = (Resolve-Path "dist/VPN-Mihomo-Generator.exe").Path
+          $exe = (Resolve-Path "dist/VPN-Network-Toolkit.exe").Path
           $selection = Join-Path $env:RUNNER_TEMP "loopback-invalid-selection.json"
           $report = Join-Path $env:RUNNER_TEMP "loopback-cli-report.json"
           Set-Content -LiteralPath $selection -Value '{}' -Encoding utf8
@@ -168,14 +168,14 @@ jobs:
       - name: Smoke-test frozen CustomTkinter GUI window
         shell: pwsh
         run: |
-          $exe = (Resolve-Path "dist/VPN-Mihomo-Generator.exe").Path
+          $exe = (Resolve-Path "dist/VPN-Network-Toolkit.exe").Path
           $process = Start-Process -FilePath $exe -PassThru
           try {
             $shown = $false
             for ($i = 0; $i -lt 24; $i++) {
               Start-Sleep -Milliseconds 500
-              $windows = Get-Process -Name "VPN-Mihomo-Generator" -ErrorAction SilentlyContinue
-              if ($windows | Where-Object { $_.MainWindowTitle -eq "VPN / Mihomo Generator" }) {
+              $windows = Get-Process -Name "VPN-Network-Toolkit" -ErrorAction SilentlyContinue
+              if ($windows | Where-Object { $_.MainWindowTitle -eq "VPN Network Toolkit" }) {
                 $shown = $true
                 break
               }
@@ -186,14 +186,14 @@ jobs:
             Write-Host "Frozen CustomTkinter GUI displayed successfully."
           }
           finally {
-            Get-Process -Name "VPN-Mihomo-Generator" -ErrorAction SilentlyContinue |
+            Get-Process -Name "VPN-Network-Toolkit" -ErrorAction SilentlyContinue |
               Stop-Process -Force -ErrorAction SilentlyContinue
           }
 
       - name: Save PyInstaller build cache
         uses: actions/cache/save@v5
         with:
-          path: build/VPN-Mihomo-Generator
+          path: build/VPN-Network-Toolkit
           key: vpn-generator-pyinstaller-${{ runner.os }}-py314-ctk6-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
 
       - name: Upload executable
@@ -201,8 +201,8 @@ jobs:
         id: uploaded_artifact
         uses: actions/upload-artifact@v7
         with:
-          name: VPN-Mihomo-Generator-win-x64
-          path: dist/VPN-Mihomo-Generator.exe
+          name: VPN-Network-Toolkit-win-x64
+          path: dist/VPN-Network-Toolkit.exe
           archive: false
           if-no-files-found: error
           retention-days: 30
@@ -213,7 +213,8 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const names = ["VPN-Mihomo-Generator-win-x64","VPN-Mihomo-Generator.exe"];
+            const names = ["VPN-Network-Toolkit-win-x64","VPN-Network-Toolkit.exe",
+                           "VPN-Mihomo-Generator-win-x64","VPN-Mihomo-Generator.exe"];
             const keepId = Number('${{ steps.uploaded_artifact.outputs.artifact-id }}');
             if (!Number.isSafeInteger(keepId) || keepId <= 0) {
               core.setFailed('Upload action returned no valid artifact ID; no cleanup performed.');

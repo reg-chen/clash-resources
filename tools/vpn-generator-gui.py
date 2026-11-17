@@ -37,7 +37,8 @@ def exe_license_text() -> str:
                 "https://github.com/reg-chen/clash-resources/blob/main/docs/THIRD_PARTY_NOTICES.md")
 
 
-APP_NAME = "VPN-Mihomo-Generator"
+APP_NAME = "VPN-Network-Toolkit"
+LEGACY_APP_NAME = "VPN-Mihomo-Generator"
 TASK_NAME = warp_schedule.TASK_NAME
 PROVIDERS = ("pia", "surfshark", "warp")
 
@@ -48,8 +49,11 @@ def settings_path() -> Path:
 
 
 def load_settings(path: Path | None = None) -> dict:
-    """The new JSON store intentionally does not migrate Qt QSettings."""
-    path = path or settings_path()
+    """Read the previous JSON profile if the renamed app has none yet."""
+    if path is None:
+        current = settings_path()
+        legacy = current.parent.parent / LEGACY_APP_NAME / current.name
+        path = current if current.exists() or not legacy.is_file() else legacy
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
         return value if isinstance(value, dict) else {}
@@ -681,7 +685,7 @@ class MainWindow(ctk.CTk):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
         super().__init__()
-        self.title("VPN / Mihomo Generator")
+        self.title("VPN Network Toolkit")
         self.configure(fg_color=BG)
         self.after(100, lambda: set_dark_titlebar(self, UI_COLORS))
         self.geometry("900x720")
@@ -1280,7 +1284,7 @@ class MainWindow(ctk.CTk):
 
 
 def run_warp_cli(argv: list[str]) -> int:
-    """Unchanged task action: VPN-Mihomo-Generator.exe --warp --out-dir ..."""
+    """Headless WARP entry point: VPN-Network-Toolkit.exe --warp --out-dir ..."""
     import argparse
     from datetime import datetime
     from contextlib import redirect_stdout, redirect_stderr

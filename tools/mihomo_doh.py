@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-CA_NAME = "VPN Mihomo Generator - Local DoH CA"
+CA_NAME = "VPN Network Toolkit - Local DoH CA"
 CERT_NAME = "mihomo-localhost"
 
 
@@ -82,7 +82,13 @@ def _ca_directory() -> Path:
     root = os.environ.get("LOCALAPPDATA")
     if not root:
         raise RuntimeError("找不到 LOCALAPPDATA；僅支援 Windows 本機憑證管理。")
-    return Path(root) / "reg-chen" / "VPN-Mihomo-Generator" / "doh-ca"
+    base = Path(root) / "reg-chen"
+    current = base / "VPN-Network-Toolkit" / "doh-ca"
+    legacy = base / "VPN-Mihomo-Generator" / "doh-ca"
+    # Reuse the already trusted CA instead of silently minting a new one.
+    if current.exists() or not legacy.exists():
+        return current
+    return legacy
 
 
 def _pem_key(key: ec.EllipticCurvePrivateKey) -> bytes:

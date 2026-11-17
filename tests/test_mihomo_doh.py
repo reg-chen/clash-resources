@@ -79,11 +79,22 @@ class MihomoDohTests(unittest.TestCase):
         self.assertEqual(mihomo_doh.normalize_host("  MiHoMo.LocalHost. "), "mihomo.localhost")
 
     def test_incomplete_ca_rejected(self):
-        directory = Path(os.environ["LOCALAPPDATA"]) / "reg-chen" / "VPN-Mihomo-Generator" / "doh-ca"
+        directory = Path(os.environ["LOCALAPPDATA"]) / "reg-chen" / "VPN-Network-Toolkit" / "doh-ca"
         directory.mkdir(parents=True)
         (directory / "root-ca.crt").write_text("incomplete")
         with self.assertRaisesRegex(RuntimeError, "只有一項"):
             mihomo_doh.generate_certificates(self.dest)
+
+    def test_existing_ca_is_reused_after_app_rename(self):
+        old_dir = (Path(os.environ["LOCALAPPDATA"]) / "reg-chen" /
+                   "VPN-Mihomo-Generator" / "doh-ca")
+        old_dir.mkdir(parents=True)
+        self.assertEqual(mihomo_doh._ca_directory(), old_dir)
+        files = mihomo_doh.generate_certificates(self.dest)
+        self.assertTrue((old_dir / "root-ca.key").exists())
+        self.assertEqual(files.ca_certificate.read_bytes(),
+                         (old_dir / "root-ca.crt").read_bytes())
+        self.assertFalse(mihomo_doh.generate_certificates(self.dest).renewed)
 
     def test_user_trust_explicit(self):
         files = mihomo_doh.generate_certificates(self.dest)

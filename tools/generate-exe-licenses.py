@@ -11,7 +11,7 @@ from packaging.utils import canonicalize_name
 ROOTS = ("customtkinter", "Pillow", "cryptography", "PyInstaller")
 REQUIRE_TEXT = {"customtkinter", "pillow", "cryptography"}
 OUTPUT = Path(__file__).resolve().parent / "EXE_THIRD_PARTY_LICENSES.generated.txt"
-INTRO = """VPN / Mihomo Generator — 第三方授權聲明
+INTRO = """VPN Network Toolkit — 第三方授權聲明
 
 本應用程式使用第三方 Python 套件、Python／Tcl/Tk runtime，
 其著作權及授權條款分別歸屬原權利人。

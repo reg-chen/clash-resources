@@ -30,7 +30,7 @@ $intervalDays = [int]$env:WARP_TASK_INTERVAL
 if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw "EXE not found: $exe" }
 if ($outDir.Contains('"')) { throw 'Output path contains invalid quotation mark' }
 $definition = $service.NewTask(0)
-$definition.RegistrationInfo.Description = 'Update Mihomo WARP WireGuard provider using VPN-Mihomo-Generator.exe'
+$definition.RegistrationInfo.Description = 'Update WARP WireGuard provider using VPN-Network-Toolkit.exe'
 $definition.Settings.Enabled = $true
 $definition.Settings.StartWhenAvailable = $true
 $definition.Settings.ExecutionTimeLimit = 'PT15M'
@@ -81,7 +81,7 @@ def configure_schedule(*, action: str, out_dir: Path | None = None,
         raise ValueError("請選擇輸出目錄。")
     exe = Path(sys.executable).resolve()
     if action == "install" and not getattr(sys, "frozen", False):
-        raise RuntimeError("請使用打包後的 VPN-Mihomo-Generator.exe 安裝排程。")
+        raise RuntimeError("請使用打包後的 VPN-Network-Toolkit.exe 安裝排程。")
     env = os.environ.copy()
     env.update({
         "WARP_TASK_NAME": TASK_NAME,
