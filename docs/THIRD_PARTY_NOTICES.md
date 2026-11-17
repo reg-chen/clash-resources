@@ -14,6 +14,18 @@
 | `icons/Surfshark.svg` | Surfshark | [Surfshark](https://surfshark.com/) |
 | `icons/OpenVPN.png` | OpenVPN | [OpenVPN](https://openvpn.net/) |
 
+### 官方品牌規範（核對於 2026-11-17）
+
+| 品牌 | 官方資料 | 對目前公開圖示的限制與證據 |
+| --- | --- | --- |
+| GitHub／Invertocat | [GitHub 品牌指南](https://brand.github.com/foundations/logo)、[Logo Policy](https://docs.github.com/en/site-policy/other-site-policies/github-logo-policy) | 允許特定辨識 GitHub、指向服務或顯示整合的用途；禁止將 Logo 當作自家產品識別、任意修改或暗示 GitHub 背書；目前個別檔案未核對來源 |
+| Cloudflare／WARP | [Cloudflare 商標使用規範](https://www.cloudflare.com/trademark/) | 官方對一般 Cloudflare Logo 使用原則上要求**事先書面許可**；文字描述與特定 Web badge 的例外不等於 Logo 再散布許可 |
+| Surfshark | [Surfshark 媒體中心](https://surfshark.com/press) | 提供官方素材，容許個人或非商業下載／複製，限制修改、衍生、販售及商業使用；須先確認目前 SVG 與官方素材一致 |
+| PIA | [PIA 媒體素材](https://www.privateinternetaccess.com/press-page)、[使用條款](https://www.privateinternetaccess.com/terms-of-service) | 有官方素材頁，但**未確認可任意公開再散布或修改**的授權 |
+| OpenVPN | [OpenVPN 品牌素材](https://openvpn.net/branding/)、[商標條款](https://openvpn.net/legal/) | OpenVPN 程式的 GPL 不授權其商標；其鑰匙孔標誌等依官方條款需預先取得書面許可，並限制更動圖像 |
+
+此表僅記錄**官方可核對的規範**，不代表目前的檔案已逐項取得授權。公開儲存庫及 CDN 可供第三人下載，與本地使用作為個人 VPN 分流識別不同。對未經核實的品牌圖檔，應核對實際來源、是否經修改及官方允許範圍；必要時改用純文字服務名稱或取得書面許可。
+
 **重要：** 現有檔案未附足以確認各圖示最初下載位置／單一檔案再散布授權的來源紀錄。因此，上表識別的是品牌與參考官方網站，**不是已驗證取得商標或圖示重製授權的證明**。商標聲明也不能取代權利人可能要求的使用許可。若將圖示用於公開發行、商業使用、或品牌識別，應另外核對各品牌的使用規範。檔名 `WARP-Cloudflare.svg` 不表示這是 Cloudflare 官方核准的 WARP 專用標誌。
 
 ## Third-party artwork
@@ -59,6 +71,8 @@
 | [Surfshark](https://surfshark.com/) | `surfshark-openvpn-generator.py` 處理使用者取得的官方 OpenVPN ZIP | 服務與配置檔的再散布權利**未由本次審核確認**；本 Repo 不將該 ZIP 直接存放於來源樹 |
 | [Cloudflare WARP](https://one.one.one.one/) | `warp-wireguard-generator.py` 透過 Cloudflare API 註冊並產生本機 WireGuard 設定 | 屬第三方服務/API，**不因呼叫 API 而取得程式或服務的 MIT 再散布授權** |
 | [GitHub Actions](https://github.com/actions)、[jsDelivr](https://www.jsdelivr.com/) | CI 工作流程／CDN 清除和驗證 | 工作流程中引用第三方 CI 元件與線上服務，不代表將其完整程式碼重新散布於 Repo；各元件仍適用自己的授權／服務條款 |
+
+**EXE 內建授權聲明：** Windows 建置 Action 會從當次實際安裝的 Python 套件及其轉依賴收集 LICENSE／COPYING／NOTICE 文字，並將可用的 Python／Tcl/Tk 授權文件一併封裝為 `EXE_THIRD_PARTY_LICENSES.generated.txt`；使用者可於 GUI 的「授權聲明」分頁閱讀。主要 runtime 套件缺少授權全文時，授權收集步驟會讓建置失敗，避免只發佈空泛的授權名稱；其餘未發現的授權檔仍須依實際版本核對。
 
 **GUI 歷史註記：** 曾使用 PySide6／Qt（LGPL-3.0）與 ttkbootstrap；**舊版 EXE Artifact 已清理，現行建置與下載產物均不包含這些 GUI 套件**。
 

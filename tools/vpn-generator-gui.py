@@ -25,6 +25,18 @@ import mihomo_doh
 import safe_paths
 import uwp_loopback
 
+def exe_license_text() -> str:
+    """Load notices embedded in this executable at build time."""
+    root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    notice_file = root / "EXE_THIRD_PARTY_LICENSES.generated.txt"
+    try:
+        return notice_file.read_text(encoding="utf-8")
+    except OSError:
+        return ("第三方授權原文會在 Windows EXE 建置時依實際套件版本產生。\n"
+                "請執行 python tools/generate-exe-licenses.py 產生開發版聲明。\n"
+                "https://github.com/reg-chen/clash-resources/blob/main/docs/THIRD_PARTY_NOTICES.md")
+
+
 APP_NAME = "VPN-Mihomo-Generator"
 TASK_NAME = warp_schedule.TASK_NAME
 PROVIDERS = ("pia", "surfshark", "warp")
@@ -714,6 +726,8 @@ class MainWindow(ctk.CTk):
         self.provider_tab = self.tabs.add("VPN Provider")
         self.doh_tab = self.tabs.add("Mihomo DNS / TLS")
         self.uwp_tab = self.tabs.add("Windows 防火牆")
+        self.license_tab = self.tabs.add("授權聲明")
+        self._build_licenses()
         self._build_provider()
         self._build_doh()
         self._build_uwp()
@@ -725,6 +739,16 @@ class MainWindow(ctk.CTk):
             show="" if self.show_password.get() else "●"))
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.after(100, self._pump)
+
+    def _build_licenses(self):
+        root = self.license_tab
+        ui_label(root, text="第三方授權與著作權").pack(anchor="w", padx=12, pady=(12, 6))
+        box = DarkScrolledText(root, height=26, font=("Consolas", 11),
+                               wrap="word", state="normal")
+        box.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+        box.insert("1.0", exe_license_text())
+        box.configure(state="disabled")
+        self.license_notice = box
 
     @staticmethod
     def _row(frame, index, title, variable, *, browse=None, secret=False):

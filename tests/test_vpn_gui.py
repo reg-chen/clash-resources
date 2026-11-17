@@ -30,6 +30,15 @@ def options(**kwargs):
     return data
 
 
+class LicenseNoticeTests(unittest.TestCase):
+    def test_read_embedded_license_notice(self):
+        with tempfile.TemporaryDirectory() as folder:
+            sample = Path(folder) / "EXE_THIRD_PARTY_LICENSES.generated.txt"
+            sample.write_text("LICENSE TEST", encoding="utf-8")
+            with mock.patch.object(gui.sys, "_MEIPASS", folder, create=True):
+                self.assertEqual(gui.exe_license_text(), "LICENSE TEST")
+
+
 class DarkThemeHelpersTests(unittest.TestCase):
     def test_win32_colorref_channels(self):
         self.assertEqual(gui.colorref("#123456"), 0x563412)
