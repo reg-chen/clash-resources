@@ -623,7 +623,7 @@ class WarpScheduleDialog(tk.Toplevel):
 
 class MainWindow(ttk.Window):
     def __init__(self):
-        super().__init__(themename="darkly")
+        super().__init__(theme="bootstrap-dark")
         configure_rounded_buttons(self.style, self)
         self.title("VPN / Mihomo Generator")
         self.configure(background=self.style.colors.bg)
