@@ -105,7 +105,8 @@ class UwpFirewallTests(unittest.TestCase):
         self.assertIn("AppIsoRules = $appIsoRules", script)
         self.assertIn("Schema = 2", script)
         self.assertIn("if ($reportData.Total -eq 0 -and -not $AllowEmpty)", script)
-        self.assertIn("尚不支援安全自動還原", script)
+        self.assertIn("direct writes to Windows-managed AppIso registry are intentionally unsupported", script)
+        self.assertTrue(script.isascii(), "Windows PowerShell 5.1 requires an ASCII script or UTF-8 BOM")
 
     def test_reject_unknown_schema_or_action(self):
         self.write([rule()], schema=2)
