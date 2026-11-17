@@ -157,7 +157,7 @@ def colorref(value: str) -> int:
 
 
 def set_dark_titlebar(window: tk.Misc, colors) -> bool:
-    """Apply and verify DWM colors on Tk's decorated outer Win32 window."""
+    """Apply DWM colors to Tk's decorated outer Win32 window."""
     if sys.platform != "win32":
         return False
     try:
@@ -180,11 +180,6 @@ def set_dark_titlebar(window: tk.Misc, colors) -> bool:
             wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
         ]
         dwmapi.DwmSetWindowAttribute.restype = ctypes.c_long
-        dwmapi.DwmGetWindowAttribute.argtypes = [
-            wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
-        ]
-        dwmapi.DwmGetWindowAttribute.restype = ctypes.c_long
-
         # Python/Tk exposes the native top-level frame directly.  The earlier
         # implementation used GetParent(winfo_id) before the frame was mapped.
         frame = str(window.wm_frame()).strip()
@@ -208,16 +203,12 @@ def set_dark_titlebar(window: tk.Misc, colors) -> bool:
                 continue
             set_attr(34, colorref(colors.border))
             set_attr(36, colorref(colors.fg))
-            actual = ctypes.c_uint32()
-            verified = (
-                dwmapi.DwmGetWindowAttribute(
-                    hwnd, 35, ctypes.byref(actual), ctypes.sizeof(actual)) == 0
-                and actual.value == target
-            )
-            if verified:
-                # SWP_FRAMECHANGED | NOACTIVATE | NOZORDER | NOMOVE | NOSIZE
-                user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x0037)
-                return True
+            # Caption color is a set-only DWM attribute: requesting it with
+            # DwmGetWindowAttribute returns E_INVALIDARG even after a
+            # successful DwmSetWindowAttribute call (confirmed on Win CI).
+            # SWP_FRAMECHANGED | NOACTIVATE | NOZORDER | NOMOVE | NOSIZE
+            user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x0037)
+            return True
         return False
     except (AttributeError, OSError, ValueError, tk.TclError):
         return False
