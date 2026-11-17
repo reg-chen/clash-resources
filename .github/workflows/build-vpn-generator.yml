@@ -57,7 +57,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: build/VPN-Mihomo-Generator
-          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-ttk2-ttk2-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
+          key: vpn-generator-pyinstaller-${{ runner.os }}-py314-ttk2-${{ hashFiles('tools/*.py', 'tests/*.py') }}-${{ github.run_id }}
           restore-keys: |
             vpn-generator-pyinstaller-${{ runner.os }}-py314-ttk2-
 
