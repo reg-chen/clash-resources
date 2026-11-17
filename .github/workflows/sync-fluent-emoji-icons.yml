@@ -2,7 +2,8 @@ name: Sync Fluent Emoji Flat SVG
 
 on:
   schedule:
-    - cron: "12 4 1 * *"
+    - cron: "20 3 1 * *"
+      timezone: "Asia/Taipei"
   workflow_dispatch:
   # Verify synchronizer changes without publishing icons.
   push:
