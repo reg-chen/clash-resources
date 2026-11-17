@@ -246,45 +246,46 @@ class WindowsGuiTests(unittest.TestCase):
         finally:
             dlg.destroy()
 
-    def test_windows_dwm_verifies_actual_caption_color(self):
+    def test_windows_dwm_sets_outer_caption_and_recomposes(self):
         import ctypes
         from ctypes import wintypes
 
         self.window.deiconify()
         try:
             self.window.update()
-            user32 = ctypes.WinDLL("user32")
-            dwmapi = ctypes.WinDLL("dwmapi")
-            user32.GetParent.argtypes = [wintypes.HWND]
-            user32.GetParent.restype = wintypes.HWND
-            user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
-            user32.GetWindowLongW.restype = ctypes.c_long
-            dwmapi.DwmSetWindowAttribute.argtypes = [
-                wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
-            dwmapi.DwmSetWindowAttribute.restype = ctypes.c_long
-            dwmapi.DwmGetWindowAttribute.argtypes = [
-                wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
-            dwmapi.DwmGetWindowAttribute.restype = ctypes.c_long
             inner = self.window.winfo_id()
-            outer_name = str(self.window.wm_frame()).strip()
-            outer = int(outer_name, 16) if outer_name.lower().startswith("0x") else int(outer_name)
-            parent = user32.GetParent(inner)
-            diagnostics = [f"inner={inner:#x}, wm_frame={outer_name}, GetParent={parent!r}, mapped={self.window.winfo_ismapped()}"]
-            for name, hwnd in (("frame", outer), ("parent", parent), ("inner", inner)):
-                if not hwnd:
-                    continue
-                style = user32.GetWindowLongW(hwnd, -16) & 0xFFFFFFFF
-                val = ctypes.c_uint32(gui.colorref(self.window.style.colors.bg))
-                write = dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(val), ctypes.sizeof(val))
-                actual = ctypes.c_uint32()
-                read = dwmapi.DwmGetWindowAttribute(hwnd, 35, ctypes.byref(actual), ctypes.sizeof(actual))
-                diagnostics.append(f"{name}=0x{hwnd:x}, style=0x{style:08x}, set={write:#x}, get={read:#x}, color=0x{actual.value:06x}")
+            frame = str(self.window.wm_frame())
+            outer = int(frame, 16) if frame.lower().startswith("0x") else int(frame)
+            self.assertNotEqual(inner, outer, "Expected the decorated Tk wrapper HWND")
             self.assertTrue(
                 gui.set_dark_titlebar(self.window, self.window.style.colors),
-                "DWM caption color did not apply: " + " | ".join(diagnostics),
-            )
+                "DWM refused to set the color on Tk's outer HWND")
             gui.show_with_dark_titlebar(self.window, self.window.style.colors)
-            self.assertTrue(self.window.winfo_exists())
+            self.window.update()
+            self.assertTrue(self.window.winfo_ismapped())
+
+            # Screenshot is a diagnostic of the *rendered* caption, unlike
+            # DwmGetWindowAttribute(35), which returns E_INVALIDARG for a
+            # successfully written caption color.
+            from PIL import ImageGrab
+            user32 = ctypes.WinDLL("user32")
+            class Rect(ctypes.Structure):
+                _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                            ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+            rect = Rect()
+            user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(Rect)]
+            user32.GetWindowRect.restype = wintypes.BOOL
+            self.assertTrue(user32.GetWindowRect(outer, ctypes.byref(rect)))
+            center_x = (rect.left + rect.right) // 2
+            if rect.top < 0:
+                self.skipTest("Window titlebar outside capture area")
+            box = (center_x - 32, rect.top + 10, center_x + 32, rect.top + 26)
+            try:
+                image = ImageGrab.grab(bbox=box).convert("RGB")
+                rgb = image.getpixel((image.width // 2, image.height // 2))
+                print(f"WINDOW_TITLEBAR_CAPTURE outer={outer:#x} rect={tuple((rect.left, rect.top, rect.right, rect.bottom))} center_rgb={rgb} expected={self.window.style.colors.bg}", flush=True)
+            except OSError as exc:
+                print(f"WINDOW_TITLEBAR_CAPTURE unavailable: {exc}", flush=True)
         finally:
             self.window.withdraw()
 
