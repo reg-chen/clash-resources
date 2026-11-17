@@ -24,6 +24,17 @@ for(let mask=0;mask<16;mask++) {
   for(const key of ['x-pia-test','x-pia-test-slow','x-ss-test','x-ss-test-slow']) config[key]={'health-check':{enable:true,url:'https://example.com',interval:300}};
   const result = main(config);
   validate(result);
+  if (mask === 15) {
+    // Trademark logos come from external source repositories, never this repo.
+    for (const vendor of VENDOR_DEFS) {
+      const group = result['proxy-groups'].find(g => g.name ===
+        (vendor.key === 'PIA' ? 'PIA-ALL' : 'SS-ALL'));
+      assert.ok(group, vendor.key + ' ALL group not generated');
+      assert.equal(group.icon, vendor.icon, vendor.key + ' must use the external URL directly');
+      assert.match(group.icon, /^https:\/\/raw\.githubusercontent\.com\//);
+      assert.ok(!group.icon.includes('icons.reginald.win/'));
+    }
+  }
   const once = JSON.stringify(result);
   result['x-vpn-provider-override']=true;
   Object.assign(result,flags(mask));

@@ -4,34 +4,21 @@
 
 ## Brand artwork and trademarks
 
-下列名稱及相關商標、標誌、圖樣的權利歸各自權利人。本儲存庫只是用作個人 Mihomo／Clash 設定中的供應商或服務識別，不宣稱權利移轉、官方授權、合作、認可或背書。
+本儲存庫的 `main` 分支已移除 `icons/` 根目錄下的品牌 SVG／PNG（Git 歷史可能仍包含先前版本）。配置中的品牌圖像直接引用第三方來源，**不在此儲存庫重新保存、鏡像或修改**。第三方託管不代表取得商標權；名稱、Logo、識別圖樣的權利仍屬各權利人。
 
-| 儲存庫中的檔案 | 對應名稱／權利歸屬 | 參考來源 |
+| 配置識別 | 使用中的外部圖示 | 一致性查證與限制 |
 | --- | --- | --- |
-| `icons/GitHub.svg`, `icons/GitHub-Invertocat.svg` | GitHub、Octocat／Invertocat | [GitHub](https://github.com/)、[GitHub Logos and Usage](https://github.com/logos) |
-| `icons/Cloudflare.svg`, `icons/WARP-Cloudflare.svg`, `icons/WARP.svg` | Cloudflare、Cloudflare WARP | [Cloudflare](https://www.cloudflare.com/)、[Cloudflare WARP](https://one.one.one.one/) |
-| `icons/PrivateInternetAccess.svg` | Private Internet Access (PIA) | [PIA](https://www.privateinternetaccess.com/) |
-| `icons/Surfshark.svg` | Surfshark | [Surfshark](https://surfshark.com/) |
-| `icons/OpenVPN.png` | OpenVPN | [OpenVPN](https://openvpn.net/) |
+| Cloudflare（WARP-PROXY） | [Devicon / Cloudflare 原始 SVG](https://raw.githubusercontent.com/devicons/devicon/32fe1d3b3f36ad11f90ab94f7db59738139c2bf6/icons/cloudflare/cloudflare-original.svg) | 與移除前 `Cloudflare.svg` 的 SVG viewBox、三段 Path、填色完全一致；僅檔尾換行不同。Cloudflare [商標政策](https://www.cloudflare.com/trademark/) 對 Logo 用途有明確限制 |
+| Private Internet Access（PIA-ALL） | [theSVG / PIA](https://raw.githubusercontent.com/glincker/thesvg/bec352dd80ed68c597d57f3aa599b40eb9ecd4ee/public/icons/private-internet-access/default.svg) | 與原圖具有相同 SVG Path、viewBox 與 `#1E811F`；僅填色屬性位置不同。圖示集合的開源聲明**不直接授予 PIA 商標權** |
+| Surfshark（SS-ALL） | [theSVG / Surfshark](https://raw.githubusercontent.com/glincker/thesvg/bec352dd80ed68c597d57f3aa599b40eb9ecd4ee/public/icons/surfshark/default.svg) | 相同品牌符號與 `#1EBFBF` 填色，但上游 SVG 為簡化過的向量，**不是先前 SVG 的位元組／Path 精確副本**。官方[媒體使用政策](https://surfshark.com/press)限制商業用途、衍生作品等 |
+| GitHub、OpenVPN、WARP 根目錄圖示 | 不再引用／不保留 | 既有品牌素材檔已自當前分支下架；商標與著作權分別適用官方政策：[GitHub](https://docs.github.com/en/site-policy/other-site-policies/github-logo-policy)、[OpenVPN](https://openvpn.net/legal/)、[Cloudflare](https://www.cloudflare.com/trademark/) |
 
-### 官方品牌規範（核對於 2026-11-17）
-
-| 品牌 | 官方資料 | 對目前公開圖示的限制與證據 |
-| --- | --- | --- |
-| GitHub／Invertocat | [GitHub 品牌指南](https://brand.github.com/foundations/logo)、[Logo Policy](https://docs.github.com/en/site-policy/other-site-policies/github-logo-policy) | 允許特定辨識 GitHub、指向服務或顯示整合的用途；禁止將 Logo 當作自家產品識別、任意修改或暗示 GitHub 背書；目前個別檔案未核對來源 |
-| Cloudflare／WARP | [Cloudflare 商標使用規範](https://www.cloudflare.com/trademark/) | 官方對一般 Cloudflare Logo 使用原則上要求**事先書面許可**；文字描述與特定 Web badge 的例外不等於 Logo 再散布許可 |
-| Surfshark | [Surfshark 媒體中心](https://surfshark.com/press) | 提供官方素材，容許個人或非商業下載／複製，限制修改、衍生、販售及商業使用；須先確認目前 SVG 與官方素材一致 |
-| PIA | [PIA 媒體素材](https://www.privateinternetaccess.com/press-page)、[使用條款](https://www.privateinternetaccess.com/terms-of-service)、[Simple Icons 來源](https://github.com/simple-icons/simple-icons/blob/develop/icons/privateinternetaccess.svg) | 已核對 `icons/PrivateInternetAccess.svg` 與 Simple Icons 上游路徑資料一致，僅增添 `#1E811F` 填色；Simple Icons 素材採 **CC0-1.0**，但明確不授權第三方商標。PIA 商標使用／再散布條件仍須另外確認 |
-| OpenVPN | [OpenVPN 品牌素材](https://openvpn.net/branding/)、[商標條款](https://openvpn.net/legal/) | OpenVPN 程式的 GPL 不授權其商標；其鑰匙孔標誌等依官方條款需預先取得書面許可，並限制更動圖像 |
-
-此表僅記錄**官方可核對的規範**，不代表目前的檔案已逐項取得授權。公開儲存庫及 CDN 可供第三人下載，與本地使用作為個人 VPN 分流識別不同。對未經核實的品牌圖檔，應核對實際來源、是否經修改及官方允許範圍；必要時改用純文字服務名稱或取得書面許可。
-
-**重要：** 現有檔案未附足以確認各圖示最初下載位置／單一檔案再散布授權的來源紀錄。因此，上表識別的是品牌與參考官方網站，**不是已驗證取得商標或圖示重製授權的證明**。商標聲明也不能取代權利人可能要求的使用許可。若將圖示用於公開發行、商業使用、或品牌識別，應另外核對各品牌的使用規範。檔名 `WARP-Cloudflare.svg` 不表示這是 Cloudflare 官方核准的 WARP 專用標誌。
+**用途及風險邊界：** 以上外部圖示僅用於 Mihomo／Clash 策略群組的服務識別；它們並非本儲存庫作品，也不是品牌官方認可聲明。外部 URL 若被上游刪除、變更存取政策或遭網路阻擋，圖示顯示可能失效。Git 歷史、CDN 舊快取或既有第三方副本，不會因 `main` 刪除圖檔而自動全面消失。
 
 ## Third-party artwork
 
 - `icons/fluent-emoji-flat/*.svg`：來源 [Microsoft Fluent UI Emoji](https://github.com/microsoft/fluentui-emoji)，經由 [Iconify Fluent Emoji Flat](https://icon-sets.iconify.design/fluent-emoji-flat/) 提供，**MIT License**，Copyright (c) Microsoft Corporation。
-- SVG 會由 `tools/sync-fluent-emoji-flat.mjs` 比對與產生；`icons/` 根目錄的品牌圖示**不包含**在此 MIT 授權聲明中。
+- SVG 會由 `tools/sync-fluent-emoji-flat.mjs` 比對與產生；品牌識別改由設定直接參照外部網址，**不屬於 Microsoft Fluent Emoji Flat 的 MIT 授權範圍**。
 - 完整授權文字與來源：[FLUENT_EMOJI_ATTRIBUTION.md](FLUENT_EMOJI_ATTRIBUTION.md)。
 
 <a id="third-party-rule-sources"></a>
@@ -89,6 +76,6 @@
 ## Scope and non-endorsement
 
 - 商標標誌與著作權是不同問題：**標誌檔案即使能依某份開源授權使用，也不代表取得商標上的背書或識別使用權**。
-- 對未驗證個別 SVG／PNG 原始下載網址及授權的品牌圖示，不宣稱「已取得商標／著作權人許可」。
+- 外部品牌圖示僅提供使用來源，不宣稱因此取得相關商標／著作權人許可。
 - 本文件僅整理已辨識的直接來源；Python／Node 套件及其**轉依賴**可能還有額外授權，正式散布二進位成果時應依實際安裝版本核對 third-party notices／SBOM。
 - 本 Repo 的自行編寫檔案沒有因列出其他程式的 MIT、LGPL 或 GPL 而自動統一授權；請勿把第三方授權當作本 Repo 的根目錄 `LICENSE`。

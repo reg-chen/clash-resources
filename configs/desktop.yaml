@@ -162,7 +162,7 @@ proxy-groups:
   # =====================================================================
   - name: WARP-PROXY
     type: select
-    icon: https://icons.reginald.win/Cloudflare.svg
+    icon: https://raw.githubusercontent.com/devicons/devicon/32fe1d3b3f36ad11f90ab94f7db59738139c2bf6/icons/cloudflare/cloudflare-original.svg
     default-selected: WARP
     proxies:
       - WARP

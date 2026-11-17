@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       path:
-        description: "Path under rules/ or icons/, e.g. rules/ads/mrs/combined.mrs or icons/Cloudflare.svg"
+        description: "Path under rules/ or icons/, e.g. rules/ads/mrs/combined.mrs or icons/fluent-emoji-flat/world-map.svg"
         required: true
         type: string
 

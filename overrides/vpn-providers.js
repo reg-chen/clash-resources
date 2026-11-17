@@ -442,7 +442,7 @@ function flagFilter(countries) {
 const VENDOR_DEFS = [
   {
     key: 'PIA',
-    icon: 'PrivateInternetAccess.svg',
+    icon: 'https://raw.githubusercontent.com/glincker/thesvg/bec352dd80ed68c597d57f3aa599b40eb9ecd4ee/public/icons/private-internet-access/default.svg',
     locations: buildLocations('PIA', PIA_OV_PATHS, PIA_WG_PATHS),
     protocols: [
       { toggle: 'x-pia-wireguard', type: 'wireguard', providerPrefix: 'wg-pia', filename: 'pia-wg.yaml', paths: new Set(PIA_WG_PATHS) },
@@ -451,7 +451,7 @@ const VENDOR_DEFS = [
   },
   {
     key: 'SS',
-    icon: 'Surfshark.svg',
+    icon: 'https://raw.githubusercontent.com/glincker/thesvg/bec352dd80ed68c597d57f3aa599b40eb9ecd4ee/public/icons/surfshark/default.svg',
     locations: buildLocations('SS', SURFSHARK_OV_PATHS),
     protocols: [
       { toggle: 'x-ss-openvpn', type: 'openvpn', providerPrefix: 'ov-ss', filename: 'surfshark-ov.yaml', paths: new Set(SURFSHARK_OV_PATHS) },
@@ -591,7 +591,7 @@ function makeVendorGroup(name, icon, proxies = [], use = []) {
 
 function buildPiaVendorGroups(rendered) {
   if (rendered.activeLocations.length === 0) return [];
-  const groups = [makeVendorGroup('PIA-ALL', `${ICON_ROOT}/${rendered.vendor.icon}`, locationNames(rendered))];
+  const groups = [makeVendorGroup('PIA-ALL', rendered.vendor.icon, locationNames(rendered))];
   for (const [regionName, countries, icon] of REGION_DEFS) {
     const proxies = regionLocationNames(rendered, countries);
     if (proxies.length > 0) groups.push(makeVendorGroup(`PIA-${regionName}`, `${ICON_ROOT}/${icon}`, proxies));
@@ -604,7 +604,7 @@ function buildSurfsharkVendorGroups(rendered) {
   const wgAll = [...wgAsia, ...bucket(rendered, 'globalExtra')];
   if (rendered.activeLocations.length === 0 && wgAll.length === 0) return [];
 
-  const groups = [makeVendorGroup('SS-ALL', `${ICON_ROOT}/${rendered.vendor.icon}`, locationNames(rendered), wgAll)];
+  const groups = [makeVendorGroup('SS-ALL', rendered.vendor.icon, locationNames(rendered), wgAll)];
   const asiaGroup = makeVendorGroup(
     'SS-ASIA',
     `${ICON_ROOT}/fluent-emoji-flat/japanese-castle.svg`,

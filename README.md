@@ -8,4 +8,4 @@
 - **Fluent Emoji Flat**：`icons/fluent-emoji-flat/` 來源為 [Microsoft Fluent UI Emoji](https://github.com/microsoft/fluentui-emoji)，透過 [Iconify](https://icon-sets.iconify.design/fluent-emoji-flat/) 取得，採 **MIT License**。著作權及授權條款見 [Fluent Emoji 聲明](docs/FLUENT_EMOJI_ATTRIBUTION.md)。
 - **第三方規則**：包括採 **GPL-3.0** 的 HaGeZi、Loyalsoldier，以及採 **MIT** 的 Phishing.Database、anti-AD；來源、修改及授權資訊詳見[規則來源聲明](docs/THIRD_PARTY_NOTICES.md#third-party-rule-sources)。
 - **軟體與建置相依套件**：包括 CustomTkinter（MIT）、Tkinter／Tcl/Tk、PyInstaller、Pillow、cryptography 等。各套件依其個別授權適用；詳見[第三方聲明](docs/THIRD_PARTY_NOTICES.md)。
-- **品牌名稱與圖示**：GitHub、Cloudflare／WARP、Private Internet Access、Surfshark、OpenVPN 等名稱、標誌及商標權利歸各自權利人所有。引用不表示贊助、合作、認可，也不代表相關商標受本儲存庫所述開源授權涵蓋。
+- **品牌商標**：GitHub、Cloudflare／WARP、Private Internet Access、Surfshark、OpenVPN 等名稱與標誌的權利歸各自權利人所有。本儲存庫不再保存品牌圖示；設定檔如引用外部品牌圖像，亦不表示贊助、合作、背書或取得商標授權。
