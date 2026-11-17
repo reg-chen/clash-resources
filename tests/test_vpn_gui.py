@@ -43,6 +43,24 @@ class DarkThemeHelpersTests(unittest.TestCase):
         self.assertFalse(gui.set_dark_titlebar(None, None))
 
 
+class ButtonContrastTests(unittest.TestCase):
+    @staticmethod
+    def contrast(foreground, background):
+        def lightness(color):
+            rgb = [int(color[i:i + 2], 16) / 255.0 for i in (1, 3, 5)]
+            linear = [v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in rgb]
+            return sum(v * weight for v, weight in zip(linear, (.2126, .7152, .0722)))
+        a, b = sorted((lightness(foreground), lightness(background)), reverse=True)
+        return (a + .05) / (b + .05)
+
+    def test_white_label_contrast_at_normal_and_hover_is_wcag_aa(self):
+        for variant, (base, hover, pressed) in gui.BUTTON_PALETTE.items():
+            with self.subTest(variant=variant):
+                for color in (base, hover, pressed):
+                    self.assertGreaterEqual(
+                        self.contrast(gui.BUTTON_FOREGROUND, color), 4.5)
+
+
 class ConfigAndValidationTests(unittest.TestCase):
     def test_no_qsettings_migration(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -196,6 +214,42 @@ class WindowsGuiTests(unittest.TestCase):
             self.assertEqual(widget.text.cget("insertbackground").lower(), colors.inputfg.lower())
             self.assertEqual(widget.scrollbar.winfo_class(), "TScrollbar")
         self.assertEqual(self.window.cget("background").lower(), colors.bg.lower())
+
+    def test_actions_use_rounded_muted_styles(self):
+        style = self.window.style
+        for variant, name in gui.BUTTON_STYLES.items():
+            with self.subTest(variant=variant):
+                self.assertTrue(style.layout(name))
+                self.assertIn(name + ".background", str(style.layout(name)))
+        self.assertEqual(self.window.run_button.cget("style"), gui.BUTTON_STYLES["primary"])
+        self.assertEqual(self.window.warp_button.cget("style"), gui.BUTTON_STYLES["secondary"])
+        self.assertEqual(self.window.trust_button.cget("style"), gui.BUTTON_STYLES["secondary"])
+
+    def test_alert_body_titlebar_and_confirmation_are_dark(self):
+        self.window.deiconify()
+        self.window.update()
+        colors = self.window.style.colors
+        try:
+            # A closed / cancelled warning is not affirmative.
+            dialog = gui.DarkAlertDialog(
+                self.window, title="排程確認", message="要移除現有排程嗎？",
+                kind="question", confirm=True)
+            self.assertEqual(dialog.cget("background").lower(), colors.bg.lower())
+            self.assertEqual(dialog.ok_button.cget("style"), gui.BUTTON_STYLES["primary"])
+            self.assertEqual(dialog.cancel_button.cget("style"), gui.BUTTON_STYLES["secondary"])
+            self.assertTrue(gui.set_dark_titlebar(dialog, colors))
+            self.assertTrue(dialog.grab_current() == dialog)
+            dialog.after(20, lambda: dialog._finish(False))
+            self.assertFalse(dialog.show())
+
+            # Clicking Yes is a genuine bool, not the string "Yes"/"No".
+            dialog = gui.DarkAlertDialog(
+                self.window, title="CA 信任", message="確定嗎？",
+                kind="question", confirm=True)
+            dialog.after(20, lambda: dialog._finish(True))
+            self.assertIs(dialog.show(), True)
+        finally:
+            self.window.withdraw()
 
     def test_three_tabs_and_function_buttons_exist(self):
         self.assertEqual(len(self.window.tabs.tabs()), 3)
