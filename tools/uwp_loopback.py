@@ -123,6 +123,14 @@ def current_user_context(process_handle=None) -> tuple[str, bool]:
         kernel.CloseHandle(token)
 
 
+def current_process_is_elevated() -> bool:
+    """Check the effective process token, not merely administrator membership."""
+    require_windows()
+    shell = ctypes.WinDLL("shell32.dll", use_last_error=True)
+    shell.IsUserAnAdmin.restype = wintypes.BOOL
+    return bool(shell.IsUserAnAdmin())
+
+
 def current_process_matches_login_shell() -> bool:
     """Reject GUI launched with an alternate administrator's RunAs identity.
 
