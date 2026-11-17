@@ -476,14 +476,14 @@ class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
         )
         scroll.pack(fill="both", expand=True, padx=18, pady=(0, 12))
         for entry in entries:
-            sid = entry["SID"]
+            key = entry["Key"]
             status = entry["Status"]
             variable = tk.BooleanVar(value=(status == "available"))
-            self.variables[sid] = variable
+            self.variables[key] = variable
             row = ctk.CTkFrame(scroll, fg_color="transparent", corner_radius=0)
             row.pack(fill="x", padx=8, pady=6)
             row.grid_columnconfigure(0, weight=1)
-            label = entry.get("DisplayName") or entry.get("AppContainerName") or sid
+            label = entry.get("DisplayName") or entry.get("AppContainerName") or key
             control = ctk.CTkCheckBox(
                 row, text=label[:90], variable=variable,
                 fg_color=ACCENT, hover_color="#527EA4",
@@ -502,8 +502,9 @@ class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
             ui_label(row, text=state_text,
                      foreground=("#87C4A6" if status == "available" else MUTED)
                      ).grid(row=0, column=1, sticky="e", padx=8)
-            detail = entry.get("AppContainerName") or sid
-            ui_label(row, text=f"{detail}　·　{sid}", foreground=MUTED,
+            detail = entry.get("AppContainerName") or "未知 AppContainer"
+            family = entry.get("PackageFamilyName") or "舊版備份：僅有容器名稱"
+            ui_label(row, text=f"{detail}　·　{family}", foreground=MUTED,
                      font=("Consolas", 10)).grid(
                 row=1, column=0, columnspan=2, sticky="w", padx=(28, 0))
 
@@ -523,7 +524,7 @@ class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
 
     def _select_all(self):
         for row in self.rows:
-            self.variables[row["SID"]].set(row["Status"] == "available")
+            self.variables[row["Key"]].set(row["Status"] == "available")
 
     def _clear(self):
         for variable in self.variables.values():
@@ -531,8 +532,8 @@ class UwpLoopbackRestoreDialog(ctk.CTkToplevel):
 
     def _accept(self):
         self.selected = [
-            row["SID"] for row in self.rows
-            if row["Status"] == "available" and self.variables[row["SID"]].get()
+            row["Key"] for row in self.rows
+            if row["Status"] == "available" and self.variables[row["Key"]].get()
         ]
         self._finish()
 
@@ -1155,8 +1156,15 @@ class MainWindow(ctk.CTk):
             messagebox.showerror("UWP Loopback 操作失敗", str(result), parent=self)
         elif mode == "backup":
             self.uwp_status.set(
-                f"已備份 {result['Total']} 個 Loopback 豁免"
-                f"（可辨識 {result['Recognized']}／未辨識 {result['Unresolved']}）：{path}")
+                f"已讀取 {result['Total']} 個 Loopback 豁免，"
+                f"可攜身分 {result['Recognized']}／無法辨識 {result['Unresolved']}：{path}")
+            if result["Unresolved"]:
+                messagebox.showwarning(
+                    "部分豁免無法跨系統還原",
+                    f"有 {result['Unresolved']} 個 Loopback 豁免缺少可核對的 AppContainer 身分，"
+                    "因此未列入可攜式還原清單。來源 SID 不會被當成新系統的 App 身分。",
+                    parent=self,
+                )
         else:
             self.uwp_status.set(
                 f"新增 {result['Added']}／已存在 {result['Existing']}／"
