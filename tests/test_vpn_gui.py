@@ -284,6 +284,12 @@ class WindowsGuiTests(unittest.TestCase):
                 image = ImageGrab.grab(bbox=box).convert("RGB")
                 rgb = image.getpixel((image.width // 2, image.height // 2))
                 print(f"WINDOW_TITLEBAR_CAPTURE outer={outer:#x} rect={tuple((rect.left, rect.top, rect.right, rect.bottom))} center_rgb={rgb} expected={self.window.style.colors.bg}", flush=True)
+                expected = self.window.style.colors.bg.lstrip("#")
+                expected_rgb = tuple(int(expected[i:i+2], 16) for i in (0, 2, 4))
+                self.assertTrue(
+                    all(abs(actual - desired) <= 24 for actual, desired in zip(rgb, expected_rgb)),
+                    f"Windows titlebar rendered {rgb}, expected near {expected_rgb}",
+                )
             except OSError as exc:
                 print(f"WINDOW_TITLEBAR_CAPTURE unavailable: {exc}", flush=True)
         finally:
