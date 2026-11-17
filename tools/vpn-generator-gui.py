@@ -1088,12 +1088,33 @@ class MainWindow(ctk.CTk):
             buttons, text="預覽／選擇還原", command=self._uwp_restore)
         self.uwp_restore.pack(side="left", padx=8, pady=(27, 10))
         self.uwp_status = tk.StringVar(
-            value="只處理 UWP Loopback 已啟用的豁免，不備份一般防火牆規則。"
+            value="僅備份已勾選的 UWP Loopback；備份／還原須由登入帳號本身具有管理員權限。"
         )
         ui_label(frm, textvariable=self.uwp_status).pack(
             anchor="w", pady=12, padx=8)
 
+    def _uwp_require_own_admin(self) -> bool:
+        try:
+            _, is_admin = uwp_loopback.current_user_context()
+        except Exception as exc:
+            self.uwp_status.set("無法確認目前 Windows 帳號的權限。")
+            messagebox.showerror(
+                "無法確認管理員權限", str(exc), parent=self)
+            return False
+        if is_admin:
+            return True
+        self.uwp_status.set("目前登入帳號不是管理員，已取消 UWP Loopback 操作。")
+        messagebox.showwarning(
+            "UWP Loopback 需要登入者的管理員身分",
+            "備份與還原僅支援目前登入的 Windows 使用者本身具有管理員權限。"
+            "\n標準使用者不能藉由輸入另一個管理員帳號的 UAC 認證進行操作；"
+            "否則會查詢到另一個帳號的 App 清單，造成備份或還原錯誤。",
+            parent=self)
+        return False
+
     def _uwp_backup(self):
+        if not self._uwp_require_own_admin():
+            return
         path = filedialog.asksaveasfilename(
             parent=self, title="備份 UWP Loopback 勾選項目",
             initialfile="uwp-loopback-exemptions.json",
@@ -1102,6 +1123,8 @@ class MainWindow(ctk.CTk):
             self._start_uwp("backup", Path(path))
 
     def _uwp_restore(self):
+        if not self._uwp_require_own_admin():
+            return
         path = filedialog.askopenfilename(
             parent=self, title="選擇 UWP Loopback 備份",
             filetypes=[("JSON", "*.json")])
