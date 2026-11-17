@@ -237,53 +237,97 @@ class DarkScrolledText(ttk.Frame):
 
 
 class WarpScheduleDialog(tk.Toplevel):
-    """Register/overwrite the same Windows task; do not inspect old settings."""
+    """Restore the original two-option WARP schedule interface."""
+
+    FREQUENCIES = {
+        "每月 5、10、15、20、25、30 日（預設）": "monthly",
+        "每 N 天": "interval",
+    }
 
     def __init__(self, parent, out_dir: str, config: dict):
         super().__init__(parent)
         self.title("WARP 工作排程")
         self.configure(background=parent.style.colors.bg)
-        self.after(0, lambda: set_dark_titlebar(self, parent.style.colors))
         self.transient(parent)
         self.resizable(False, False)
         self.out = tk.StringVar(value=out_dir or r"P:\Clash")
-        self.mode = tk.StringVar(value=config.get("mode", "monthly"))
+        selected = config.get("mode", "monthly")
+        if selected not in ("monthly", "interval"):
+            selected = "monthly"
+        self.mode = tk.StringVar(value=selected)
+        self.frequency_label = tk.StringVar(
+            value=next(label for label, mode in self.FREQUENCIES.items() if mode == selected))
         self.interval = tk.StringVar(value=str(config.get("interval", 5)))
         self.clock = tk.StringVar(value=config.get("time", "03:00"))
-        self.config = config
+        self.config_data = config
+
         frm = ttk.Frame(self, padding=16)
         frm.pack(fill="both", expand=True)
-        ttk.Label(frm, text="同名工作排程會直接覆寫；不讀取舊排程內容。").grid(
+        frm.columnconfigure(1, weight=1)
+        ttk.Label(frm, text="由 Windows 工作排程執行 WARP 更新，不需要開啟 GUI。").grid(
             row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
-        ttk.Label(frm, text="執行頻率").grid(row=1, column=0, sticky="w")
-        ttk.Combobox(frm, textvariable=self.mode, state="readonly",
-                     values=("monthly", "interval", "daily"), width=18).grid(row=1, column=1, sticky="ew")
-        ttk.Label(frm, text="monthly／interval／daily").grid(row=1, column=2, sticky="w", padx=8)
-        ttk.Label(frm, text="間隔天數").grid(row=2, column=0, sticky="w", pady=6)
-        ttk.Entry(frm, textvariable=self.interval, width=18).grid(row=2, column=1, sticky="ew")
+        ttk.Label(frm, text="執行頻率").grid(row=1, column=0, sticky="w", pady=6)
+        self.frequency_combo = ttk.Combobox(
+            frm, textvariable=self.frequency_label, state="readonly",
+            values=tuple(self.FREQUENCIES), width=34)
+        self.frequency_combo.grid(row=1, column=1, columnspan=2, sticky="ew", padx=(12, 0))
+        self.frequency_combo.bind("<<ComboboxSelected>>", self._frequency_selected)
+
+        self.interval_label = ttk.Label(frm, text="間隔天數 N")
+        self.interval_label.grid(row=2, column=0, sticky="w", pady=6)
+        self.interval_spinbox = ttk.Spinbox(
+            frm, textvariable=self.interval, from_=1, to=365, width=8)
+        self.interval_spinbox.grid(row=2, column=1, sticky="w", padx=(12, 0), pady=6)
+        self.interval_unit = ttk.Label(frm, text="天")
+        self.interval_unit.grid(row=2, column=2, sticky="w", pady=6)
+
         ttk.Label(frm, text="執行時間").grid(row=3, column=0, sticky="w", pady=6)
-        ttk.Entry(frm, textvariable=self.clock, width=18).grid(row=3, column=1, sticky="ew")
-        ttk.Label(frm, text="HH:mm").grid(row=3, column=2, sticky="w", padx=8)
+        ttk.Entry(frm, textvariable=self.clock, width=12).grid(
+            row=3, column=1, sticky="w", padx=(12, 0), pady=6)
+        ttk.Label(frm, text="HH:mm").grid(row=3, column=2, sticky="w", pady=6)
         ttk.Label(frm, text="Mihomo 目錄").grid(row=4, column=0, sticky="w", pady=6)
-        ttk.Entry(frm, textvariable=self.out, width=32).grid(row=4, column=1, columnspan=2, sticky="ew")
-        ttk.Label(frm, text="預設每月 5、10、15、20、25、30 日；P: 磁碟需保持使用者登入。",
-                  wraplength=470).grid(row=5, column=0, columnspan=3, sticky="w", pady=(6, 14))
+        ttk.Entry(frm, textvariable=self.out, width=36).grid(
+            row=4, column=1, columnspan=2, sticky="ew", padx=(12, 0), pady=6)
+        ttk.Label(frm, text="注意：若使用 P: 映射磁碟，Windows 使用者必須已登入。").grid(
+            row=5, column=0, columnspan=3, sticky="w", pady=(8, 14))
         actions = ttk.Frame(frm)
         actions.grid(row=6, column=0, columnspan=3, sticky="e")
-        ttk.Button(actions, text="安裝／覆寫", command=self.install, bootstyle="success").pack(side="left", padx=3)
-        ttk.Button(actions, text="移除", command=self.remove, bootstyle="warning-outline").pack(side="left", padx=3)
+        ttk.Button(actions, text="安裝／更新排程", command=self.install,
+                   bootstyle="success").pack(side="left", padx=3)
+        ttk.Button(actions, text="移除排程", command=self.remove,
+                   bootstyle="warning-outline").pack(side="left", padx=3)
         ttk.Button(actions, text="關閉", command=self.destroy).pack(side="left", padx=3)
+
+        self.mode.trace_add("write", self._sync_mode)
+        self._update_interval_visibility()
         self.grab_set()
+        self.after(100, lambda: show_with_dark_titlebar(self, parent.style.colors))
+
+    def _frequency_selected(self, _event=None):
+        self.mode.set(self.FREQUENCIES[self.frequency_label.get()])
+
+    def _sync_mode(self, *_args):
+        self.frequency_label.set(next(
+            label for label, mode in self.FREQUENCIES.items() if mode == self.mode.get()))
+        self._update_interval_visibility()
+
+    def _update_interval_visibility(self):
+        action = "grid" if self.mode.get() == "interval" else "grid_remove"
+        for widget in (self.interval_label, self.interval_spinbox, self.interval_unit):
+            getattr(widget, action)()
 
     def install(self):
         try:
-            days = int(self.interval.get())
+            mode = self.mode.get()
+            days = int(self.interval.get()) if mode == "interval" else 5
+            directory = self.out.get().strip()
+            if not directory:
+                raise ValueError("請設定 Mihomo 輸出目錄。")
             result = warp_schedule.configure_schedule(
-                action="install", out_dir=Path(self.out.get().strip()),
-                mode=self.mode.get(), interval_days=days, time=self.clock.get().strip(),
-            )
-            self.config.update({"mode": self.mode.get(), "interval": days, "time": self.clock.get()})
-            messagebox.showinfo("WARP 排程", f"已安裝／覆寫：{TASK_NAME}\n{result}", parent=self)
+                action="install", out_dir=Path(directory), mode=mode,
+                interval_days=days, time=self.clock.get().strip())
+            self.config_data.update({"mode": mode, "interval": days, "time": self.clock.get()})
+            messagebox.showinfo("WARP 排程", f"已安裝／更新：{TASK_NAME}\n{result}", parent=self)
         except Exception as exc:
             messagebox.showerror("排程失敗", str(exc), parent=self)
 
