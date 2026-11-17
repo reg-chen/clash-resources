@@ -11,6 +11,7 @@
 - **第三方規則**：自動整合來源包含 **GPL-3.0** 的 HaGeZi、Loyalsoldier，以及 **MIT** 的 Phishing.Database、anti-AD。規則經轉換、分類或合併後發布，請見[規則來源與授權說明](docs/THIRD_PARTY_NOTICES.md#third-party-rule-sources)。
 - **品牌圖示／商標**：GitHub、Cloudflare／WARP、Private Internet Access、Surfshark、OpenVPN 等名稱及相關標誌權利歸各自權利人；使用並不表示其對本儲存庫有任何贊助、合作或認可，也**不表示**這些品牌圖示獲得 MIT 授權。
 - **Windows GUI／EXE**：現行版本採 **CustomTkinter 6.0.0（MIT）** 與 Tkinter／Tcl/Tk，使用 PyInstaller `--onefile` 建置；Pillow、cryptography 等隨附依賴仍適用各自授權。過去曾使用 PySide6／Qt、ttkbootstrap；**舊版 EXE Artifact 已清理，目前只提供 CustomTkinter 版**。詳見第三方聲明。
+- **UWP Loopback**：僅備份 Windows UWP Loopback／WinConfig 已勾選的 AppContainer 豁免；還原時逐項預覽與勾選，未安裝的 App 跳過、已存在的豁免保留，不修改其他 Windows 防火牆規則。先前的一般防火牆規則 JSON 不適用此功能。
 
 **僅使用本儲存庫的程式碼，與重新散布第三方規則、圖示或包含第三方函式庫的執行檔，授權義務並不相同。**
 
