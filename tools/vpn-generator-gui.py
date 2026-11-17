@@ -14,7 +14,7 @@ import sys
 import threading
 import traceback
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 from pathlib import Path
 
 import ttkbootstrap as ttk
@@ -268,6 +268,171 @@ class DarkScrolledText(ttk.Frame):
         return self.text.see(*args)
 
 
+# Deliberately quieter than darkly's bright green success controls.
+# White-on-blue stays above WCAG AA contrast even in the hover state.
+BUTTON_PALETTE = {
+    "primary": ("#355D86", "#426F9B", "#284562"),
+    "secondary": ("#424C5D", "#535D70", "#303A47"),
+    "danger": ("#754653", "#864A57", "#59333F"),
+}
+BUTTON_FOREGROUND = "#F8FAFC"
+BUTTON_STYLES = {name: f"Reg{name.title()}.TButton" for name in BUTTON_PALETTE}
+
+
+def configure_rounded_buttons(style) -> None:
+    """Rounded ttk buttons using ttkbootstrap 2.x cached images and layouts."""
+    from ttkbootstrap import Assets, El, image_element, layout, state_map
+
+    assets = Assets(style)
+    for variant, (base, hover, pressed) in BUTTON_PALETTE.items():
+        name = BUTTON_STYLES[variant]
+        background_element = f"{name}.background"
+        # Nine-slice scaling preserves the 10px corner radius at any width.
+        image_element(
+            style,
+            background_element,
+            default=assets.rounded_rect(base, size=(88, 34), radius=10),
+            states={
+                "pressed": assets.rounded_rect(pressed, size=(88, 34), radius=10),
+                "hover": assets.rounded_rect(hover, size=(88, 34), radius=10),
+                "disabled": assets.rounded_rect("#353B45", size=(88, 34), radius=10),
+            },
+            border=10,
+            sticky="nsew",
+        )
+        layout(
+            style,
+            name,
+            El(background_element, sticky="nsew", children=[
+                El("Button.label", side="left", expand=True),
+            ]),
+        )
+        style.configure(
+            name, foreground=BUTTON_FOREGROUND,
+            anchor="center", padding=(14, 8),
+        )
+        state_map(
+            style, name,
+            foreground={
+                "disabled": "#A1A9B5",
+                "pressed": BUTTON_FOREGROUND,
+                "hover": BUTTON_FOREGROUND,
+            },
+        )
+
+
+def styled_button(parent, *, variant: str = "secondary", **kwargs):
+    """Use a shared accessible rounded style for every action button."""
+    return ttk.Button(parent, style=BUTTON_STYLES[variant], **kwargs)
+
+
+class DarkAlertDialog(tk.Toplevel):
+    """Theme-consistent modal, including the Windows native title bar."""
+
+    def __init__(self, parent, *, title: str, message: str,
+                 kind: str = "info", confirm: bool = False):
+        super().__init__(parent)
+        self.withdraw()
+        self.title(title)
+        self.transient(parent)
+        self.resizable(False, False)
+        self.result = False
+        self.confirm = confirm
+        self.colors = ttk.Style().colors
+        self.configure(bg=self.colors.bg)
+        self.protocol("WM_DELETE_WINDOW", lambda: self._finish(False))
+        self.bind("<Escape>", lambda _event: self._finish(False))
+        self.bind("<Return>", lambda _event: self._finish(True))
+
+        content = ttk.Frame(self, padding=20)
+        content.pack(fill="both", expand=True)
+        content.columnconfigure(1, weight=1)
+        symbol, color = {
+            "info": ("i", self.colors.info),
+            "warning": ("!", self.colors.warning),
+            "error": ("!", self.colors.danger),
+            "question": ("?", self.colors.info),
+        }.get(kind, ("i", self.colors.info))
+        ttk.Label(content, text=symbol, foreground=color,
+                  font=("Segoe UI", 20, "bold"), width=2,
+                  anchor="center").grid(row=0, column=0, sticky="n", padx=(0, 12))
+        self.message_label = ttk.Label(
+            content, text=message, justify="left",
+            wraplength=480, anchor="w")
+        self.message_label.grid(row=0, column=1, sticky="w", pady=(4, 16))
+        actions = ttk.Frame(content)
+        actions.grid(row=1, column=0, columnspan=2, sticky="e")
+        if confirm:
+            self.cancel_button = styled_button(
+                actions, text="取消", variant="secondary",
+                command=lambda: self._finish(False))
+            self.cancel_button.pack(side="left", padx=(0, 8))
+        self.ok_button = styled_button(
+            actions, text="確定", variant="primary",
+            command=lambda: self._finish(True))
+        self.ok_button.pack(side="left")
+
+        # Place the dialog relative to its parent rather than the desktop.
+        self.update_idletasks()
+        width = max(300, self.winfo_reqwidth())
+        height = self.winfo_reqheight()
+        x = parent.winfo_rootx() + max(0, (parent.winfo_width() - width) // 2)
+        y = parent.winfo_rooty() + max(0, (parent.winfo_height() - height) // 2)
+        self.geometry(f"+{x}+{y}")
+        self.deiconify()
+        show_with_dark_titlebar(self, self.colors)
+        self._previous_grab = parent.grab_current()
+        self.grab_set()
+        self.ok_button.focus_set()
+
+    def _finish(self, result: bool) -> None:
+        self.result = bool(result)
+        try:
+            self.grab_release()
+            if (self._previous_grab is not None
+                    and self._previous_grab.winfo_exists()):
+                self._previous_grab.grab_set()
+        finally:
+            self.destroy()
+
+    def show(self) -> bool:
+        self.wait_window(self)
+        return self.result
+
+
+class ThemedMessagebox:
+    """Keep tkinter.messagebox argument semantics and boolean confirmations."""
+
+    @staticmethod
+    def _show(title: str, message: str, *, parent, kind: str, confirm=False):
+        if parent is None:
+            raise ValueError("Dark message boxes require an explicit parent")
+        return DarkAlertDialog(
+            parent, title=title, message=message, kind=kind, confirm=confirm
+        ).show()
+
+    @staticmethod
+    def showinfo(title, message, *, parent=None):
+        return ThemedMessagebox._show(title, message, parent=parent, kind="info")
+
+    @staticmethod
+    def showwarning(title, message, *, parent=None):
+        return ThemedMessagebox._show(title, message, parent=parent, kind="warning")
+
+    @staticmethod
+    def showerror(title, message, *, parent=None):
+        return ThemedMessagebox._show(title, message, parent=parent, kind="error")
+
+    @staticmethod
+    def askyesno(title, message, *, parent=None):
+        return ThemedMessagebox._show(title, message, parent=parent,
+                                     kind="question", confirm=True)
+
+
+# All existing calls stay compatible; confirm/close still yields bool.
+messagebox = ThemedMessagebox
+
+
 class WarpScheduleDialog(tk.Toplevel):
     """Restore the original two-option WARP schedule interface."""
 
@@ -324,11 +489,11 @@ class WarpScheduleDialog(tk.Toplevel):
             row=5, column=0, columnspan=3, sticky="w", pady=(8, 14))
         actions = ttk.Frame(frm)
         actions.grid(row=6, column=0, columnspan=3, sticky="e")
-        ttk.Button(actions, text="安裝／更新排程", command=self.install,
-                   bootstyle="success").pack(side="left", padx=3)
-        ttk.Button(actions, text="移除排程", command=self.remove,
-                   bootstyle="warning-outline").pack(side="left", padx=3)
-        ttk.Button(actions, text="關閉", command=self.destroy).pack(side="left", padx=3)
+        styled_button(actions, text="安裝／更新排程", command=self.install,
+                   variant="primary").pack(side="left", padx=3)
+        styled_button(actions, text="移除排程", command=self.remove,
+                   variant="danger").pack(side="left", padx=3)
+        styled_button(actions, text="關閉", command=self.destroy).pack(side="left", padx=3)
 
         self.mode.trace_add("write", self._sync_mode)
         self._update_interval_visibility()
@@ -376,6 +541,7 @@ class WarpScheduleDialog(tk.Toplevel):
 class MainWindow(ttk.Window):
     def __init__(self):
         super().__init__(themename="darkly")
+        configure_rounded_buttons(self.style)
         self.title("VPN / Mihomo Generator")
         self.configure(background=self.style.colors.bg)
         self.after(100, lambda: show_with_dark_titlebar(self, self.style.colors))
@@ -437,7 +603,7 @@ class MainWindow(ttk.Window):
         entry = ttk.Entry(container, textvariable=variable, show="●" if secret else "")
         entry.pack(side="left", fill="x", expand=True)
         if browse:
-            ttk.Button(container, text="瀏覽", command=browse, width=6).pack(side="left", padx=(6, 0))
+            styled_button(container, text="瀏覽", command=browse, width=6).pack(side="left", padx=(6, 0))
         return container, entry
 
     def _build_provider(self):
@@ -487,18 +653,18 @@ class MainWindow(ttk.Window):
         self.mode_row.grid(row=7, column=1, sticky="w")
         ttk.Radiobutton(self.mode_row, text="分節點檔案", variable=self.single_file, value=False).pack(side="left", padx=(0, 12))
         ttk.Radiobutton(self.mode_row, text="單一檔案", variable=self.single_file, value=True).pack(side="left", padx=(0, 12))
-        ttk.Button(self.mode_row, text="?", width=3, command=self._show_mode_help,
-                   bootstyle="secondary-outline").pack(side="left")
+        styled_button(self.mode_row, text="?", width=3, command=self._show_mode_help,
+                   variant="secondary").pack(side="left")
         self.filter_label = ttk.Label(form, text="節點過濾", width=21)
         self.filter_label.grid(row=8, column=0, sticky="w", pady=5)
         self.filter_check = ttk.Checkbutton(form, text="排除 Streaming Optimized", variable=self.exclude_streaming)
         self.filter_check.grid(row=8, column=1, sticky="w", pady=5)
         buttons = ttk.Frame(root)
         buttons.grid(row=1, column=0, sticky="ew", pady=(12, 6))
-        self.run_button = ttk.Button(buttons, text="執行", command=self._start_generation, bootstyle="success")
+        self.run_button = styled_button(buttons, text="執行", command=self._start_generation, variant="primary")
         self.run_button.pack(side="left")
-        self.warp_button = ttk.Button(buttons, text="安裝／管理 WARP 排程",
-                                      command=self._open_schedule, bootstyle="secondary-outline")
+        self.warp_button = styled_button(buttons, text="安裝／管理 WARP 排程",
+                                      command=self._open_schedule, variant="secondary")
         self.warp_button.pack(side="left", padx=12)
         logbox = ttk.Labelframe(root, text="Log", padding=6)
         logbox.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
@@ -689,14 +855,14 @@ class MainWindow(ttk.Window):
         pathrow = ttk.Frame(group)
         pathrow.grid(row=0, column=1, sticky="ew", pady=5)
         ttk.Entry(pathrow, textvariable=self.cert_dir).pack(side="left", fill="x", expand=True)
-        ttk.Button(pathrow, text="瀏覽", command=self._pick_cert_root).pack(side="left", padx=6)
+        styled_button(pathrow, text="瀏覽", command=self._pick_cert_root).pack(side="left", padx=6)
         ttk.Label(group, text="DoH 主機", width=18).grid(row=1, column=0, sticky="w")
         ttk.Entry(group, textvariable=self.doh_host).grid(row=1, column=1, sticky="ew", pady=5)
         actions = ttk.Frame(group)
         actions.grid(row=2, column=1, sticky="w", pady=6)
-        ttk.Button(actions, text="產生／更新", command=self._generate_certs,
-                   bootstyle="success").pack(side="left")
-        self.trust_button = ttk.Button(actions, text="信任 CA", command=self._trust_ca, state="disabled")
+        styled_button(actions, text="產生／更新", command=self._generate_certs,
+                   variant="primary").pack(side="left")
+        self.trust_button = styled_button(actions, text="信任 CA", command=self._trust_ca, state="disabled")
         self.trust_button.pack(side="left", padx=8)
         ttk.Label(group, textvariable=self.doh_status).grid(row=3, column=1, sticky="w")
         config = ttk.Labelframe(frm, text="Mihomo 設定", padding=12)
@@ -705,13 +871,13 @@ class MainWindow(ttk.Window):
         self.doh_yaml = DarkScrolledText(config, height=7, wrap="word",
                                                  font=("Consolas", 10), state="disabled")
         self.doh_yaml.grid(row=0, column=0, columnspan=3, sticky="ew")
-        self.copy_yaml = ttk.Button(config, text="複製 YAML", command=lambda: self._copy(
+        self.copy_yaml = styled_button(config, text="複製 YAML", command=lambda: self._copy(
             self.doh_yaml.get("1.0", "end-1c")), state="disabled")
         self.copy_yaml.grid(row=1, column=2, sticky="e", pady=7)
         ttk.Label(config, text="Firefox DoH", width=18).grid(row=2, column=0, sticky="w")
         ttk.Entry(config, textvariable=self.doh_endpoint, state="readonly").grid(
             row=2, column=1, sticky="ew")
-        self.copy_url = ttk.Button(config, text="複製網址",
+        self.copy_url = styled_button(config, text="複製網址",
                                    command=lambda: self._copy(self.doh_endpoint.get()))
         self.copy_url.grid(row=2, column=2, padx=6)
         ttk.Label(config, text="Party Hosts", width=18).grid(row=3, column=0, sticky="w", pady=6)
@@ -781,9 +947,9 @@ class MainWindow(ttk.Window):
         frm = self.uwp_tab
         buttons = ttk.Labelframe(frm, text="UWP 防火牆規則", padding=14)
         buttons.pack(fill="x")
-        self.uwp_backup = ttk.Button(buttons, text="備份 JSON", command=self._uwp_backup)
+        self.uwp_backup = styled_button(buttons, text="備份 JSON", command=self._uwp_backup)
         self.uwp_backup.pack(side="left", padx=5)
-        self.uwp_restore = ttk.Button(buttons, text="套用備份", command=self._uwp_restore)
+        self.uwp_restore = styled_button(buttons, text="套用備份", command=self._uwp_restore)
         self.uwp_restore.pack(side="left", padx=5)
         self.uwp_status = tk.StringVar()
         ttk.Label(frm, textvariable=self.uwp_status).pack(anchor="w", pady=12)
