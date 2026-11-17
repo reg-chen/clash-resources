@@ -1,0 +1,41 @@
+minimum_pre_commit_version: '3.2.0'
+default_install_hook_types: [pre-commit, pre-push]
+
+# All checks run locally. No GitHub Actions are triggered by these hooks.
+repos:
+  - repo: local
+    hooks:
+      - id: staged-whitespace
+        name: Check staged whitespace errors
+        entry: git diff --cached --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+      - id: source-syntax
+        name: Check changed Python / JavaScript / JSON syntax
+        entry: python tools/repo_preflight.py
+        language: system
+        files: '^(tools|tests|overrides)/.*\.(py|js|mjs|cjs|json)$'
+        stages: [pre-commit]
+      - id: vpn-provider-regression
+        name: Verify VPN provider override combinations
+        entry: node tests/vpn-providers.test.cjs
+        language: system
+        pass_filenames: false
+        files: '^(overrides/vpn-providers\.js|tests/vpn-providers\.test\.cjs)$'
+        stages: [pre-commit]
+      - id: mrs-regression
+        name: Verify MRS merge, overlap and provenance
+        entry: python -m unittest discover -s tests -p test_mrs_*.py
+        language: system
+        pass_filenames: false
+        files: '^(tools/(build-third-party-mrs|mrs_.*|activate-merged-mrs|migrate-third-party-mrs)\.py|tests/test_mrs_.*\.py|configs/desktop\.yaml)$'
+        stages: [pre-commit]
+      - id: push-rate-guard
+        name: Limit rapid push attempts (3 per 10 minutes)
+        entry: python tools/repo_push_guard.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
