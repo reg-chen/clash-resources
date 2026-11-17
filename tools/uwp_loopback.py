@@ -455,6 +455,81 @@ def backup(path: Path) -> dict:
     }
 
 
+def _privilege_error(exc: OSError) -> bool:
+    """Windows ERROR_ACCESS_DENIED / ERROR_PRIVILEGE_NOT_HELD only."""
+    return isinstance(exc, PermissionError) or (
+        isinstance(exc, OSError) and (
+            getattr(exc, "winerror", None) in (5, 1314)
+            or exc.errno in (5, 13, 1314)
+        )
+    )
+
+
+def backup_with_optional_elevation(path: Path) -> dict:
+    """Use normal user access first; request UAC only when enumeration needs it.
+
+    The privileged helper writes into a temporary location. The ordinary GUI
+    process owns the final backup file, and file-system errors at the final
+    destination cannot spuriously trigger an elevation prompt.
+    """
+    require_windows()
+    if path.suffix.lower() != ".json":
+        raise ValueError("請選擇 .json 備份檔。")
+    with tempfile.TemporaryDirectory(prefix="regchen-uwp-loopback-") as directory:
+        folder = Path(directory)
+        stage = folder / "backup.json"
+        try:
+            result = backup(stage)
+        except OSError as exc:
+            if not _privilege_error(exc):
+                raise
+            _, can_self_elevate = current_user_context()
+            if not can_self_elevate:
+                raise PermissionError(
+                    "目前 Windows 標準使用者無法讀取 Loopback 清單；"
+                    "不可藉由另一個管理員帳號的 UAC 讀取不同使用者的 App。"
+                ) from exc
+            if current_process_is_elevated():
+                raise
+            ticket = folder / "request.json"
+            report = folder / "report.json"
+            sid, _ = current_user_context()
+            ticket.write_text(json.dumps({
+                "Type": TYPE, "RequestingUserSID": sid,
+            }), encoding="utf-8")
+            process = _run_elevated_cli([
+                "--uwp-loopback-backup", str(ticket), "--report",
+                str(report), "--output", str(stage),
+            ])
+            if not report.is_file():
+                raise RuntimeError(
+                    "Loopback 備份未完成，可能取消了管理員授權。"
+                    f" {(process.stderr or process.stdout).strip()[-250:]}"
+                )
+            response = json.loads(report.read_text(encoding="utf-8-sig"))
+            if process.returncode or response.get("Errors"):
+                raise RuntimeError("提升權限備份失敗：" +
+                                   "; ".join(response.get("Errors", []))[:600])
+            result = response.get("Result")
+            if not isinstance(result, dict) or not stage.is_file():
+                raise RuntimeError("提權程序未傳回有效的備份檔案。")
+
+        # Validate the transfer before touching the user-selected destination.
+        rows = read_backup(stage)
+        if not isinstance(result, dict) or result.get("Recognized") != len(rows):
+            raise RuntimeError("Loopback 備份檔案與執行結果不一致。")
+        target = path.expanduser().absolute()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(target.name + ".partial")
+        try:
+            temporary.write_bytes(stage.read_bytes())
+            read_backup(temporary)
+            temporary.replace(target)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return result
+
+
 def restore_preview(path: Path) -> list[dict[str, str]]:
     """Match by stable moniker and PFN; get target SID from target Windows."""
     items = read_backup(path)
@@ -526,6 +601,38 @@ def apply_selected_entries(entries: list[dict[str, str]]) -> dict:
     return outcome
 
 
+def _validate_requesting_sid(data: dict) -> None:
+    expected_sid = data.get("RequestingUserSID")
+    if not isinstance(expected_sid, str) or not re.fullmatch(
+            r"S-[0-9]+(?:-[0-9]+)+", expected_sid, re.I):
+        raise ValueError("缺少有效的來源 Windows 使用者身分。")
+    actual_sid, _ = current_user_context()
+    if actual_sid.casefold() != expected_sid.casefold():
+        raise PermissionError(
+            "管理員授權切換了 Windows 使用者帳號；"
+            "為避免操作錯誤使用者的 AppContainer，已中止。"
+            "請使用目前登入帳號本身的管理員權限。")
+
+
+def elevated_backup_child(request_file: Path, report_file: Path,
+                          output_file: Path) -> int:
+    """Headless UAC child: same account, elevated, writes only a staged JSON."""
+    try:
+        data = json.loads(request_file.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or data.get("Type") != TYPE:
+            raise ValueError("無效的 Loopback 備份請求。")
+        _validate_requesting_sid(data)
+        if not current_process_is_elevated():
+            raise PermissionError("備份子程序沒有取得 Windows 管理員權限。")
+        result = backup(output_file)
+        outcome = {"Result": result, "Errors": []}
+    except Exception as exc:
+        outcome = {"Result": None, "Errors": [str(exc)]}
+    report_file.write_text(
+        json.dumps(outcome, ensure_ascii=False, indent=2), encoding="utf-8")
+    return 0 if not outcome["Errors"] else 4
+
+
 def elevated_child(selection_file: Path, report_file: Path) -> int:
     """CLI invoked by the same EXE, but elevated and without any Tk window."""
     try:
@@ -533,15 +640,7 @@ def elevated_child(selection_file: Path, report_file: Path) -> int:
         if (not isinstance(data, dict) or data.get("Type") != TYPE
                 or not isinstance(data.get("SelectedEntries"), list)):
             raise ValueError("無效的 Loopback 勾選項目。")
-        expected_sid = data.get("RequestingUserSID")
-        if not isinstance(expected_sid, str) or not re.fullmatch(
-            r"S-[0-9]+(?:-[0-9]+)+", expected_sid, re.I):
-            raise ValueError("缺少有效的來源 Windows 使用者身分。")
-        actual_sid, _ = current_user_context()
-        if actual_sid.casefold() != expected_sid.casefold():
-            raise PermissionError(
-                "管理員授權切換了 Windows 使用者帳號；為避免還原至錯誤使用者，已中止。"
-                "請使用目前登入帳號本身的管理員權限。")
+        _validate_requesting_sid(data)
         outcome = apply_selected_entries(data["SelectedEntries"])
     except Exception as exc:
         outcome = {"Total": 0, "Added": 0, "Existing": 0,
@@ -553,6 +652,32 @@ def elevated_child(selection_file: Path, report_file: Path) -> int:
 
 def _ps_literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
+
+
+def _run_elevated_cli(arguments: list[str]) -> subprocess.CompletedProcess:
+    """Reuse the existing one-prompt UAC path for restore and fallback backup."""
+    if getattr(sys, "frozen", False):
+        exec_args = [sys.executable]
+    else:
+        exec_args = [sys.executable, str(Path(__file__).parent / "vpn-generator-gui.py")]
+    exec_args += arguments
+    invocation = "& " + " ".join(_ps_literal(x) for x in exec_args) + "; exit $LASTEXITCODE"
+    encoded = base64.b64encode(invocation.encode("utf-16-le")).decode("ascii")
+    outer = (
+        "$p = Start-Process -FilePath 'powershell.exe' "
+        "-ArgumentList @('-NoProfile','-NonInteractive',"
+        f"'-EncodedCommand','{encoded}') "
+        "-Verb RunAs -Wait -PassThru; exit $p.ExitCode"
+    )
+    command = [
+        "powershell.exe", "-NoProfile", "-NonInteractive",
+        "-EncodedCommand",
+        base64.b64encode(outer.encode("utf-16-le")).decode("ascii"),
+    ]
+    return subprocess.run(
+        command, capture_output=True, text=True, errors="replace",
+        timeout=300, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
 
 
 def restore_selected(path: Path, selected: list[str]) -> dict:
@@ -577,28 +702,9 @@ def restore_selected(path: Path, selected: list[str]) -> dict:
             "SelectedEntries": selected_entries,
         }),
                         encoding="utf-8")
-        if getattr(sys, "frozen", False):
-            exec_args = [sys.executable]
-        else:
-            exec_args = [sys.executable, str(Path(__file__).parent / "vpn-generator-gui.py")]
-        exec_args += ["--uwp-loopback-apply", str(pick), "--report", str(report)]
-        invocation = "& " + " ".join(_ps_literal(x) for x in exec_args) + "; exit $LASTEXITCODE"
-        encoded = base64.b64encode(invocation.encode("utf-16-le")).decode("ascii")
-        outer = (
-            "$p = Start-Process -FilePath 'powershell.exe' "
-            "-ArgumentList @('-NoProfile','-NonInteractive',"
-            f"'-EncodedCommand','{encoded}') "
-            "-Verb RunAs -Wait -PassThru; exit $p.ExitCode"
-        )
-        command = [
-            "powershell.exe", "-NoProfile", "-NonInteractive",
-            "-EncodedCommand",
-            base64.b64encode(outer.encode("utf-16-le")).decode("ascii"),
-        ]
-        process = subprocess.run(
-            command, capture_output=True, text=True, errors="replace",
-            timeout=300, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
+        process = _run_elevated_cli([
+            "--uwp-loopback-apply", str(pick), "--report", str(report),
+        ])
         if not report.is_file():
             raise RuntimeError(
                 "Loopback 還原未完成，可能取消了管理員授權。"

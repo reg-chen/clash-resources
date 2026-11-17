@@ -209,6 +209,102 @@ class LoopbackPortableBackupTests(unittest.TestCase):
         self.assertEqual(result["Added"], 0)
         add.assert_not_called()
 
+    def test_backup_under_current_user_does_not_request_uac(self):
+        with mock.patch.object(loopback, "require_windows"):
+            with mock.patch.object(loopback, "enabled_sids", return_value={OLD_SID}):
+                with mock.patch.object(loopback, "installed_containers",
+                                       return_value={OLD_SID: app(OLD_SID)}):
+                    with mock.patch.object(loopback, "_run_elevated_cli") as elevate:
+                        result = loopback.backup_with_optional_elevation(self.target)
+        elevate.assert_not_called()
+        self.assertEqual(result["Recognized"], 1)
+        self.assertEqual(loopback.read_backup(self.target), [portable(app(OLD_SID))])
+
+    def test_elevated_backup_only_after_permission_failure(self):
+        def fake_elevated_cli(arguments):
+            self.assertEqual(arguments[0], "--uwp-loopback-backup")
+            request, report, stage = Path(arguments[1]), Path(arguments[3]), Path(arguments[5])
+            self.assertEqual(arguments[2], "--report")
+            self.assertEqual(arguments[4], "--output")
+            self.assertEqual(json.loads(request.read_text())["RequestingUserSID"], USER_SID)
+            stage.write_text(json.dumps({
+                "Schema": 2, "Type": loopback.TYPE,
+                "Exemptions": [portable(app(OLD_SID))],
+            }), encoding="utf-8")
+            report.write_text(json.dumps({
+                "Result": {"Total": 1, "Recognized": 1,
+                           "Unresolved": 0, "Duplicates": 0}, "Errors": [],
+            }), encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        with mock.patch.object(loopback, "require_windows"):
+            with mock.patch.object(loopback, "backup", side_effect=OSError(5, "Access denied")):
+                with mock.patch.object(loopback, "current_user_context",
+                                       return_value=(USER_SID, True)):
+                    with mock.patch.object(loopback, "current_process_is_elevated",
+                                           return_value=False):
+                        with mock.patch.object(loopback, "_run_elevated_cli",
+                                               side_effect=fake_elevated_cli) as launch:
+                            result = loopback.backup_with_optional_elevation(self.target)
+        launch.assert_called_once()
+        self.assertEqual(result["Recognized"], 1)
+        self.assertEqual(loopback.read_backup(self.target), [portable(app(OLD_SID))])
+
+    def test_standard_user_never_elevates_as_different_admin(self):
+        with mock.patch.object(loopback, "require_windows"):
+            with mock.patch.object(loopback, "backup", side_effect=PermissionError(13, "Denied")):
+                with mock.patch.object(loopback, "current_user_context",
+                                       return_value=(USER_SID, False)):
+                    with mock.patch.object(loopback, "_run_elevated_cli") as launch:
+                        with self.assertRaisesRegex(PermissionError, "標準使用者"):
+                            loopback.backup_with_optional_elevation(self.target)
+        launch.assert_not_called()
+        self.assertFalse(self.target.exists())
+
+    def test_unrelated_backup_error_never_prompts_uac(self):
+        with mock.patch.object(loopback, "require_windows"):
+            with mock.patch.object(loopback, "backup", side_effect=OSError(2, "missing")):
+                with mock.patch.object(loopback, "_run_elevated_cli") as launch:
+                    with self.assertRaises(OSError):
+                        loopback.backup_with_optional_elevation(self.target)
+        launch.assert_not_called()
+
+    def test_backup_child_rejects_different_uac_account(self):
+        ticket = Path(self.folder.name) / "request.json"
+        report = Path(self.folder.name) / "report.json"
+        stage = Path(self.folder.name) / "stage.json"
+        ticket.write_text(json.dumps({
+            "Type": loopback.TYPE, "RequestingUserSID": USER_SID,
+        }), encoding="utf-8")
+        with mock.patch.object(loopback, "current_user_context",
+                               return_value=(OTHER_USER_SID, True)):
+            with mock.patch.object(loopback, "backup") as backup:
+                self.assertEqual(loopback.elevated_backup_child(ticket, report, stage), 4)
+        backup.assert_not_called()
+        self.assertFalse(stage.exists())
+        self.assertIn("切換了 Windows 使用者帳號",
+                      json.loads(report.read_text(encoding="utf-8"))["Errors"][0])
+
+    def test_backup_child_accepts_matching_elevated_user(self):
+        ticket = Path(self.folder.name) / "request.json"
+        report = Path(self.folder.name) / "report.json"
+        stage = Path(self.folder.name) / "stage.json"
+        ticket.write_text(json.dumps({
+            "Type": loopback.TYPE, "RequestingUserSID": USER_SID,
+        }), encoding="utf-8")
+        with mock.patch.object(loopback, "require_windows"):
+            with mock.patch.object(loopback, "current_user_context",
+                                   return_value=(USER_SID, True)):
+                with mock.patch.object(loopback, "current_process_is_elevated",
+                                       return_value=True):
+                    with mock.patch.object(loopback, "enabled_sids",
+                                           return_value={OLD_SID}):
+                        with mock.patch.object(loopback, "installed_containers",
+                                               return_value={OLD_SID: app(OLD_SID)}):
+                            self.assertEqual(
+                                loopback.elevated_backup_child(ticket, report, stage), 0)
+        self.assertEqual(len(loopback.read_backup(stage)), 1)
+        self.assertEqual(json.loads(report.read_text())["Result"]["Recognized"], 1)
+
     def test_reject_selection_not_in_backup(self):
         self.write([portable(app(OLD_SID))])
         with mock.patch.object(loopback, "require_windows"):

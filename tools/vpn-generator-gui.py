@@ -1188,12 +1188,12 @@ class MainWindow(ctk.CTk):
             buttons, text="預覽／選擇還原", command=self._uwp_restore)
         self.uwp_restore.pack(side="left", padx=8, pady=(27, 10))
         self.uwp_status = tk.StringVar(
-            value="僅備份已勾選的 UWP Loopback；備份／還原須由登入帳號本身具有管理員權限。"
+            value="備份優先使用目前使用者權限；需要時才要求 UAC。還原修改系統設定時會要求 UAC。"
         )
         ui_label(frm, textvariable=self.uwp_status).pack(
             anchor="w", pady=12, padx=8)
 
-    def _uwp_require_own_admin(self) -> bool:
+    def _uwp_require_own_admin(self, *, allow_standard_backup=False) -> bool:
         try:
             _, is_admin = uwp_loopback.current_user_context()
         except Exception as exc:
@@ -1201,25 +1201,25 @@ class MainWindow(ctk.CTk):
             messagebox.showerror(
                 "無法確認管理員權限", str(exc), parent=self)
             return False
-        if is_admin:
-            try:
-                same_user = uwp_loopback.current_process_matches_login_shell()
-            except Exception as exc:
-                self.uwp_status.set("無法確認 GUI 與登入帳號是否相同。")
-                messagebox.showerror(
-                    "無法核對登入帳號", str(exc), parent=self)
-                return False
-            if not same_user:
-                self.uwp_status.set("GUI 使用了另一個管理員帳號，已取消。")
-                messagebox.showwarning(
-                    "Windows 使用者不一致",
-                    "目前程式不是以登入桌面的 Windows 使用者身分執行。"
-                    "\n請勿以其他管理員帳號代為啟動 EXE；"
-                    "這會讀取錯誤帳號的 UWP App 清單。",
-                    parent=self)
-                return False
+        try:
+            same_user = uwp_loopback.current_process_matches_login_shell()
+        except Exception as exc:
+            self.uwp_status.set("無法確認 GUI 與登入帳號是否相同。")
+            messagebox.showerror(
+                "無法核對登入帳號", str(exc), parent=self)
+            return False
+        if not same_user:
+            self.uwp_status.set("GUI 使用了另一個管理員帳號，已取消。")
+            messagebox.showwarning(
+                "Windows 使用者不一致",
+                "目前程式不是以登入桌面的 Windows 使用者身分執行。"
+                "\n請勿以其他管理員帳號代為啟動 EXE；"
+                "這會讀取錯誤帳號的 UWP App 清單。",
+                parent=self)
+            return False
+        if is_admin or allow_standard_backup:
             return True
-        self.uwp_status.set("目前登入帳號不是管理員，已取消 UWP Loopback 操作。")
+        self.uwp_status.set("目前登入帳號不是管理員，無法修改 UWP Loopback。")
         messagebox.showwarning(
             "UWP Loopback 需要登入者的管理員身分",
             "備份與還原僅支援目前登入的 Windows 使用者本身具有管理員權限。"
@@ -1229,22 +1229,7 @@ class MainWindow(ctk.CTk):
         return False
 
     def _uwp_backup(self):
-        if not self._uwp_require_own_admin():
-            return
-        try:
-            elevated = uwp_loopback.current_process_is_elevated()
-        except Exception as exc:
-            messagebox.showerror(
-                "無法確認管理員提升權限", str(exc), parent=self)
-            return
-        if not elevated:
-            self.uwp_status.set("備份需要目前登入帳號的提升權限。")
-            messagebox.showwarning(
-                "備份 UWP Loopback 需要管理員權限",
-                "目前帳號具備管理員身分，但程式尚未提升權限。"
-                "\n請以同一個 Windows 帳號的「以系統管理員身分執行」啟動程式後再備份。"
-                "\n不要借用另一個管理員帳號執行，以免讀取錯誤帳號的 UWP 清單。",
-                parent=self)
+        if not self._uwp_require_own_admin(allow_standard_backup=True):
             return
         path = filedialog.asksaveasfilename(
             parent=self, title="備份 UWP Loopback 勾選項目",
@@ -1292,7 +1277,7 @@ class MainWindow(ctk.CTk):
         def task():
             try:
                 if mode == "backup":
-                    result = uwp_loopback.backup(path)
+                    result = uwp_loopback.backup_with_optional_elevation(path)
                 else:
                     result = uwp_loopback.restore_selected(path, selected)
                 self.events.put(("uwp_finished", (mode, path, True, result)))
@@ -1394,6 +1379,12 @@ def main() -> int:
             if len(sys.argv) != 5 or sys.argv[3] != "--report":
                 return 2
             return uwp_loopback.elevated_child(Path(sys.argv[2]), Path(sys.argv[4]))
+        if sys.argv[1] == "--uwp-loopback-backup":
+            if (len(sys.argv) != 7 or sys.argv[3] != "--report"
+                    or sys.argv[5] != "--output"):
+                return 2
+            return uwp_loopback.elevated_backup_child(
+                Path(sys.argv[2]), Path(sys.argv[4]), Path(sys.argv[6]))
         if sys.argv[1] == "--safe-paths-append":
             if len(sys.argv) != 3:
                 return 2

@@ -311,6 +311,21 @@ class ScheduledWarpTests(unittest.TestCase):
                     self.assertEqual(gui.main(), 0)
         child.assert_called_once_with(Path("selected.json"), Path("report.json"))
 
+    def test_loopback_backup_cli_runs_without_gui(self):
+        with mock.patch.object(
+            gui.sys, "argv",
+            ["VPN-Network-Toolkit.exe", "--uwp-loopback-backup",
+             "request.json", "--report", "report.json",
+             "--output", "staged.json"],
+        ):
+            with mock.patch.object(gui.uwp_loopback, "elevated_backup_child",
+                                   return_value=0) as child:
+                with mock.patch.object(gui, "MainWindow",
+                                       side_effect=AssertionError("GUI started")):
+                    self.assertEqual(gui.main(), 0)
+        child.assert_called_once_with(Path("request.json"), Path("report.json"),
+                                      Path("staged.json"))
+
     def test_safe_paths_elevation_cli_remains(self):
         with mock.patch.object(gui.sys, "argv",
                                ["VPN-Network-Toolkit.exe", "--safe-paths-append", r"P:\Clash\providers"]):
@@ -470,17 +485,20 @@ class WindowsGuiTests(unittest.TestCase):
         self.assertTrue(self.window.trust_button.winfo_exists())
         self.assertTrue(self.window.warp_button.winfo_exists())
 
-    def test_loopback_standard_account_is_blocked_before_file_dialog(self):
+    def test_loopback_standard_account_can_try_read_only_backup_not_restore(self):
         with mock.patch.object(gui.uwp_loopback, "current_user_context",
                                return_value=("S-1-5-21-1-2-3-1001", False)):
-            with mock.patch.object(gui.messagebox, "showwarning") as warning:
-                with mock.patch.object(gui.filedialog, "asksaveasfilename") as save:
-                    with mock.patch.object(gui.filedialog, "askopenfilename") as open_file:
-                        self.window._uwp_backup()
-                        self.window._uwp_restore()
-                        save.assert_not_called()
-                        open_file.assert_not_called()
-                        self.assertEqual(warning.call_count, 2)
+            with mock.patch.object(gui.uwp_loopback, "current_process_matches_login_shell",
+                                   return_value=True):
+                with mock.patch.object(gui.messagebox, "showwarning") as warning:
+                    with mock.patch.object(gui.filedialog, "asksaveasfilename",
+                                           return_value="") as save:
+                        with mock.patch.object(gui.filedialog, "askopenfilename") as open_file:
+                            self.window._uwp_backup()
+                            self.window._uwp_restore()
+                            save.assert_called_once()
+                            open_file.assert_not_called()
+                            warning.assert_called_once()
         self.assertIn("不是管理員", self.window.uwp_status.get())
 
     def test_loopback_same_account_split_token_admin_can_use_uac(self):
@@ -490,19 +508,19 @@ class WindowsGuiTests(unittest.TestCase):
                                    return_value=True):
                 self.assertTrue(self.window._uwp_require_own_admin())
 
-    def test_loopback_backup_requires_elevated_process(self):
+    def test_loopback_backup_does_not_require_elevated_gui(self):
         with mock.patch.object(gui.uwp_loopback, "current_user_context",
                                return_value=("S-1-5-21-1-2-3-1001", True)):
             with mock.patch.object(gui.uwp_loopback, "current_process_matches_login_shell",
                                    return_value=True):
                 with mock.patch.object(gui.uwp_loopback, "current_process_is_elevated",
-                                       return_value=False):
-                    with mock.patch.object(gui.filedialog, "asksaveasfilename") as save:
-                        with mock.patch.object(gui.messagebox, "showwarning") as warning:
+                                       side_effect=AssertionError("GUI must not check elevation")):
+                    with mock.patch.object(gui.filedialog, "asksaveasfilename",
+                                           return_value=r"C:\\Temp\\loopback.json"):
+                        with mock.patch.object(self.window, "_start_uwp") as run:
                             self.window._uwp_backup()
-                            save.assert_not_called()
-                            warning.assert_called_once()
-        self.assertIn("提升權限", self.window.uwp_status.get())
+                            run.assert_called_once_with(
+                                "backup", Path(r"C:\\Temp\\loopback.json"))
 
     def test_loopback_alternate_admin_runas_is_blocked(self):
         with mock.patch.object(gui.uwp_loopback, "current_user_context",
