@@ -130,13 +130,54 @@ def enabled_sids() -> set[str]:
             kernel.HeapFree(heap, 0, ctypes.cast(entries, ctypes.c_void_p))
 
 
-def installed_containers() -> dict[str, dict[str, str]]:
-    """Enumerate actual installed AppContainers, including child containers.
+def _installed_package_ids() -> tuple[set[str], set[str]]:
+    """Query actually installed AppX packages, not merely created containers.
 
-    The SID must be present here on the target machine before restore.
-    This avoids guessing the package from its display name or old machine SID.
+    Stale AppContainer profiles can persist after an app is uninstalled.
+    Requiring a matching Get-AppxPackage record prevents restoring to ghosts.
     """
+    require_windows()
+    elevated = bool(ctypes.windll.shell32.IsUserAnAdmin())
+    scope = "-AllUsers " if elevated else ""
+    script = (
+        "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); "
+        f"@(Get-AppxPackage {scope}-ErrorAction Stop | "
+        "Select-Object PackageFullName,PackageFamilyName) | ConvertTo-Json -Compress"
+    )
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    process = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+        capture_output=True, encoding="utf-8", errors="replace", timeout=60,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    if process.returncode:
+        raise RuntimeError(
+            "無法驗證目前已安裝的 UWP App：" +
+            (process.stderr or process.stdout).strip()[-400:]
+        )
+    payload = json.loads(process.stdout.strip() or "[]")
+    if isinstance(payload, dict):
+        payload = [payload]
+    if not isinstance(payload, list):
+        raise RuntimeError("Windows 的 AppX 套件清單格式異常。")
+    fullnames: set[str] = set()
+    families: set[str] = set()
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        full = item.get("PackageFullName")
+        family = item.get("PackageFamilyName")
+        if isinstance(full, str) and full:
+            fullnames.add(full.casefold())
+        if isinstance(family, str) and family:
+            families.add(family.casefold())
+    return fullnames, families
+
+
+def installed_containers() -> dict[str, dict[str, str]]:
+    """Verify both native AppContainer presence and an installed AppX package."""
     firewall, advapi, kernel = _winapi()
+    installed_full, installed_family = _installed_package_ids()
     count = wintypes.DWORD()
     entries = ctypes.POINTER(NativeAppContainer)()
     error = firewall.NetworkIsolationEnumAppContainers(
@@ -152,12 +193,18 @@ def installed_containers() -> dict[str, dict[str, str]]:
             entry = entries[i]
             if not entry.sid:
                 continue
+            package_full_name = entry.package_full_name or ""
+            container_name = entry.name or ""
+            if (package_full_name.casefold() not in installed_full
+                    and container_name.casefold() not in installed_family):
+                # A registered container is not proof that the app still exists.
+                continue
             sid = _sid_string(entry.sid, advapi, kernel)
             result[sid] = {
                 "SID": sid,
-                "AppContainerName": entry.name or "",
+                "AppContainerName": container_name,
                 "DisplayName": entry.display_name or "",
-                "PackageFullName": entry.package_full_name or "",
+                "PackageFullName": package_full_name,
             }
     finally:
         if entries:
