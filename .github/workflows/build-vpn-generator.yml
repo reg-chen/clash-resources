@@ -176,15 +176,36 @@ jobs:
               core.setFailed('Upload action returned no valid artifact ID; no cleanup performed.');
               return;
             }
+            // Upload may complete before artifact metadata becomes queryable.
+            // Use the upload action's ID directly; only delete old artifacts
+            // after verifying this new artifact belongs to the current run.
+            let current = null;
+            for (let attempt = 1; attempt <= 6; attempt++) {
+              try {
+                current = (await github.rest.actions.getArtifact({
+                  owner, repo, artifact_id: keepId
+                })).data;
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+              if (current?.id === keepId &&
+                  current.workflow_run?.id === context.runId &&
+                  names.includes(current.name) && !current.expired) {
+                break;
+              }
+              core.info('Waiting for new artifact metadata (' + attempt + '/6).');
+              if (attempt < 6) await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+            if (!current || current.id !== keepId ||
+                current.workflow_run?.id !== context.runId ||
+                !names.includes(current.name) || current.expired) {
+              core.warning('Artifact metadata not yet verified; old artifacts untouched. Build and upload succeeded.');
+              return;
+            }
             const artifacts = await github.paginate(
               github.rest.actions.listArtifactsForRepo,
               { owner, repo, per_page: 100 }
             );
-            const current = artifacts.find(a => a.id === keepId);
-            if (!current || current.workflow_run?.id !== context.runId) {
-              core.setFailed('New upload artifact not found for this run; no cleanup performed.');
-              return;
-            }
             const old = artifacts.filter(a => a.id !== keepId && names.includes(a.name) && !a.expired);
             for (const artifact of old) {
               await github.rest.actions.deleteArtifact({owner, repo, artifact_id: artifact.id});
