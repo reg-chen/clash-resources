@@ -139,6 +139,14 @@ jobs:
             --add-data "tools/uwp_firewall.ps1;." `
             tools/vpn-generator-gui.py
 
+      - name: Smoke-test frozen headless WARP entry point
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/VPN-Mihomo-Generator.exe").Path
+          # --help never opens a GUI or touches live WARP credentials/API.
+          $process = Start-Process -FilePath $exe -ArgumentList @("--warp", "--help") -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Frozen WARP CLI failed: $($process.ExitCode)" }
+
       - name: Save PyInstaller build cache
         uses: actions/cache/save@v5
         with:
