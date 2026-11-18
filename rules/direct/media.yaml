@@ -14,6 +14,7 @@ payload:
   - DOMAIN-SUFFIX,redditstatic.com
   - DOMAIN-SUFFIX,pcloud.com
   - DOMAIN-SUFFIX,gnjoy.com.tw
+  - DOMAIN-SUFFIX,ntome.com
   - DOMAIN-SUFFIX,8591.com.tw
   - DOMAIN-SUFFIX,archive.org
   - DOMAIN,go-updater.brave.com
