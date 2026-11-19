@@ -15,11 +15,11 @@
     {
       "format": "yaml",
       "name": "ads-loyalsoldier",
-      "pinned_source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/0b135fd25e104e333a55e75d48ea876d25ce0658/reject.txt",
-      "source_commit_sha": "0b135fd25e104e333a55e75d48ea876d25ce0658",
-      "source_commit_url": "https://github.com/Loyalsoldier/clash-rules/commit/0b135fd25e104e333a55e75d48ea876d25ce0658",
-      "source_sha256": "27cfd0ea2e70db85b431fbaeed554db88b41f16209c107f847a328cbf99f9fa8",
-      "source_size_bytes": 5792198,
+      "pinned_source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/1aa9d915f68b8c9cd79c0b6d3e22a101c83c22f2/reject.txt",
+      "source_commit_sha": "1aa9d915f68b8c9cd79c0b6d3e22a101c83c22f2",
+      "source_commit_url": "https://github.com/Loyalsoldier/clash-rules/commit/1aa9d915f68b8c9cd79c0b6d3e22a101c83c22f2",
+      "source_sha256": "9c80c57a514ac9c5a64fca06a2afea23c4753169f65142c5675a0853e8c8b883",
+      "source_size_bytes": 5802539,
       "source_snapshot_path": "sources/mrs/ads-loyalsoldier.yaml",
       "source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/reject.txt",
       "target": "rules/ads/mrs/loyalsoldier.mrs"
@@ -27,11 +27,11 @@
     {
       "format": "text",
       "name": "ads-popup",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/fe6910dfeb37c4263bf1d7fe5f401490069bc33e/wildcard/popupads-onlydomains.txt",
-      "source_commit_sha": "fe6910dfeb37c4263bf1d7fe5f401490069bc33e",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/fe6910dfeb37c4263bf1d7fe5f401490069bc33e",
-      "source_sha256": "dcbf4b023d5cbd0cad050e490fb1f45703e9bbb05b714d8205c78559ec30efe4",
-      "source_size_bytes": 1584269,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/84b2e6873d7a3f945420ab0785a833001f911bef/wildcard/popupads-onlydomains.txt",
+      "source_commit_sha": "84b2e6873d7a3f945420ab0785a833001f911bef",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/84b2e6873d7a3f945420ab0785a833001f911bef",
+      "source_sha256": "439ba1a096fd0c64598c23ba805f79b9ee1a436cc96a4dc6b9b8a71cf5e76f3b",
+      "source_size_bytes": 1313376,
       "source_snapshot_path": "sources/mrs/ads-popup.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/popupads-onlydomains.txt",
       "target": "rules/ads/mrs/popup.mrs"
@@ -123,11 +123,11 @@
     {
       "format": "text",
       "name": "privacy-native-tiktok",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd/wildcard/native.tiktok.extended-onlydomains.txt",
-      "source_commit_sha": "6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_sha256": "b0a69954a54a4da7bc20911bb8988eb052707b0ce713b90d6c1db7e0f7bffdf7",
-      "source_size_bytes": 28975,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/84b2e6873d7a3f945420ab0785a833001f911bef/wildcard/native.tiktok.extended-onlydomains.txt",
+      "source_commit_sha": "84b2e6873d7a3f945420ab0785a833001f911bef",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/84b2e6873d7a3f945420ab0785a833001f911bef",
+      "source_sha256": "2a10007574fdf6709c82ced6d56d1f394c284f544b26a4b68fbd97944faa98a3",
+      "source_size_bytes": 31740,
       "source_snapshot_path": "sources/mrs/privacy-native-tiktok.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.tiktok.extended-onlydomains.txt",
       "target": "rules/privacy/mrs/native-tiktok.mrs"
@@ -195,11 +195,11 @@
     {
       "format": "text",
       "name": "security-threat",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/fe6910dfeb37c4263bf1d7fe5f401490069bc33e/wildcard/tif.mini-onlydomains.txt",
-      "source_commit_sha": "fe6910dfeb37c4263bf1d7fe5f401490069bc33e",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/fe6910dfeb37c4263bf1d7fe5f401490069bc33e",
-      "source_sha256": "5769ba732b0403f111f73c8622f730a2e739b6ebf1f14ae6cd4c13627ce0e391",
-      "source_size_bytes": 3412491,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/84b2e6873d7a3f945420ab0785a833001f911bef/wildcard/tif.mini-onlydomains.txt",
+      "source_commit_sha": "84b2e6873d7a3f945420ab0785a833001f911bef",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/84b2e6873d7a3f945420ab0785a833001f911bef",
+      "source_sha256": "8bad306c8819433fca02fff19092cc42a4a966fb4e090bf1e1d75ff367e8ccb2",
+      "source_size_bytes": 3281269,
       "source_snapshot_path": "sources/mrs/security-threat.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/tif.mini-onlydomains.txt",
       "target": "rules/security/mrs/threat.mrs"
@@ -213,23 +213,23 @@
     },
     {
       "path": "rules/ads/mrs/combined.mrs",
-      "sha256": "3c2d91af6fa39b5f0244b8a38a45eff5158c5bff539a19f15c296229a10d90c9",
-      "size_bytes": 2359202
+      "sha256": "497be7f1e4beafeef701684ffc4aea859d8e5395ebe59e68524214fafc66eefd",
+      "size_bytes": 2268989
     },
     {
       "path": "rules/ads/mrs/loyalsoldier.mrs",
-      "sha256": "be60e82814978c2fdc9f3f8c2da72c7dfa3a353867713795418c12c7240aea72",
-      "size_bytes": 1936897
+      "sha256": "90aa17e3d7b88f1d5a461b38c56bb6030e8c0716a51816f7a3a832862f0b1409",
+      "size_bytes": 1939568
     },
     {
       "path": "rules/ads/mrs/popup.mrs",
-      "sha256": "61b2e857f7c1650329c64c45d23ae9c021d73953c2a62df2040f10bf9ffe6ba4",
-      "size_bytes": 611397
+      "sha256": "f306ed32322820a790f2e449816d50663c82124e8f06c2849d7282109bc4f046",
+      "size_bytes": 508308
     },
     {
       "path": "rules/privacy/mrs/combined.mrs",
-      "sha256": "f1dbd641904d761b775fa41f0e79ee93988965466830221cbb0d9986b292156b",
-      "size_bytes": 27118
+      "sha256": "739fa3f5b742a4fd4292b33d7b960b4bff700207a32616e6a0bca3d88e7c7965",
+      "size_bytes": 27567
     },
     {
       "path": "rules/privacy/mrs/native-amazon.mrs",
@@ -268,8 +268,8 @@
     },
     {
       "path": "rules/privacy/mrs/native-tiktok.mrs",
-      "sha256": "bfc5d608ce4fedda42934f0c47d0341a3f18b56e02f7b35b4320bc44fb0d63ea",
-      "size_bytes": 6351
+      "sha256": "d7340fd99831d62193d2c49ba787c2f0740a7880ce1ba996868c2005588eab8f",
+      "size_bytes": 6749
     },
     {
       "path": "rules/privacy/mrs/native-vivo.mrs",
@@ -288,8 +288,8 @@
     },
     {
       "path": "rules/security/mrs/combined.mrs",
-      "sha256": "de6b37b3d979cb35a922e5bd6342045e15ab008be40427fe394f65aaf64eea80",
-      "size_bytes": 5255839
+      "sha256": "c989c5c355b77c3454a70877655e129212f8ac113c38807b22e0485ab62ca391",
+      "size_bytes": 5213445
     },
     {
       "path": "rules/security/mrs/dyndns.mrs",
@@ -303,8 +303,8 @@
     },
     {
       "path": "rules/security/mrs/threat.mrs",
-      "sha256": "ff3cf6957be6d026e1510b642c7bcfea6adfe45fb9962f1034695ba123c42df9",
-      "size_bytes": 1248394
+      "sha256": "6b2fcc95bb116ce7bdb76e8a2ae242e5a92e88730725c520c37f91fa09bce045",
+      "size_bytes": 1206303
     }
   ],
   "schema": 1
