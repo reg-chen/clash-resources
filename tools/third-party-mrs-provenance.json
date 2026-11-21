@@ -27,11 +27,11 @@
     {
       "format": "text",
       "name": "ads-popup",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/65d45b0657b6f1a555f69272a385eb1b804cb527/wildcard/popupads-onlydomains.txt",
-      "source_commit_sha": "65d45b0657b6f1a555f69272a385eb1b804cb527",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/65d45b0657b6f1a555f69272a385eb1b804cb527",
-      "source_sha256": "cd8e6100b38d79452d268c50d3c1ef58fe36428bd135185a8a06f621e568b413",
-      "source_size_bytes": 1320152,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/popupads-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "ced360a23d93c6e1aa63e4fe0b934c8bf299c38a1ddf5bd785d52bc61ad13066",
+      "source_size_bytes": 1322290,
       "source_snapshot_path": "sources/mrs/ads-popup.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/popupads-onlydomains.txt",
       "target": "rules/ads/mrs/popup.mrs"
@@ -39,11 +39,11 @@
     {
       "format": "text",
       "name": "privacy-native-amazon",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd/wildcard/native.amazon-onlydomains.txt",
-      "source_commit_sha": "6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_sha256": "d365af702ec96be58196a1b107d1702157cc7e7c4d098a60d0acffd4b15b8835",
-      "source_size_bytes": 11678,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/native.amazon-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "612f4e2cfb6ed978e419fef50b7db97203f9c95ddbaede43c321fe0e7e617418",
+      "source_size_bytes": 11637,
       "source_snapshot_path": "sources/mrs/privacy-native-amazon.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.amazon-onlydomains.txt",
       "target": "rules/privacy/mrs/native-amazon.mrs"
@@ -51,11 +51,11 @@
     {
       "format": "text",
       "name": "privacy-native-apple",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd/wildcard/native.apple-onlydomains.txt",
-      "source_commit_sha": "6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_sha256": "a61b7bd8357c7022c80b97fafc6986cf037156a5507f929bef0da391f7234154",
-      "source_size_bytes": 3514,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/native.apple-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "0f55c17c4bb5f2b97d6fbc5e5f1cf9ac6d4f9ad46649a940ba49a172cd9032c5",
+      "source_size_bytes": 3553,
       "source_snapshot_path": "sources/mrs/privacy-native-apple.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.apple-onlydomains.txt",
       "target": "rules/privacy/mrs/native-apple.mrs"
@@ -75,11 +75,11 @@
     {
       "format": "text",
       "name": "privacy-native-lgwebos",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd/wildcard/native.lgwebos-onlydomains.txt",
-      "source_commit_sha": "6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_sha256": "b281dc9c40eca729258b816331cbcbed2ef27b1309454b09dd46e8f0575fc151",
-      "source_size_bytes": 15490,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/native.lgwebos-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "8272f03d339023bc69bd6eff4f2f638916010a93537ab601b2dfb5d0c0f36be5",
+      "source_size_bytes": 15523,
       "source_snapshot_path": "sources/mrs/privacy-native-lgwebos.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.lgwebos-onlydomains.txt",
       "target": "rules/privacy/mrs/native-lgwebos.mrs"
@@ -87,11 +87,11 @@
     {
       "format": "text",
       "name": "privacy-native-oppo-realme",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd/wildcard/native.oppo-realme-onlydomains.txt",
-      "source_commit_sha": "6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_sha256": "7312d3f996ddfa81cdee1468bedf24f95201bbb6af239d5b426e96191d5a5cb3",
-      "source_size_bytes": 16231,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/native.oppo-realme-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "6ce93ec76ae13e77f5fe0a09c65fbf5953e6a15bc658b71393afb699c7b1a63b",
+      "source_size_bytes": 16318,
       "source_snapshot_path": "sources/mrs/privacy-native-oppo-realme.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.oppo-realme-onlydomains.txt",
       "target": "rules/privacy/mrs/native-oppo-realme.mrs"
@@ -123,11 +123,11 @@
     {
       "format": "text",
       "name": "privacy-native-tiktok",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/84b2e6873d7a3f945420ab0785a833001f911bef/wildcard/native.tiktok.extended-onlydomains.txt",
-      "source_commit_sha": "84b2e6873d7a3f945420ab0785a833001f911bef",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/84b2e6873d7a3f945420ab0785a833001f911bef",
-      "source_sha256": "2a10007574fdf6709c82ced6d56d1f394c284f544b26a4b68fbd97944faa98a3",
-      "source_size_bytes": 31740,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/native.tiktok.extended-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "dada8302411cf8de42324700d12d871ce4c1953a8a88edff24f1249b1f0e16a2",
+      "source_size_bytes": 31541,
       "source_snapshot_path": "sources/mrs/privacy-native-tiktok.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.tiktok.extended-onlydomains.txt",
       "target": "rules/privacy/mrs/native-tiktok.mrs"
@@ -135,11 +135,11 @@
     {
       "format": "text",
       "name": "privacy-native-vivo",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd/wildcard/native.vivo-onlydomains.txt",
-      "source_commit_sha": "6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_sha256": "96912303c00a96fd34c69330366f8c4f10e3e9b29cb7a91cfa41255fe733cf29",
-      "source_size_bytes": 9440,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/native.vivo-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "fc2b76a05e1aefcf3ff2c546dd41e0af2bce4a229237b5e2d5bd2dcefb25ce4e",
+      "source_size_bytes": 9406,
       "source_snapshot_path": "sources/mrs/privacy-native-vivo.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.vivo-onlydomains.txt",
       "target": "rules/privacy/mrs/native-vivo.mrs"
@@ -147,11 +147,11 @@
     {
       "format": "text",
       "name": "privacy-native-winoffice",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd/wildcard/native.winoffice-onlydomains.txt",
-      "source_commit_sha": "6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_sha256": "0ad064609ad67c40c5d73b237e1f7186bf1fc7fc30c68a4c7a24204522058ba4",
-      "source_size_bytes": 12971,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/native.winoffice-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "52f02b6e9f56fe3af0aff6eeef4aa37d3dfcd77e2c33049be938b558b7a6e6af",
+      "source_size_bytes": 12887,
       "source_snapshot_path": "sources/mrs/privacy-native-winoffice.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.winoffice-onlydomains.txt",
       "target": "rules/privacy/mrs/native-winoffice.mrs"
@@ -159,11 +159,11 @@
     {
       "format": "text",
       "name": "privacy-native-xiaomi",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd/wildcard/native.xiaomi-onlydomains.txt",
-      "source_commit_sha": "6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6da45f64ae105a1bc185b50dcc16ed0ea7612ebd",
-      "source_sha256": "156d4e803068648b60c1452dd75ee5b833fc2ff6d6cc4bc3957237d594485ee6",
-      "source_size_bytes": 10911,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/native.xiaomi-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "7df619096de822c3343137cbdc695ac912128d16f8472e371fba89f1231d0f65",
+      "source_size_bytes": 10939,
       "source_snapshot_path": "sources/mrs/privacy-native-xiaomi.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.xiaomi-onlydomains.txt",
       "target": "rules/privacy/mrs/native-xiaomi.mrs"
@@ -195,11 +195,11 @@
     {
       "format": "text",
       "name": "security-threat",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/65d45b0657b6f1a555f69272a385eb1b804cb527/wildcard/tif.mini-onlydomains.txt",
-      "source_commit_sha": "65d45b0657b6f1a555f69272a385eb1b804cb527",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/65d45b0657b6f1a555f69272a385eb1b804cb527",
-      "source_sha256": "10b0e5aa28474336e275e038a215d98f7bf03432e1de64c91a7f709871dc1ce7",
-      "source_size_bytes": 3725305,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/6033fe872ee360ff34da5a9e826558030938fc7e/wildcard/tif.mini-onlydomains.txt",
+      "source_commit_sha": "6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/6033fe872ee360ff34da5a9e826558030938fc7e",
+      "source_sha256": "db07ec39059bac64d6649fec228738106436de831df73910a5efe5d8ffc872c6",
+      "source_size_bytes": 3622010,
       "source_snapshot_path": "sources/mrs/security-threat.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/tif.mini-onlydomains.txt",
       "target": "rules/security/mrs/threat.mrs"
@@ -213,8 +213,8 @@
     },
     {
       "path": "rules/ads/mrs/combined.mrs",
-      "sha256": "10b9742470f661e573d33e73dbe8471d77f2587c37909716e9c89f468c532852",
-      "size_bytes": 2275013
+      "sha256": "93ac437ac71a857e83f4d9798eab7f3c10ef6f3dcae04a190767061c5617f014",
+      "size_bytes": 2276115
     },
     {
       "path": "rules/ads/mrs/loyalsoldier.mrs",
@@ -223,23 +223,23 @@
     },
     {
       "path": "rules/ads/mrs/popup.mrs",
-      "sha256": "5ba4f714f66c8af13ad1389f612cfaf71c0a2e54de5086c79096a3c8205812b5",
-      "size_bytes": 509903
+      "sha256": "2ed475558e5c7c3404ca99608e6022cb3e9ced39b5dcbf8e71b24b796adf3d75",
+      "size_bytes": 510829
     },
     {
       "path": "rules/privacy/mrs/combined.mrs",
-      "sha256": "739fa3f5b742a4fd4292b33d7b960b4bff700207a32616e6a0bca3d88e7c7965",
-      "size_bytes": 27567
+      "sha256": "8d78cf2a6b5664f298b84ba7a21e0048763d1f4e52fdd6897f2e32b735284c78",
+      "size_bytes": 27531
     },
     {
       "path": "rules/privacy/mrs/native-amazon.mrs",
-      "sha256": "80b7b5db7bcb553839c9a41a0ef3dc2136df9a3dc30f8ef6b4aa141de190693c",
-      "size_bytes": 3299
+      "sha256": "384b68f647767f853003db137d514999d2cbcbedfbe3e8fe9794bc0f0b37da92",
+      "size_bytes": 3308
     },
     {
       "path": "rules/privacy/mrs/native-apple.mrs",
-      "sha256": "3fd582aa00bffb34efb18fbd1d1a36b6cdbedf163142582baee4db2a1db1e26b",
-      "size_bytes": 1229
+      "sha256": "3fb77d2cdc787c39b2fb54388c651ba64aed5f1161e1a71e14bdc42eab5d7922",
+      "size_bytes": 1239
     },
     {
       "path": "rules/privacy/mrs/native-huawei.mrs",
@@ -248,13 +248,13 @@
     },
     {
       "path": "rules/privacy/mrs/native-lgwebos.mrs",
-      "sha256": "6107ddd53b074190b335e4d5cc8e3a178b5711ef0711dc729bc857d36dcb574e",
-      "size_bytes": 676
+      "sha256": "2248079ab336199a2282509a38b9deb319ef105d2350446d6a27dc0d00c1c83d",
+      "size_bytes": 680
     },
     {
       "path": "rules/privacy/mrs/native-oppo-realme.mrs",
-      "sha256": "91df6e0c24a9eb34f76ae938d9af54cf1d256b8bd2b22507ddd08852e2b475b4",
-      "size_bytes": 3777
+      "sha256": "a29396f0da691b4c719e81f61eb83041339c720fc78651d06d5ec37cf9dbd1f1",
+      "size_bytes": 3820
     },
     {
       "path": "rules/privacy/mrs/native-roku.mrs",
@@ -268,28 +268,28 @@
     },
     {
       "path": "rules/privacy/mrs/native-tiktok.mrs",
-      "sha256": "d7340fd99831d62193d2c49ba787c2f0740a7880ce1ba996868c2005588eab8f",
-      "size_bytes": 6749
+      "sha256": "a099dc1163d8211f4084ffc579723083411929c719a1f409cf12d0eec6c2dc23",
+      "size_bytes": 6813
     },
     {
       "path": "rules/privacy/mrs/native-vivo.mrs",
-      "sha256": "1f43dd5eeac4cd42d4a5c55ce1b07c2e363d83186a5df9302fdccda0ec339716",
-      "size_bytes": 1447
+      "sha256": "b413024f3c5d1be730033eefad717931878b385b27e222db4ff0bb032cf4b6e9",
+      "size_bytes": 1431
     },
     {
       "path": "rules/privacy/mrs/native-winoffice.mrs",
-      "sha256": "fa39430467f3127af603f279ec88269661229aacd75b975842173a1de52924aa",
-      "size_bytes": 3279
+      "sha256": "4fc81585ecaf5386af77588ed66b2e9527342b8c3192573c3d48b635ae7a8df0",
+      "size_bytes": 3240
     },
     {
       "path": "rules/privacy/mrs/native-xiaomi.mrs",
-      "sha256": "9e769f85761e6dccd23920765e19794f05cac0a530cc38a5092a634f9f050a6a",
-      "size_bytes": 3274
+      "sha256": "2d6a9b64657f84c9920f73bb614f240050973fee9fd7970ebfa28943adf14bc1",
+      "size_bytes": 3279
     },
     {
       "path": "rules/security/mrs/combined.mrs",
-      "sha256": "f3142477db15144fe24788909ea298e268d8af24cf76d75934d0f96bc07f50ac",
-      "size_bytes": 5364311
+      "sha256": "52c59860c2a0f0ceeb6f6e6349862ad5d25b917e14c2369a888c64b655c7deff",
+      "size_bytes": 5317026
     },
     {
       "path": "rules/security/mrs/dyndns.mrs",
@@ -303,8 +303,8 @@
     },
     {
       "path": "rules/security/mrs/threat.mrs",
-      "sha256": "d374250af7c727700e9c52d4af3907511de16d6650438c8dcf35761151f9e92b",
-      "size_bytes": 1352953
+      "sha256": "b7f4b5c84852f2c3064349f090d4022b6879275e2a43616f5a428f691560f0cf",
+      "size_bytes": 1339436
     }
   ],
   "schema": 1
