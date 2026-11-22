@@ -3,11 +3,11 @@
     {
       "format": "yaml",
       "name": "ads-antiad",
-      "pinned_source_url": "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/c1d0a1ddb1a5d048f104e2a7eac991b43c3cca8f/anti-ad-clash.yaml",
-      "source_commit_sha": "c1d0a1ddb1a5d048f104e2a7eac991b43c3cca8f",
-      "source_commit_url": "https://github.com/privacy-protection-tools/anti-AD/commit/c1d0a1ddb1a5d048f104e2a7eac991b43c3cca8f",
-      "source_sha256": "9e2284f91baadc7f978f017e784441181e481713b6adf20a19c174a6a2cf2e08",
-      "source_size_bytes": 2781795,
+      "pinned_source_url": "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/25025b31a086b7d1c6226795966aaf2f9251430c/anti-ad-clash.yaml",
+      "source_commit_sha": "25025b31a086b7d1c6226795966aaf2f9251430c",
+      "source_commit_url": "https://github.com/privacy-protection-tools/anti-AD/commit/25025b31a086b7d1c6226795966aaf2f9251430c",
+      "source_sha256": "77805542bc51ef076bab689415596c880ee885896d6ca1bbc587e6414a74ed74",
+      "source_size_bytes": 2798624,
       "source_snapshot_path": "sources/mrs/ads-antiad.yaml",
       "source_url": "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-clash.yaml",
       "target": "rules/ads/mrs/antiad.mrs"
@@ -15,11 +15,11 @@
     {
       "format": "yaml",
       "name": "ads-loyalsoldier",
-      "pinned_source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/9c0a986e7a8251788f6d8470111bec5559c4a39a/reject.txt",
-      "source_commit_sha": "9c0a986e7a8251788f6d8470111bec5559c4a39a",
-      "source_commit_url": "https://github.com/Loyalsoldier/clash-rules/commit/9c0a986e7a8251788f6d8470111bec5559c4a39a",
-      "source_sha256": "7dd0ba0adf84bbb1d6c2096102582e708e699edd420426d7826a4e69fa82a6d5",
-      "source_size_bytes": 5825809,
+      "pinned_source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/61b2cb00933a2e5de322a177b1925f3f6c229193/reject.txt",
+      "source_commit_sha": "61b2cb00933a2e5de322a177b1925f3f6c229193",
+      "source_commit_url": "https://github.com/Loyalsoldier/clash-rules/commit/61b2cb00933a2e5de322a177b1925f3f6c229193",
+      "source_sha256": "499cd238b9634be02ff658e7eb76bbeb649865b9c0a7afcd48f69f985d89f87f",
+      "source_size_bytes": 5836629,
       "source_snapshot_path": "sources/mrs/ads-loyalsoldier.yaml",
       "source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/reject.txt",
       "target": "rules/ads/mrs/loyalsoldier.mrs"
@@ -208,18 +208,18 @@
   "outputs": [
     {
       "path": "rules/ads/mrs/antiad.mrs",
-      "sha256": "9e8ba6aec928bf57d16a5f66e7135b673390f8a72c7f59c88c40d9f311332e7b",
-      "size_bytes": 878772
+      "sha256": "7fede16b1db398f9195983f2fdc5f15dd0bef10f3e83823aac37d24c4917c70a",
+      "size_bytes": 883282
     },
     {
       "path": "rules/ads/mrs/combined.mrs",
-      "sha256": "210b7edfc009292a6a3c59270ba24693e6a59ab4f9d90ac29945df4a949112f3",
-      "size_bytes": 2332605
+      "sha256": "b55bd50cdb63c6315ec34f3ecb7e8ea0e0a1154556c559cb37266b755bb52270",
+      "size_bytes": 2280085
     },
     {
       "path": "rules/ads/mrs/loyalsoldier.mrs",
-      "sha256": "988eca865d3da6d1d17944891f39d02de4858f7b450d9fdb14fe19b63754041c",
-      "size_bytes": 1947342
+      "sha256": "226dd037a8237de947c81a111e26706c052d3db78208b14230f6c1ea22f0ca24",
+      "size_bytes": 1950300
     },
     {
       "path": "rules/ads/mrs/popup.mrs",
