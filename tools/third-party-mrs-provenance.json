@@ -27,11 +27,11 @@
     {
       "format": "text",
       "name": "ads-popup",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/0a1435e6e4099f9771c55bdeb1a23c2ca5572e59/wildcard/popupads-onlydomains.txt",
-      "source_commit_sha": "0a1435e6e4099f9771c55bdeb1a23c2ca5572e59",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/0a1435e6e4099f9771c55bdeb1a23c2ca5572e59",
-      "source_sha256": "e947040572abdb6e2f6da71d684c7b39c8bea4070744109f9cb84f9f585f4f7b",
-      "source_size_bytes": 1288424,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/778749c7474f1261f84d3a46a4780f03df1177f0/wildcard/popupads-onlydomains.txt",
+      "source_commit_sha": "778749c7474f1261f84d3a46a4780f03df1177f0",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/778749c7474f1261f84d3a46a4780f03df1177f0",
+      "source_sha256": "f71168a0f085d701c3a2c11d2753a9a6217dae300a18a9392448218c76c0c759",
+      "source_size_bytes": 1274229,
       "source_snapshot_path": "sources/mrs/ads-popup.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/popupads-onlydomains.txt",
       "target": "rules/ads/mrs/popup.mrs"
@@ -171,11 +171,11 @@
     {
       "format": "text",
       "name": "security-dyndns",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/0a1435e6e4099f9771c55bdeb1a23c2ca5572e59/wildcard/dyndns-onlydomains.txt",
-      "source_commit_sha": "0a1435e6e4099f9771c55bdeb1a23c2ca5572e59",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/0a1435e6e4099f9771c55bdeb1a23c2ca5572e59",
-      "source_sha256": "b6952c7fa51fc05f84a2a078864a8ad59839ff2014442489a780955be4f5a785",
-      "source_size_bytes": 19910,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/778749c7474f1261f84d3a46a4780f03df1177f0/wildcard/dyndns-onlydomains.txt",
+      "source_commit_sha": "778749c7474f1261f84d3a46a4780f03df1177f0",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/778749c7474f1261f84d3a46a4780f03df1177f0",
+      "source_sha256": "b6a308a7f27b5f03f4f1b92806ebdee4ddbd759fb1e1564f41e007a85ac185c0",
+      "source_size_bytes": 19782,
       "source_snapshot_path": "sources/mrs/security-dyndns.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/dyndns-onlydomains.txt",
       "target": "rules/security/mrs/dyndns.mrs"
@@ -195,11 +195,11 @@
     {
       "format": "text",
       "name": "security-threat",
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/0a1435e6e4099f9771c55bdeb1a23c2ca5572e59/wildcard/tif.mini-onlydomains.txt",
-      "source_commit_sha": "0a1435e6e4099f9771c55bdeb1a23c2ca5572e59",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/0a1435e6e4099f9771c55bdeb1a23c2ca5572e59",
-      "source_sha256": "0a43805d59f12bb2c21ef7c179d3e2ebf7e53e65eec9826df1657f72073f9a6d",
-      "source_size_bytes": 3487415,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/778749c7474f1261f84d3a46a4780f03df1177f0/wildcard/tif.mini-onlydomains.txt",
+      "source_commit_sha": "778749c7474f1261f84d3a46a4780f03df1177f0",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/778749c7474f1261f84d3a46a4780f03df1177f0",
+      "source_sha256": "43f4ab82bd34aa820df0f3dca447c3fecd0fe0a516ec417bbf50ff795f7a2bf7",
+      "source_size_bytes": 3462016,
       "source_snapshot_path": "sources/mrs/security-threat.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/tif.mini-onlydomains.txt",
       "target": "rules/security/mrs/threat.mrs"
@@ -213,8 +213,8 @@
     },
     {
       "path": "rules/ads/mrs/combined.mrs",
-      "sha256": "a7e95548eb68c68ba4b666c7f45648989dcba50ea2be802519bed5f1e4119a0a",
-      "size_bytes": 2275354
+      "sha256": "844e43440ccb9e04a01479577797efa911a9d48d1d47dcbbc2aa099b626e438d",
+      "size_bytes": 2274350
     },
     {
       "path": "rules/ads/mrs/loyalsoldier.mrs",
@@ -223,8 +223,8 @@
     },
     {
       "path": "rules/ads/mrs/popup.mrs",
-      "sha256": "bf5aff7a0d8bc388b2c34ad8d53ff0212d591385af59fc71de8ade6e11393b6c",
-      "size_bytes": 498157
+      "sha256": "9473f2459c542a55a5256e5960070ab90816dfba149ea036e524d4cc28fe2690",
+      "size_bytes": 493449
     },
     {
       "path": "rules/privacy/mrs/combined.mrs",
@@ -288,13 +288,13 @@
     },
     {
       "path": "rules/security/mrs/combined.mrs",
-      "sha256": "e973e2d7a08db50e38e9fad1d60fd4eb8ef5a2c53237c67d8cb2c6acc7f666e7",
-      "size_bytes": 5263262
+      "sha256": "c6710435c59cb3de7e0972fcfc586838a56d58c0bca64e07cf10489abe9b2f08",
+      "size_bytes": 5254839
     },
     {
       "path": "rules/security/mrs/dyndns.mrs",
-      "sha256": "a3857fb62f332b7e5490dccab881feeb8212688198a6ba0c16927afa4ec05181",
-      "size_bytes": 9441
+      "sha256": "a38eb1463ea0c3880c559f4610d1a29b0ea2bf5cc37ec33e9e188c0c2fcd2230",
+      "size_bytes": 9386
     },
     {
       "path": "rules/security/mrs/phishing.mrs",
@@ -303,8 +303,8 @@
     },
     {
       "path": "rules/security/mrs/threat.mrs",
-      "sha256": "e58cadcd2bf4a2526b10dbc683e88905cf642b7b57e8c6b516ac54c855e9a96f",
-      "size_bytes": 1276810
+      "sha256": "822fdbeea3c320af56dfac033e04f257f4023ba1eaf0e8d93c59975bd1834718",
+      "size_bytes": 1268380
     }
   ],
   "schema": 1
