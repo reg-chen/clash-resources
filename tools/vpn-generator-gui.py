@@ -74,15 +74,6 @@ def default_cert_root() -> str:
                / "mihomo-party" / "work")
 
 
-def warp_node_count(value) -> int:
-    if isinstance(value, bool) or not str(value).isascii() or not str(value).isdigit():
-        raise ValueError("WARP 節點數量必須為 1 至 32 的整數。")
-    count = int(value)
-    if not 1 <= count <= 32:
-        raise ValueError("WARP 節點數量必須為 1 至 32 的整數。")
-    return count
-
-
 def validate_generation(options: dict) -> list[str]:
     errors: list[str] = []
     provider = options["provider"]
@@ -91,10 +82,6 @@ def validate_generation(options: dict) -> list[str]:
         return ["未知 VPN 供應商。"]
     if provider == "warp":
         ov, wg = False, True
-        try:
-            warp_node_count(options.get("warp_node_count", 1))
-        except ValueError as exc:
-            errors.append(str(exc))
     elif provider == "surfshark":
         wg = False
     if not ov and not wg:
@@ -151,7 +138,7 @@ def generate_provider(options: dict) -> Path:
         print("[OK] Surfshark OpenVPN 完成。")
     elif provider == "warp":
         wg = core.load_sibling("warp-wireguard-generator.py", "warp_wireguard_generator_gui")
-        target = wg.generate_warp(out_dir=out_dir, node_count=warp_node_count(options.get("warp_node_count", 1)))
+        target = wg.generate_warp(out_dir=out_dir)
         print(f"[OK] Cloudflare WARP 完成：{target}")
     else:
         raise ValueError(f"未知 provider：{provider}")
@@ -782,7 +769,6 @@ class MainWindow(ctk.CTk):
         self.tcp_zip = tk.StringVar()
         self.out_dir = tk.StringVar()
         self.safe_paths = tk.BooleanVar(value=False)
-        self.warp_count = tk.StringVar(value="1")
 
         self.tabs = ctk.CTkTabview(
             self, corner_radius=8, border_width=0, fg_color=PANEL,
@@ -888,8 +874,6 @@ class MainWindow(ctk.CTk):
         self.filter_label.grid(row=8, column=0, sticky="w", pady=5)
         self.filter_check = ui_check(form, text="排除 Streaming Optimized", variable=self.exclude_streaming)
         self.filter_check.grid(row=8, column=1, sticky="w", pady=5)
-        self.warp_count_row, _ = self._row(form, 9, "WARP 節點數量 (1–32)", self.warp_count)
-        self.warp_count_label = form.grid_slaves(row=9, column=0)[0]
         buttons = ui_frame(root)
         buttons.grid(row=1, column=0, sticky="ew", pady=(12, 6))
         self.run_button = styled_button(buttons, text="執行", command=self._start_generation, variant="primary")
@@ -912,7 +896,6 @@ class MainWindow(ctk.CTk):
         self.wireguard.set(data.get("wireguard", provider != "surfshark"))
         self.single_file.set(data.get("single_file", False))
         self.exclude_streaming.set(data.get("exclude_streaming", True))
-        self.warp_count.set(str(data.get("warp_node_count", 1)))
         username, password = self.credentials.get(provider, ("", ""))
         self.username.set(username)
         self.password.set(password)
@@ -924,7 +907,6 @@ class MainWindow(ctk.CTk):
             "out_dir": self.out_dir.get().strip(), "openvpn": self.openvpn.get(),
             "wireguard": self.wireguard.get(), "single_file": self.single_file.get(),
             "exclude_streaming": self.exclude_streaming.get(),
-            **({"warp_node_count": self.warp_count.get()} if provider == "warp" else {}),
         }
 
     def _change_provider(self):
@@ -947,8 +929,6 @@ class MainWindow(ctk.CTk):
                            self.credential_row, self.credential_label,
                            self.mode_row, self.mode_label, self.filter_check, self.filter_label):
                 widget.grid_remove()
-            self.warp_count_row.grid()
-            self.warp_count_label.grid()
             self.warp_button.configure(state="normal")
         else:
             self.ov_check.configure(state="normal")
@@ -966,8 +946,6 @@ class MainWindow(ctk.CTk):
                 self.tcp_row.grid_remove()
                 self.tcp_label.grid_remove()
             self.credential_label.configure(text=f"{'PIA' if provider == 'pia' else 'Surfshark'} 帳號 / 密碼")
-            self.warp_count_row.grid_remove()
-            self.warp_count_label.grid_remove()
             self.warp_button.configure(state="disabled")
         self._refresh_protocols()
 
@@ -1006,7 +984,6 @@ class MainWindow(ctk.CTk):
             "tcp_zip": self.tcp_zip.get().strip(), "username": self.username.get().strip(),
             "password": self.password.get(), "out_dir": self.out_dir.get().strip(),
             "single_file": self.single_file.get(), "exclude_streaming": self.exclude_streaming.get(),
-            "warp_node_count": self.warp_count.get(),
         }
 
     def _save(self):
@@ -1374,7 +1351,6 @@ def run_warp_cli(argv: list[str]) -> int:
     parser.add_argument("--out-dir", type=Path, default=Path(r"P:\Clash"))
     parser.add_argument("--timeout", type=float, default=15.0)
     parser.add_argument("--log-file", type=Path)
-    parser.add_argument("--node-count", type=int, choices=range(1, 33))
     args = parser.parse_args(argv)
     if not args.warp:
         parser.error("Specify --warp")
@@ -1386,9 +1362,7 @@ def run_warp_cli(argv: list[str]) -> int:
                 print(f"\n===== WARP scheduled run {datetime.now().astimezone().isoformat(timespec='seconds')} =====", flush=True)
                 try:
                     warp = core.load_sibling("warp-wireguard-generator.py", "warp_wireguard_generator_cli")
-                    saved = load_settings().get("providers", {}).get("warp", {})
-                    count = warp_node_count(args.node_count if args.node_count is not None else saved.get("warp_node_count", 1))
-                    result = warp.generate_warp(out_dir=args.out_dir, timeout=args.timeout, node_count=count)
+                    result = warp.generate_warp(out_dir=args.out_dir, timeout=args.timeout)
                     print(f"[OK] {result}", flush=True)
                     return 0
                 except Exception:
