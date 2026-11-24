@@ -133,19 +133,17 @@ def endpoint_candidates(endpoint: dict, count: int) -> list[tuple[str, int]]:
     return [(address, port) for address in candidates[:count]]
 
 
-def build_provider_yaml(private_key: str, registration: dict, node_count: int = 1) -> str:
-    peer = registration["config"]["peers"][0]
-    addresses = registration["config"]["interface"]["addresses"]
-    endpoints = endpoint_candidates(peer["endpoint"], node_count)
-    ipv4 = _address(str(addresses["v4"]))
-    ipv6 = _address(str(addresses.get("v6", ""))) if addresses.get("v6") else ""
-
+def build_provider_yaml(nodes: list[tuple[str, dict, str, int]]) -> str:
     lines = [
         "# GENERATED FILE — Cloudflare WARP WireGuard provider payload for Mihomo.",
-        "# Contains a private key. Keep this file local; do not commit it.",
+        "# Contains private keys. Keep this file local; do not commit it.",
         "proxies:",
     ]
-    for index, (server, port) in enumerate(endpoints, 1):
+    for index, (private_key, registration, server, port) in enumerate(nodes, 1):
+        peer = registration["config"]["peers"][0]
+        addresses = registration["config"]["interface"]["addresses"]
+        ipv4 = _address(str(addresses["v4"]))
+        ipv6 = _address(str(addresses.get("v6", ""))) if addresses.get("v6") else ""
         lines.extend([
             f"  - name: {core.yaml_quote(f'warp-{index:02d}')}",
             "    type: wireguard",
@@ -174,24 +172,34 @@ def generate_warp(*, out_dir: Path, timeout: float = 15.0, node_count: int = 1) 
     providers = out_dir / "providers"
     providers.mkdir(parents=True, exist_ok=True)
     target = providers / "warp.yaml"
+    nodes = []
+    used_servers = set()
+    for index in range(1, node_count + 1):
+        print(f"[INFO] warp-{index:02d}: 產生獨立 WireGuard keypair 並註冊...")
+        private_key, public_key = generate_wg_keypair()
+        registration = register_warp(public_key, timeout=timeout)
+        peer = registration["config"]["peers"][0]
+        # At most index-1 addresses have already been used.
+        server, port = next(
+            (server, port)
+            for server, port in endpoint_candidates(peer["endpoint"], node_count)
+            if server not in used_servers
+        )
+        used_servers.add(server)
+        nodes.append((private_key, registration, server, port))
+        account = registration.get("account") or {}
+        if registration.get("id"):
+            print(f"[INFO] WARP Device ID: {registration['id']}")
+        if account.get("ttl"):
+            print(f"[INFO] WARP account TTL: {account['ttl']}")
+        print(f"[INFO] warp-{index:02d}: {server}:{port}")
 
-    print("[INFO] 產生 WARP WireGuard keypair...")
-    private_key, public_key = generate_wg_keypair()
-    print("[INFO] 向 Cloudflare WARP API 註冊 public key...")
-    registration = register_warp(public_key, timeout=timeout)
-
-    payload = build_provider_yaml(private_key, registration, node_count)
+    # Do not replace the existing provider unless every registration succeeded.
+    payload = build_provider_yaml(nodes)
     temporary = target.with_suffix(".yaml.tmp")
     temporary.write_text(payload, encoding="utf-8")
     temporary.replace(target)
-
-    account = registration.get("account") or {}
-    device_id = registration.get("id")
-    if device_id:
-        print(f"[INFO] WARP Device ID: {device_id}")
-    if account.get("ttl"):
-        print(f"[INFO] WARP account TTL: {account['ttl']}")
-    print(f"[WRITE] {target}")
+    print(f"[WRITE] {target} ({node_count} nodes)")
     return target
 
 
