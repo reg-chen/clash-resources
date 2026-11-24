@@ -257,7 +257,7 @@ class ProviderDispatchTests(unittest.TestCase):
             with mock.patch.object(gui.core, "load_sibling", return_value=fake):
                 gui.generate_provider(options(provider="warp", out_dir=tmp,
                                               openvpn=False, wireguard=True))
-            fake.generate_warp.assert_called_once_with(out_dir=Path(tmp), node_count=1)
+            fake.generate_warp.assert_called_once_with(out_dir=Path(tmp))
 
     def test_surfshark_wireguard_still_unsupported(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -278,10 +278,10 @@ class ScheduledWarpTests(unittest.TestCase):
             out_dir = Path(tmp)
             fake = SimpleNamespace(generate_warp=mock.Mock(
                 return_value=out_dir / "providers" / "warp.yaml"))
-            with mock.patch.object(gui.core, "load_sibling", return_value=fake), mock.patch.object(gui, "load_settings", return_value={"providers": {"warp": {"warp_node_count": 3}}}):
+            with mock.patch.object(gui.core, "load_sibling", return_value=fake):
                 code = gui.run_warp_cli(["--warp", "--out-dir", str(out_dir)])
             self.assertEqual(code, 0)
-            fake.generate_warp.assert_called_once_with(out_dir=out_dir, timeout=15.0, node_count=3)
+            fake.generate_warp.assert_called_once_with(out_dir=out_dir, timeout=15.0)
             self.assertIn("[OK]", (out_dir / "logs" / "warp-generator.log").read_text(encoding="utf-8"))
 
     def test_headless_warp_returns_error_when_upstream_fails(self):
