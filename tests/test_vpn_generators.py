@@ -362,31 +362,29 @@ class SummaryAndSyncTests(unittest.TestCase):
 
 class WarpGeneratorTests(unittest.TestCase):
     @staticmethod
-    def registration(index):
+    def registration():
         return {"config": {
-            "peers": [{"public_key": "server-public", "endpoint": {"host": "162.159.192.1:2408"}}],
-            "interface": {"addresses": {"v4": "172.16.0.2/32", "v6": f"2606:4700:110::{index}/128"}},
+            "peers": [{"public_key": "server-public",
+                       "endpoint": {"host": "engage.cloudflareclient.com:2408"}}],
+            "interface": {"addresses": {"v4": "172.16.0.2/32",
+                                        "v6": "2606:4700:110::1/128"}},
         }}
 
-    def test_independent_registrations_and_distinct_endpoints(self):
+    def test_single_tunnel_with_endpoint_refresh(self):
         warp = core.load_sibling("warp-wireguard-generator.py", "test_warp")
         with tempfile.TemporaryDirectory() as directory:
-            with mock.patch.object(warp, "generate_wg_keypair", side_effect=[
-                    ("private-1", "public-1"), ("private-2", "public-2"), ("private-3", "public-3")]), \
-                    mock.patch.object(warp, "register_warp", side_effect=[
-                        self.registration(i) for i in range(1, 4)]) as register:
-                target = warp.generate_warp(out_dir=Path(directory), node_count=3)
-            self.assertEqual(register.call_args_list, [
-                mock.call(f"public-{i}", timeout=15.0) for i in range(1, 4)])
+            with mock.patch.object(warp, "generate_wg_keypair", return_value=("private", "public")), \
+                    mock.patch.object(warp, "register_warp", return_value=self.registration()) as register:
+                target = warp.generate_warp(out_dir=Path(directory))
+            register.assert_called_once_with("public", timeout=15.0)
             self.assertEqual(target, Path(directory) / "providers" / "warp.yaml")
             payload = target.read_text(encoding="utf-8")
-            for i in range(1, 4):
-                self.assertIn("name: " + core.yaml_quote(f"warp-{i:02d}"), payload)
-                self.assertIn("private-key: " + core.yaml_quote(f"private-{i}"), payload)
-                self.assertIn("ipv6: " + core.yaml_quote(f"2606:4700:110::{i}"), payload)
-            servers = [line for line in payload.splitlines() if line.startswith("    server:")]
-            self.assertEqual(len(servers), 3)
-            self.assertEqual(len(set(servers)), 3)
+            self.assertEqual(payload.count("  - name:"), 1)
+            self.assertIn("name: " + core.yaml_quote("warp-01"), payload)
+            self.assertIn("server: " + core.yaml_quote("engage.cloudflareclient.com"), payload)
+            self.assertIn("ip-version: ipv4", payload)
+            self.assertIn("refresh-server-ip-interval: 60", payload)
+            self.assertIn("private-key: " + core.yaml_quote("private"), payload)
 
     def test_registration_failure_preserves_existing_provider(self):
         warp = core.load_sibling("warp-wireguard-generator.py", "test_warp_failure")
@@ -395,10 +393,9 @@ class WarpGeneratorTests(unittest.TestCase):
             target = root / "providers" / "warp.yaml"
             target.parent.mkdir()
             target.write_text("previous", encoding="utf-8")
-            with mock.patch.object(warp, "register_warp", side_effect=[
-                    self.registration(1), RuntimeError("registration failed")]):
+            with mock.patch.object(warp, "register_warp", side_effect=RuntimeError("registration failed")):
                 with self.assertRaisesRegex(RuntimeError, "registration failed"):
-                    warp.generate_warp(out_dir=root, node_count=2)
+                    warp.generate_warp(out_dir=root)
             self.assertEqual(target.read_text(encoding="utf-8"), "previous")
 
 
