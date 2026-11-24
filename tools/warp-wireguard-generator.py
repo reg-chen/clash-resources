@@ -96,7 +96,6 @@ def build_provider_yaml(private_key: str, registration: dict) -> str:
     addresses = registration["config"]["interface"]["addresses"]
     server, port = split_endpoint(str(peer["endpoint"]["host"]))
     ipv4 = _address(str(addresses["v4"]))
-    ipv6 = _address(str(addresses.get("v6", ""))) if addresses.get("v6") else ""
 
     lines = [
         "# GENERATED FILE — Cloudflare WARP WireGuard provider payload for Mihomo.",
@@ -109,10 +108,7 @@ def build_provider_yaml(private_key: str, registration: dict) -> str:
         "    ip-version: ipv4",
         "    refresh-server-ip-interval: 60",
         f"    ip: {core.yaml_quote(ipv4)}",
-    ]
-    if ipv6:
-        lines.append(f"    ipv6: {core.yaml_quote(ipv6)}")
-    lines.extend([
+        # Keep the tunnel IPv4-only; a local IPv6 address also enables IPv6 routes.
         f"    private-key: {core.yaml_quote(private_key)}",
         f"    public-key: {core.yaml_quote(str(peer['public_key']))}",
         "    allowed-ips:",
@@ -121,7 +117,7 @@ def build_provider_yaml(private_key: str, registration: dict) -> str:
         "    udp: true",
         "    mtu: 1280",
         "",
-    ])
+    ]
     return "\n".join(lines)
 
 

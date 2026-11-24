@@ -383,6 +383,9 @@ class WarpGeneratorTests(unittest.TestCase):
             self.assertIn("name: " + core.yaml_quote("warp-01"), payload)
             self.assertIn("server: " + core.yaml_quote("engage.cloudflareclient.com"), payload)
             self.assertIn("ip-version: ipv4", payload)
+            self.assertIn("ip: " + core.yaml_quote("172.16.0.2"), payload)
+            self.assertNotIn("    ipv6:", payload)
+            self.assertNotIn("2606:4700:110::1", payload)
             self.assertIn("refresh-server-ip-interval: 60", payload)
             self.assertIn("private-key: " + core.yaml_quote("private"), payload)
 
