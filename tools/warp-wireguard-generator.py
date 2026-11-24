@@ -157,7 +157,7 @@ def build_provider_yaml(private_key: str, registration: dict, node_count: int = 
             lines.append(f"    ipv6: {core.yaml_quote(ipv6)}")
         lines.extend([
             f"    private-key: {core.yaml_quote(private_key)}",
-        f"    public-key: {core.yaml_quote(str(peer['public_key']))}",
+            f"    public-key: {core.yaml_quote(str(peer['public_key']))}",
             "    allowed-ips:",
             "      - 0.0.0.0/0",
             "    persistent-keepalive: 25",
