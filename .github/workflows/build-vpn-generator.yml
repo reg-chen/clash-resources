@@ -6,6 +6,8 @@ on:
     paths:
       - "tools/uwp_loopback.py"
       - "tools/vpn-generator-gui.py"
+      - "tools/warp-wireguard-generator.py"
+      - "tests/test_vpn_generators.py"
       - "tools/generate-exe-licenses.py"
       - "tests/test_uwp_loopback.py"
       - "tests/test_vpn_gui.py"
@@ -14,6 +16,8 @@ on:
     branches: [main]
     paths:
       - "tools/vpn-generator-gui.py"
+      - "tools/warp-wireguard-generator.py"
+      - "tests/test_vpn_generators.py"
       - "tools/generate-exe-licenses.py"
       - "tools/uwp_loopback.py"
       - "tests/test_uwp_loopback.py"
