@@ -11,6 +11,15 @@ tls:
   certificate: "P:\\Clash\\certs\\mihomo-localhost.crt"
   private-key: "P:\\Clash\\certs\\mihomo-localhost.key"
 
+# WARP 單隧道 Endpoint DNS 實驗：候選 IPv4 尚須本機驗證。
+# Mihomo 會在新連線時依 refresh-server-ip-interval 重新解析，不保證故障切換。
+# Party 受控 hosts 若有同名項目，該項目會覆蓋這份設定。
+hosts:
+  engage.cloudflareclient.com:
+    - 162.159.192.1
+    - 162.159.192.2
+    - 162.159.192.3
+
 # 共用測速設定（YAML merge key）
 x-test: &TEST
   # Google: 部分地區可能被干擾
@@ -171,7 +180,7 @@ proxy-groups:
       - DIRECT
       - REJECT
 
-  # WARP 節點容錯統一由此群組管理（自動納入 warp-local 的 warp-01、warp-02…）
+  # WARP 保留既有策略組，warp-local 僅提供單一 warp-01 隧道
   - name: WARP
     type: fallback
     hidden: true
