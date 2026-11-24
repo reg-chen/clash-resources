@@ -171,7 +171,7 @@ proxy-groups:
       - DIRECT
       - REJECT
 
-  # WARP 節點容錯統一由此群組管理
+  # WARP 節點容錯統一由此群組管理（自動納入 warp-local 的 warp-01、warp-02…）
   - name: WARP
     type: fallback
     hidden: true
