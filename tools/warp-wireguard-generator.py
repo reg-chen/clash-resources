@@ -4,6 +4,9 @@ from __future__ import annotations
 import base64
 from datetime import datetime, timezone
 import json
+import ipaddress
+import random
+import socket
 from pathlib import Path
 import urllib.error
 import urllib.request
@@ -91,10 +94,49 @@ def _address(value: str) -> str:
     return value.split("/", 1)[0].strip()
 
 
-def build_provider_yaml(private_key: str, registration: dict) -> str:
+def endpoint_candidates(endpoint: dict, count: int) -> list[tuple[str, int]]:
+    if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 32:
+        raise ValueError("WARP 節點數量必須為 1 至 32 的整數。")
+    host, port = split_endpoint(str(endpoint["host"]))
+    if count == 1:
+        return [(host, port)]
+    candidates = []
+    def add(value):
+        try:
+            address = str(ipaddress.IPv4Address(value))
+        except ValueError:
+            return
+        if address not in candidates:
+            candidates.append(address)
+    add(host)
+    for field in ("v4", "v6"):
+        if endpoint.get(field):
+            try:
+                address, _ = split_endpoint(str(endpoint[field]))
+                add(address)
+            except ValueError:
+                pass
+    if not candidates:
+        for result in socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_DGRAM):
+            add(result[4][0])
+    # Cloudflare WARP WireGuard ingress ranges; distinct IPs do not imply distinct PoPs.
+    networks = [ipaddress.IPv4Network(net) for net in ("162.159.193.0/24", "162.159.192.0/24")]
+    rng = random.SystemRandom()
+    pools = [list(net.hosts()) for net in networks]
+    for pool in pools:
+        rng.shuffle(pool)
+    while len(candidates) < count:
+        for pool in pools:
+            if len(candidates) >= count:
+                break
+            add(str(pool.pop()))
+    return [(address, port) for address in candidates[:count]]
+
+
+def build_provider_yaml(private_key: str, registration: dict, node_count: int = 1) -> str:
     peer = registration["config"]["peers"][0]
     addresses = registration["config"]["interface"]["addresses"]
-    server, port = split_endpoint(str(peer["endpoint"]["host"]))
+    endpoints = endpoint_candidates(peer["endpoint"], node_count)
     ipv4 = _address(str(addresses["v4"]))
     ipv6 = _address(str(addresses.get("v6", ""))) if addresses.get("v6") else ""
 
@@ -102,28 +144,33 @@ def build_provider_yaml(private_key: str, registration: dict) -> str:
         "# GENERATED FILE — Cloudflare WARP WireGuard provider payload for Mihomo.",
         "# Contains a private key. Keep this file local; do not commit it.",
         "proxies:",
-        f"  - name: {core.yaml_quote('WARP')}",
-        "    type: wireguard",
-        f"    server: {core.yaml_quote(server)}",
-        f"    port: {port}",
-        f"    ip: {core.yaml_quote(ipv4)}",
     ]
-    if ipv6:
-        lines.append(f"    ipv6: {core.yaml_quote(ipv6)}")
-    lines.extend([
-        f"    private-key: {core.yaml_quote(private_key)}",
+    for index, (server, port) in enumerate(endpoints, 1):
+        lines.extend([
+            f"  - name: {core.yaml_quote(f'warp-{index:02d}')}",
+            "    type: wireguard",
+            f"    server: {core.yaml_quote(server)}",
+            f"    port: {port}",
+            f"    ip: {core.yaml_quote(ipv4)}",
+        ])
+        if ipv6:
+            lines.append(f"    ipv6: {core.yaml_quote(ipv6)}")
+        lines.extend([
+            f"    private-key: {core.yaml_quote(private_key)}",
         f"    public-key: {core.yaml_quote(str(peer['public_key']))}",
-        "    allowed-ips:",
-        "      - 0.0.0.0/0",
-        "    persistent-keepalive: 25",
-        "    udp: true",
-        "    mtu: 1280",
-        "",
-    ])
+            "    allowed-ips:",
+            "      - 0.0.0.0/0",
+            "    persistent-keepalive: 25",
+            "    udp: true",
+            "    mtu: 1280",
+            "",
+        ])
     return "\n".join(lines)
 
 
-def generate_warp(*, out_dir: Path, timeout: float = 15.0) -> Path:
+def generate_warp(*, out_dir: Path, timeout: float = 15.0, node_count: int = 1) -> Path:
+    if isinstance(node_count, bool) or not isinstance(node_count, int) or not 1 <= node_count <= 32:
+        raise ValueError("WARP 節點數量必須為 1 至 32 的整數。")
     providers = out_dir / "providers"
     providers.mkdir(parents=True, exist_ok=True)
     target = providers / "warp.yaml"
@@ -133,7 +180,7 @@ def generate_warp(*, out_dir: Path, timeout: float = 15.0) -> Path:
     print("[INFO] 向 Cloudflare WARP API 註冊 public key...")
     registration = register_warp(public_key, timeout=timeout)
 
-    payload = build_provider_yaml(private_key, registration)
+    payload = build_provider_yaml(private_key, registration, node_count)
     temporary = target.with_suffix(".yaml.tmp")
     temporary.write_text(payload, encoding="utf-8")
     temporary.replace(target)
@@ -159,8 +206,9 @@ def main() -> int:
         help=r"Mihomo root directory; writes providers\warp.yaml (default: P:\Clash)",
     )
     parser.add_argument("--timeout", type=float, default=15.0)
+    parser.add_argument("--node-count", type=int, choices=range(1, 33), default=1)
     args = parser.parse_args()
-    generate_warp(out_dir=args.out_dir, timeout=args.timeout)
+    generate_warp(out_dir=args.out_dir, timeout=args.timeout, node_count=args.node_count)
     return 0
 
 
