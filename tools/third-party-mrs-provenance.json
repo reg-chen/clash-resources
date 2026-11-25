@@ -256,6 +256,20 @@
     },
     {
       "format": "text",
+      "name": "security-ip-phishing",
+      "output_paths": [
+        "rules/security/mrs/combined-ip.mrs"
+      ],
+      "pinned_source_url": "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/12a20bf8dd2b7e78d9d38fc12b3e5c970f79d1a7/phishing-IPs-ACTIVE.txt",
+      "source_commit_sha": "12a20bf8dd2b7e78d9d38fc12b3e5c970f79d1a7",
+      "source_commit_url": "https://github.com/Phishing-Database/Phishing.Database/commit/12a20bf8dd2b7e78d9d38fc12b3e5c970f79d1a7",
+      "source_sha256": "6de7a6df43446df9eba308b43288929a19a11347324f652022bee9118c945cc8",
+      "source_size_bytes": 100533,
+      "source_snapshot_path": "sources/mrs/security-ip-phishing.txt",
+      "source_url": "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-IPs-ACTIVE.txt"
+    },
+    {
+      "format": "text",
       "name": "security-phishing",
       "output_paths": [
         "rules/security/mrs/combined.mrs"
@@ -301,8 +315,8 @@
     },
     {
       "path": "rules/security/mrs/combined-ip.mrs",
-      "sha256": "0255ba6e1d872501d19bd7e6d9a1121dab388cf1a71899c7ea41760d82231589",
-      "size_bytes": 81997
+      "sha256": "adc8bbd23417815332f52e55023aceb9e1df96bd4d3c687b034c4291a54d2c6e",
+      "size_bytes": 103672
     },
     {
       "path": "rules/security/mrs/combined.mrs",
