@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build third-party domain MRS files only when source content changes."""
+"""Build combined domain MRS and explicitly requested standalone providers."""
 import hashlib
 import json
 import os
@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
 STATE = ROOT / "tools/third-party-mrs-sha256.json"
 old = json.loads(STATE.read_text()) if STATE.exists() else {}
-new = dict(old)
+new = {}
 PROVENANCE = ROOT / "tools/third-party-mrs-provenance.json"
 previous = json.loads(PROVENANCE.read_text()) if PROVENANCE.exists() else {}
 previous_inputs = {v["name"]: v for v in previous.get("inputs", []) if isinstance(v, dict) and "name" in v}
@@ -42,8 +42,12 @@ for item in SOURCES:
     digest = hashlib.sha256(raw).hexdigest()
     archived = save_source_snapshot(ROOT, item["name"], item["format"], raw)
     archive_rel = archived.relative_to(ROOT).as_posix()
+    category = item["name"].split("-", 1)[0]
+    output_paths = [f"rules/{category}/mrs/combined.mrs"]
+    if item.get("target"):
+        output_paths.append(item["target"])
     record = {
-        "name": item["name"], "target": item["target"], "format": item["format"],
+        "name": item["name"], "output_paths": sorted(output_paths), "format": item["format"],
         "source_url": url, "source_commit_sha": commit_sha,
         "pinned_source_url": pinned_url,
         "source_sha256": digest, "source_size_bytes": len(raw),
@@ -54,12 +58,15 @@ for item in SOURCES:
     # Avoid a new provenance commit when a branch advances but its file bytes
     # have not changed. The older immutable URL still points at those bytes.
     if (all(old_record.get(k) == record[k] for k in
-            ("name", "target", "format", "source_url", "source_sha256", "source_size_bytes"))
+            ("name", "format", "source_url", "source_sha256", "source_size_bytes"))
             and old_record.get("pinned_source_url") and old_record.get("source_commit_sha")
             and old_record.get("source_snapshot_path") == archive_rel
             and old_record.get("source_commit_url")):
-        record = old_record
+        # Preserve immutable source identity even when publication paths change.
+        for key in ("pinned_source_url", "source_commit_sha", "source_commit_url"):
+            record[key] = old_record[key]
     provenance_inputs.append(record)
+    new[item["name"]] = digest
     # Stats come from the same downloaded source bytes used for this MRS build.
     # Already-compiled MRS has no text representation; a separately fetched
     # canonical plain-domain list is explicitly identified as approximate.
@@ -106,6 +113,11 @@ for item in SOURCES:
             skipped_details.append(message)
             print(f"WARNING: {message}", file=sys.stderr)
 
+    # All inputs feed their category union. Only an explicitly configured
+    # target is separately compiled/published (currently anti-AD for iOS).
+    if not item.get("target"):
+        print(f"MERGE_ONLY {item['name']}")
+        continue
     target = ROOT / item["target"]
     if old.get(item["name"]) == digest and target.is_file() and target.stat().st_size:
         print(f"UNCHANGED {item['name']}")
@@ -125,7 +137,6 @@ for item in SOURCES:
             raise RuntimeError(f"No MRS output: {item['name']}")
         os.replace(temp, target)
         changed.append(item["target"])
-        new[item["name"]] = digest
         print(f"BUILT {item['name']} {target} {target.stat().st_size} bytes")
     finally:
         temp.unlink(missing_ok=True)
@@ -180,7 +191,7 @@ for old_entry in previous_inputs.values():
         (ROOT / old_path).unlink(missing_ok=True)
 STATE.write_text(json.dumps(new, indent=2, sort_keys=True) + "\n")
 # Commit the current source files, manifest and compiled MRS atomically.
-paths = sorted({*(s["target"] for s in SOURCES),
+paths = sorted({*(s["target"] for s in SOURCES if s.get("target")),
                 *(str(output.relative_to(ROOT)) for output in outputs)})
 provenance_outputs = [
     {"path": path, "sha256": hashlib.sha256((ROOT / path).read_bytes()).hexdigest(),
@@ -188,7 +199,7 @@ provenance_outputs = [
     for path in paths
 ]
 PROVENANCE.write_text(json.dumps({
-    "schema": 1, "inputs": sorted(provenance_inputs, key=lambda v: v["name"]),
+    "schema": 2, "inputs": sorted(provenance_inputs, key=lambda v: v["name"]),
     "outputs": provenance_outputs,
 }, indent=2, sort_keys=True) + "\n")
 print(f"Updated {len(changed)} providers")

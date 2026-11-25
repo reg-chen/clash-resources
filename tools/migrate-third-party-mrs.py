@@ -10,6 +10,8 @@ for config in [root / "configs/desktop.yaml", root / "configs/android-firewall-o
     text = config.read_text()
     original = text
     for item in items:
+        if not item.get("target"):
+            continue  # Merge-only inputs have no standalone provider URL.
         name = re.escape(item["name"])
         pat = re.compile(r"(?ms)(^  " + name + r":\n)(.*?)(?=^  [\w-]+:\n|^# [=]+|^sub-rules:|^rules:)")
         match = pat.search(text)

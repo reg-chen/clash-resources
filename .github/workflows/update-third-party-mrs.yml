@@ -16,6 +16,7 @@ on:
       - 'tools/cdn_purge_verify.py'
       - 'tests/test_mrs_merge.py'
       - 'tests/test_mrs_overlap.py'
+      - 'tests/test_mrs_publication.py'
       - 'rules/security/custom.txt'
       - 'rules/privacy/custom.txt'
       - 'rules/ads/custom.txt'
