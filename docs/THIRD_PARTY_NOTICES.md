@@ -24,13 +24,13 @@
 <a id="third-party-rule-sources"></a>
 ## Third-party rule sources
 
-`.github/workflows/update-third-party-mrs.yml` 透過 `tools/third-party-mrs-sources.json` 下載外部規則；`tools/build-third-party-mrs.py`、`tools/mrs_merge.py` 使用 Mihomo 轉成 MRS、依 security／privacy／ads 分類、正規化與合併部分規則，並把三份網域分類合併產物、一份安全 IPv4 合併產物 `security/mrs/combined-ip.mrs` 及 iOS 專用的獨立 `ads/mrs/antiad.mrs` 發布到 `rules/**/mrs/`；其他 19 份輸入只參與合併，不另行編譯或發布個別 MRS。**這是再散布經處理的第三方資料，而不是只有在本機查詢 API。**
+`.github/workflows/update-third-party-mrs.yml` 透過 `tools/third-party-mrs-sources.json` 下載外部規則；`tools/build-third-party-mrs.py`、`tools/mrs_merge.py` 使用 Mihomo 轉成 MRS、依 security／privacy／ads 分類、正規化與合併部分規則，並把三份網域分類合併產物、一份安全 IPv4 合併產物 `security/mrs/combined-ip.mrs` 及 iOS 專用的獨立 `ads/mrs/antiad.mrs` 發布到 `rules/**/mrs/`；其他 20 份輸入只參與合併，不另行編譯或發布個別 MRS。**這是再散布經處理的第三方資料，而不是只有在本機查詢 API。**
 
 | 上游 | 對應用途 | 上游授權 | 授權文字 |
 | --- | --- | --- | --- |
 | [HaGeZi DNS Blocklists](https://github.com/hagezi/dns-blocklists) | TIF Medium／Fake／DynDNS／TIF IPv4、Native Trackers、Popup Ads 等來源 | **GPL-3.0** | [GPL-3.0](licenses/GPL-3.0.txt) |
 | [Loyalsoldier/clash-rules](https://github.com/Loyalsoldier/clash-rules) | `reject.txt` 廣告規則 | **GPL-3.0** | [GPL-3.0](licenses/GPL-3.0.txt) |
-| [Phishing.Database](https://github.com/Phishing-Database/Phishing.Database) | Phishing domain feed | **MIT** | [原作者及 MIT 全文](licenses/MIT-Phishing.Database.txt) |
+| [Phishing.Database](https://github.com/Phishing-Database/Phishing.Database) | Phishing domain／ACTIVE IPv4 feed | **MIT** | [原作者及 MIT 全文](licenses/MIT-Phishing.Database.txt) |
 | [abuse.ch Feodo Tracker](https://feodotracker.abuse.ch/blocklist/) | Recommended Botnet C2 IPv4 feed | **CC0** | [服務條款 §3.4](https://abuse.ch/terms-of-use/)、[CC0 全文](https://creativecommons.org/publicdomain/zero/1.0/legalcode) |
 | [anti-AD](https://github.com/privacy-protection-tools/anti-AD) | `anti-ad-clash.yaml` 廣告規則 | **MIT** | [原作者及 MIT 全文](licenses/MIT-anti-AD.txt) |
 

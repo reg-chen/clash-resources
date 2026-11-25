@@ -25,7 +25,9 @@ SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
 
 class PublicationTests(unittest.TestCase):
     def test_registry_manifest_and_profiles_match_published_artifacts(self):
-        self.assertEqual(len(SOURCES), 20)
+        self.assertEqual(len(SOURCES), 21)
+        self.assertEqual({s["name"] for s in SOURCES if s.get("behavior") == "ipcidr"},
+                         {"security-ip-hagezi", "security-ip-feodo", "security-ip-phishing"})
         self.assertEqual({s["name"]: s["target"] for s in SOURCES if s.get("target")},
                          {"ads-antiad": STANDALONE})
         manifest = json.loads((ROOT / "tools/third-party-mrs-provenance.json").read_text())
@@ -37,7 +39,13 @@ class PublicationTests(unittest.TestCase):
         expected_outputs = EXPECTED - {IP_TARGET} if pending else EXPECTED
         self.assertEqual(published, expected_outputs)
         if not pending:
-            self.assertEqual({i["name"] for i in manifest["inputs"]}, {s["name"] for s in SOURCES})
+            published_inputs = {i["name"] for i in manifest["inputs"]}
+            registered_inputs = {s["name"] for s in SOURCES}
+            if os.environ.get("MRS_REQUIRE_CURRENT") == "1":
+                self.assertEqual(published_inputs, registered_inputs)
+            else:
+                # Before the first build of the new source, the published manifest is still valid.
+                self.assertIn(published_inputs, (registered_inputs, registered_inputs - {"security-ip-phishing"}))
         for item in manifest["inputs"]:
             category = item["name"].split("-", 1)[0]
             expected = {IP_TARGET} if item["name"].startswith("security-ip-") else {f"rules/{category}/mrs/combined.mrs"}
@@ -82,6 +90,8 @@ class PublicationTests(unittest.TestCase):
             }
             source_bytes[FEODO_URL] = (b"# abuse.ch Feodo Tracker Botnet C2 IP Blocklist (recommended)\n"
                                        b"# END 0 entries\n")
+            phishing_url = next(s["source"] for s in SOURCES if s["name"] == "security-ip-phishing")
+            source_bytes[phishing_url] = b"9.9.9.9\n1.1.1.1\n"
             def download(req, **kwargs):
                 return io.BytesIO(source_bytes[req.full_url])
             def convert(cmd, check):
@@ -97,15 +107,16 @@ class PublicationTests(unittest.TestCase):
                 runpy.run_path(str(root / "tools/build-third-party-mrs.py"))
                 self.assertEqual(compiler.call_count, 4)  # Unchanged anti-AD is reused.
             report = (root / "overlap.md").read_text(encoding="utf-8")
-            self.assertIn("## SECURITY-IP（聯集 2）", report)
-            self.assertIn("| security-ip-hagezi | 2 | 0 | 2 | 0 |", report)
+            self.assertIn("## SECURITY-IP（聯集 3）", report)
+            self.assertIn("| security-ip-hagezi | 2 | 1 | 1 | 0 |", report)
+            self.assertIn("| security-ip-phishing | 2 | 1 | 1 | 0 |", report)
             self.assertIn("| security-ip-feodo | 0 | 0 | 0 | 0 |", report)
             actual = {p.relative_to(root).as_posix() for p in (root / "rules").rglob("*.mrs")}
             self.assertEqual(actual, EXPECTED)
             state = json.loads((root / "tools/third-party-mrs-sha256.json").read_text())
             self.assertEqual(set(state), {s["name"] for s in SOURCES})
             manifest = json.loads((root / "tools/third-party-mrs-provenance.json").read_text())
-            self.assertEqual(len(manifest["inputs"]), 20)
+            self.assertEqual(len(manifest["inputs"]), 21)
             self.assertEqual({o["path"] for o in manifest["outputs"]}, EXPECTED)
             mrs_provenance.verify_source_snapshots(root, manifest["inputs"])
 

@@ -33,6 +33,12 @@
     "source_type": "live"
   },
   {
+    "name": "security-ip-phishing",
+    "source": "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-IPs-ACTIVE.txt",
+    "format": "text",
+    "behavior": "ipcidr"
+  },
+  {
     "name": "privacy-native-amazon",
     "source": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.amazon-onlydomains.txt",
     "format": "text"
