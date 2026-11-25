@@ -21,11 +21,11 @@
       "output_paths": [
         "rules/ads/mrs/combined.mrs"
       ],
-      "pinned_source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/ad86e940f9047e2296c2f14074c33768de6715e9/reject.txt",
-      "source_commit_sha": "ad86e940f9047e2296c2f14074c33768de6715e9",
-      "source_commit_url": "https://github.com/Loyalsoldier/clash-rules/commit/ad86e940f9047e2296c2f14074c33768de6715e9",
-      "source_sha256": "79bd28b32a16dadb03ce9b1e2455cb41752a79b1cc76e1ae66ef309791420abb",
-      "source_size_bytes": 5901059,
+      "pinned_source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/75d94e503de8caa3701abd2af99aef5293d4e604/reject.txt",
+      "source_commit_sha": "75d94e503de8caa3701abd2af99aef5293d4e604",
+      "source_commit_url": "https://github.com/Loyalsoldier/clash-rules/commit/75d94e503de8caa3701abd2af99aef5293d4e604",
+      "source_sha256": "310dfaf93d792c5954f302ab04a3c43c9caf4a5bc2cd3fdd033a9b736b0d56ff",
+      "source_size_bytes": 5911226,
       "source_snapshot_path": "sources/mrs/ads-loyalsoldier.yaml",
       "source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/reject.txt"
     },
@@ -305,8 +305,8 @@
     },
     {
       "path": "rules/ads/mrs/combined.mrs",
-      "sha256": "adf8abd6ccd697a42e023de90915bc07db860cf29f5a2587fa90903305ebfcd6",
-      "size_bytes": 2310303
+      "sha256": "9eac26c3a1dfd77c477f5bf44c40f934999fb841cedc64cea8913d8b8a88e995",
+      "size_bytes": 2310895
     },
     {
       "path": "rules/privacy/mrs/combined.mrs",
