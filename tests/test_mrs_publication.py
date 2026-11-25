@@ -14,38 +14,55 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import mrs_merge
 import mrs_provenance
+from mrs_ip import IP_TARGET, FEODO_URL, parse_ip_rules
 
 CATEGORIES = ("security", "privacy", "ads")
 COMBINED = {f"rules/{c}/mrs/combined.mrs" for c in CATEGORIES}
 STANDALONE = "rules/ads/mrs/antiad.mrs"
-EXPECTED = COMBINED | {STANDALONE}
+EXPECTED = COMBINED | {STANDALONE, IP_TARGET}
 SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
 
 
 class PublicationTests(unittest.TestCase):
     def test_registry_manifest_and_profiles_match_published_artifacts(self):
-        self.assertEqual(len(SOURCES), 17)
+        self.assertEqual(len(SOURCES), 20)
         self.assertEqual({s["name"]: s["target"] for s in SOURCES if s.get("target")},
                          {"ads-antiad": STANDALONE})
         manifest = json.loads((ROOT / "tools/third-party-mrs-provenance.json").read_text())
         self.assertEqual(manifest["schema"], 2)
-        self.assertEqual({o["path"] for o in manifest["outputs"]}, EXPECTED)
-        self.assertEqual({i["name"] for i in manifest["inputs"]}, {s["name"] for s in SOURCES})
+        published = {o["path"] for o in manifest["outputs"]}
+        pending = IP_TARGET not in published
+        if pending and os.environ.get("MRS_REQUIRE_CURRENT") == "1":
+            self.fail("IP publication is still pending")
+        expected_outputs = EXPECTED - {IP_TARGET} if pending else EXPECTED
+        self.assertEqual(published, expected_outputs)
+        if not pending:
+            self.assertEqual({i["name"] for i in manifest["inputs"]}, {s["name"] for s in SOURCES})
         for item in manifest["inputs"]:
             category = item["name"].split("-", 1)[0]
-            expected = {f"rules/{category}/mrs/combined.mrs"}
+            expected = {IP_TARGET} if item["name"].startswith("security-ip-") else {f"rules/{category}/mrs/combined.mrs"}
             if item["name"] == "ads-antiad":
                 expected.add(STANDALONE)
             self.assertEqual(set(item["output_paths"]), expected)
         actual = {p.relative_to(ROOT).as_posix() for c in CATEGORIES
                   for p in (ROOT / "rules" / c / "mrs").glob("*.mrs")}
-        self.assertEqual(actual, EXPECTED)
+        self.assertEqual(actual, expected_outputs)
         for name in ("desktop", "android-firewall-only", "windows-firewall-only",
                      "ios-firewall-only"):
             text = (ROOT / "configs" / f"{name}.yaml").read_text(encoding="utf-8")
             urls = {"rules/" + p for p in re.findall(
                 r"https://rules\.reginald\.win/([^\s\"']+\.mrs)", text)}
-            self.assertEqual(urls, {STANDALONE} if name.startswith("ios") else COMBINED)
+            self.assertEqual(urls, {STANDALONE} if name.startswith("ios") else (COMBINED if pending else COMBINED | {IP_TARGET}))
+
+    def test_ip_parser_and_empty_feodo(self):
+        values, excluded = parse_ip_rules(b"8.8.8.8\n100.83.3.144\n247.16.181.135\n224.0.0.1\n")
+        self.assertEqual(values, {"8.8.8.8/32"})
+        self.assertEqual(len(excluded), 3)
+        header = b"# abuse.ch Feodo Tracker Botnet C2 IP Blocklist (recommended)\n"
+        self.assertEqual(parse_ip_rules(header + b"# END 0 entries\n", feodo=True), (set(), []))
+        for invalid in (b"<html>", b"8.8.8.8/24", header + b"# END 1 entries\n"):
+            with self.assertRaises(ValueError):
+                parse_ip_rules(invalid, feodo=True)
 
     def test_builder_compiles_only_published_outputs_and_tracks_all_inputs(self):
         import io
@@ -60,9 +77,11 @@ class PublicationTests(unittest.TestCase):
                 path.write_text("custom.example.com\n", encoding="utf-8")
             source_bytes = {
                 entry["source"]: (b"payload:\n  - 'example.org'\n" if entry["format"] == "yaml"
-                                  else b"example.org\n")
+                                  else (b"8.8.8.8\n" if entry.get("behavior") == "ipcidr" else b"example.org\n"))
                 for entry in SOURCES
             }
+            source_bytes[FEODO_URL] = (b"# abuse.ch Feodo Tracker Botnet C2 IP Blocklist (recommended)\n"
+                                       b"# END 0 entries\n")
             def download(req, **kwargs):
                 return io.BytesIO(source_bytes[req.full_url])
             def convert(cmd, check):
@@ -73,16 +92,16 @@ class PublicationTests(unittest.TestCase):
                  mock.patch("subprocess.run", side_effect=convert) as compiler, \
                  mock.patch.dict(os.environ, {"MRS_OVERLAP_REPORT": str(root / "overlap.md")}):
                 runpy.run_path(str(root / "tools/build-third-party-mrs.py"))
-                self.assertEqual(compiler.call_count, 4)
+                self.assertEqual(compiler.call_count, 5)
                 compiler.reset_mock()
                 runpy.run_path(str(root / "tools/build-third-party-mrs.py"))
-                self.assertEqual(compiler.call_count, 3)  # Unchanged anti-AD is reused.
+                self.assertEqual(compiler.call_count, 4)  # Unchanged anti-AD is reused.
             actual = {p.relative_to(root).as_posix() for p in (root / "rules").rglob("*.mrs")}
             self.assertEqual(actual, EXPECTED)
             state = json.loads((root / "tools/third-party-mrs-sha256.json").read_text())
             self.assertEqual(set(state), {s["name"] for s in SOURCES})
             manifest = json.loads((root / "tools/third-party-mrs-provenance.json").read_text())
-            self.assertEqual(len(manifest["inputs"]), 17)
+            self.assertEqual(len(manifest["inputs"]), 20)
             self.assertEqual({o["path"] for o in manifest["outputs"]}, EXPECTED)
             mrs_provenance.verify_source_snapshots(root, manifest["inputs"])
 

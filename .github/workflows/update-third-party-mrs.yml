@@ -11,6 +11,7 @@ on:
       - 'tests/test_mrs_provenance.py'
       - 'tools/mrs_overlap.py'
       - 'tools/mrs_merge.py'
+      - 'tools/mrs_ip.py'
       - 'tools/activate-merged-mrs.py'
       - 'tools/migrate-third-party-mrs.py'
       - 'tools/cdn_purge_verify.py'
@@ -133,6 +134,8 @@ jobs:
         run: python3 tools/migrate-third-party-mrs.py
       - name: Activate merged category MRS only after validation
         run: python3 tools/activate-merged-mrs.py
+      - name: Validate published MRS and profiles
+        run: MRS_REQUIRE_CURRENT=1 python3 -m unittest discover -s tests -p 'test_mrs_*.py' -v
       - name: Show source overlap report
         if: always()
         shell: bash
@@ -160,6 +163,7 @@ jobs:
               python3 tools/build-third-party-mrs.py
               python3 tools/migrate-third-party-mrs.py
               python3 tools/activate-merged-mrs.py
+              MRS_REQUIRE_CURRENT=1 python3 -m unittest discover -s tests -p 'test_mrs_*.py' -v
             fi
 
             git add -A -- sources/mrs rules/ads/mrs rules/privacy/mrs rules/security/mrs tools/third-party-mrs-sha256.json tools/third-party-mrs-provenance.json configs/desktop.yaml configs/android-firewall-only.yaml configs/ios-firewall-only.yaml configs/windows-firewall-only.yaml

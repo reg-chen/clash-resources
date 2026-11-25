@@ -7,9 +7,11 @@ import pathlib
 import re
 
 from mrs_merge import CUSTOM_SOURCES
+from mrs_ip import IP_TARGET
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
+SOURCES = [s for s in json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
+           if s.get("behavior") != "ipcidr"]
 CATEGORIES = ("security", "privacy", "ads")
 CONFIGS = (
     "configs/desktop.yaml",
@@ -225,7 +227,32 @@ def rename_legacy_combined_providers(text: str) -> str:
     return text
 
 
+def activate_ip_provider(text: str) -> str:
+    """Keep IP block after domain security and preserve existing exceptions."""
+    name = "combined-security-ip"
+    rule = f"RULE-SET,{name},REJECT,no-resolve"
+    match = re.search(r"(?m)^  combined-security:\n(?:    [^\n]*\n)+", text)
+    active_rule = re.search(r"(?m)^([ \t]*)- RULE-SET,combined-security,REJECT$", text)
+    if not match or not active_rule:
+        raise ValueError("Missing domain security provider or rule")
+    block = match.group(0).replace("  combined-security:", f"  {name}:", 1)
+    block = block.replace("behavior: domain", "behavior: ipcidr").replace("combined.mrs", "combined-ip.mrs")
+    if f"  {name}:\n" in text or f"RULE-SET,{name}," in text:
+        if (text.count(block) != 1
+                or text.count(rule) != 1
+                or active_rule.group(0) + "\n" + active_rule.group(1) + "- " + rule not in text):
+            raise ValueError("Inconsistent security IP provider")
+        return text
+    text = text[:match.end()] + "\n" + block + text[match.end():]
+    return re.sub(r"(?m)^([ \t]*)- RULE-SET,combined-security,REJECT$",
+                  lambda m: m.group(0) + "\n" + m.group(1) + "- " + rule,
+                  text, count=1)
+
+
 def main() -> None:
+    ip = ROOT / IP_TARGET
+    if not ip.is_file() or ip.stat().st_size < 8:
+        raise RuntimeError("Combined IP MRS missing; leaving YAML unchanged")
     for category in CATEGORIES:
         target = merged_path(category)
         if not target.is_file() or target.stat().st_size < 8:
@@ -243,6 +270,7 @@ def main() -> None:
             updated = remove_custom_from_activated(renamed)
         else:
             updated = rewrite_config(renamed, SOURCES)
+        updated = activate_ip_provider(updated)
         if updated != original:
             modified.append((file, updated))
     # Validate all configs before touching any of them.

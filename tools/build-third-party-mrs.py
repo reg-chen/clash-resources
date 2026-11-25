@@ -8,6 +8,7 @@ import subprocess
 import sys
 import urllib.request
 
+from mrs_ip import FEODO_URL, IP_TARGET, parse_ip_rules, build_ip_mrs
 from mrs_overlap import parse_domain_keys, write_report
 from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, build_merged_mrs
 from mrs_provenance import pin_source_url, save_source_snapshot, verify_source_snapshots, commit_page
@@ -26,11 +27,19 @@ changed = []
 overlap_sets = {}
 overlap_notes = []
 merge_sets = {}
+ip_rules = set()
 skipped_details = []
 
 for item in SOURCES:
     url = item["source"]
-    pinned_url, commit_sha = pin_source_url(url, revision_cache)
+    is_ip = item.get("behavior") == "ipcidr"
+    live = item.get("source_type") == "live"
+    if live:
+        if not is_ip or url != FEODO_URL:
+            raise ValueError("Unsupported live MRS source: " + url)
+        pinned_url, commit_sha = url, None
+    else:
+        pinned_url, commit_sha = pin_source_url(url, revision_cache)
     req = urllib.request.Request(pinned_url, headers={"User-Agent": "clash-resources-mrs-builder/1.0", "Cache-Control": "no-cache"})
     try:
         with urllib.request.urlopen(req, timeout=90) as res:
@@ -43,7 +52,7 @@ for item in SOURCES:
     archived = save_source_snapshot(ROOT, item["name"], item["format"], raw)
     archive_rel = archived.relative_to(ROOT).as_posix()
     category = item["name"].split("-", 1)[0]
-    output_paths = [f"rules/{category}/mrs/combined.mrs"]
+    output_paths = [IP_TARGET if is_ip else f"rules/{category}/mrs/combined.mrs"]
     if item.get("target"):
         output_paths.append(item["target"])
     record = {
@@ -52,12 +61,17 @@ for item in SOURCES:
         "pinned_source_url": pinned_url,
         "source_sha256": digest, "source_size_bytes": len(raw),
         "source_snapshot_path": archive_rel,
-        "source_commit_url": commit_page(url, commit_sha),
+        "source_commit_url": None if live else commit_page(url, commit_sha),
     }
+    if live:
+        # No immutable upstream revision exists. Archive exact response bytes;
+        # the digest and the repository commit identify the downloaded version.
+        record["source_type"] = "live"
+        record["pinned_source_url"] = None
     old_record = previous_inputs.get(item["name"], {})
     # Avoid a new provenance commit when a branch advances but its file bytes
     # have not changed. The older immutable URL still points at those bytes.
-    if (all(old_record.get(k) == record[k] for k in
+    if (not live and all(old_record.get(k) == record[k] for k in
             ("name", "format", "source_url", "source_sha256", "source_size_bytes"))
             and old_record.get("pinned_source_url") and old_record.get("source_commit_sha")
             and old_record.get("source_snapshot_path") == archive_rel
@@ -67,6 +81,13 @@ for item in SOURCES:
             record[key] = old_record[key]
     provenance_inputs.append(record)
     new[item["name"]] = digest
+    if is_ip:
+        values, excluded = parse_ip_rules(raw, feodo=live)
+        print(f"IP {item['name']}: {len(values):,} public IPv4; excluded {len(excluded)} non-global")
+        if excluded:
+            skipped_details.append(f"{item['name']}: excluded {len(excluded)} non-global IPv4: " + ", ".join(excluded[:5]))
+        ip_rules.update(values)
+        continue
     # Stats come from the same downloaded source bytes used for this MRS build.
     # Already-compiled MRS has no text representation; a separately fetched
     # canonical plain-domain list is explicitly identified as approximate.
@@ -151,7 +172,9 @@ for item in CUSTOM_SOURCES:
 
 # Three separate merged MRS outputs; never mix security/privacy/ads.
 # The workflow switches YAML only after all three artifacts exist.
-outputs = build_merged_mrs(ROOT, [*SOURCES, *CUSTOM_SOURCES], merge_sets)
+domain_sources = [s for s in SOURCES if s.get("behavior") != "ipcidr"]
+outputs = build_merged_mrs(ROOT, [*domain_sources, *CUSTOM_SOURCES], merge_sets)
+outputs.append(build_ip_mrs(ROOT, ip_rules))
 for output in outputs:
     changed.append(str(output.relative_to(ROOT)))
     print(f"MERGED {output.relative_to(ROOT)} ({output.stat().st_size} bytes)")
