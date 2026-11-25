@@ -77,7 +77,7 @@ class PublicationTests(unittest.TestCase):
                 path.write_text("custom.example.com\n", encoding="utf-8")
             source_bytes = {
                 entry["source"]: (b"payload:\n  - 'example.org'\n" if entry["format"] == "yaml"
-                                  else (b"8.8.8.8\n" if entry.get("behavior") == "ipcidr" else b"example.org\n"))
+                                  else (b"8.8.8.8\n9.9.9.9\n" if entry.get("behavior") == "ipcidr" else b"example.org\n"))
                 for entry in SOURCES
             }
             source_bytes[FEODO_URL] = (b"# abuse.ch Feodo Tracker Botnet C2 IP Blocklist (recommended)\n"
