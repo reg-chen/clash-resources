@@ -14,6 +14,9 @@
   "privacy-native-winoffice": "52f02b6e9f56fe3af0aff6eeef4aa37d3dfcd77e2c33049be938b558b7a6e6af",
   "privacy-native-xiaomi": "7df619096de822c3343137cbdc695ac912128d16f8472e371fba89f1231d0f65",
   "security-dyndns": "004f347aa4a1b69b8f95ad220d11ffbdd322433c14410872bcf857b77924c328",
+  "security-fake": "acddc4739de07444b24747730cf44d73bcab2a096859b1d7106505f373147eab",
+  "security-ip-feodo": "7c72fe807208617db78267d93ec45b2ef020c7cbcd2127b271d57a659f300bd8",
+  "security-ip-hagezi": "eaaf932550cb65ea2c99caf4418534864bf23410b44f1db868eddcfc00ad43e4",
   "security-phishing": "70c6c2e24e6b3484e7ace27b079723e55937bc1f4cbd98bea38a472ec8e37326",
-  "security-threat": "991442ca8687c19b16283ca7e90a80f980f8a1bfe21196bc16a0bfeadf1ef00d"
+  "security-threat": "aa35b9c618b90316d26d96a767e2e849cdcddcce20ba24ecc2ed1cbb7f50bbb8"
 }

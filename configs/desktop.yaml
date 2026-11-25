@@ -273,6 +273,14 @@ rule-providers:
     url: https://rules.reginald.win/security/mrs/combined.mrs
     path: P:\\Clash\\rules\\security\\mrs\\combined.mrs
 
+  combined-security-ip:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: ipcidr
+    format: mrs
+    url: https://rules.reginald.win/security/mrs/combined-ip.mrs
+    path: P:\\Clash\\rules\\security\\mrs\\combined-ip.mrs
+
   # =====================================================================
   # 🟥 Privacy（Native Trackers / Custom 合併 MRS）
   # =====================================================================
@@ -468,6 +476,7 @@ rules:
   # 🟥 Security（合併 MRS）
   # =====================================================================
   - RULE-SET,combined-security,REJECT
+  - RULE-SET,combined-security-ip,REJECT,no-resolve
 
   # 🟥 Network Ports（獨立 classical 規則）
   - RULE-SET,network-ports,REJECT

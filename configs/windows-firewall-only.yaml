@@ -32,6 +32,14 @@ rule-providers:
     url: https://rules.reginald.win/security/mrs/combined.mrs
     path: ./rules/security/mrs/combined.mrs
 
+  combined-security-ip:
+    <<: *RULE-PROVIDER
+    type: http
+    behavior: ipcidr
+    format: mrs
+    url: https://rules.reginald.win/security/mrs/combined-ip.mrs
+    path: ./rules/security/mrs/combined-ip.mrs
+
   combined-privacy:
     <<: *RULE-PROVIDER
     type: http
@@ -167,6 +175,7 @@ rules:
   - RULE-SET,route-bankgov,DIRECT,no-resolve
 
   - RULE-SET,combined-security,REJECT
+  - RULE-SET,combined-security-ip,REJECT,no-resolve
   # Network port restrictions (classical)
   - RULE-SET,network-ports,REJECT
 
