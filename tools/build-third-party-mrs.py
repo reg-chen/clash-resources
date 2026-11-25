@@ -28,6 +28,8 @@ overlap_sets = {}
 overlap_notes = []
 merge_sets = {}
 ip_rules = set()
+ip_overlap_sets = {}
+ip_excluded_counts = {}
 skipped_details = []
 
 for item in SOURCES:
@@ -86,6 +88,8 @@ for item in SOURCES:
         print(f"IP {item['name']}: {len(values):,} public IPv4; excluded {len(excluded)} non-global")
         if excluded:
             skipped_details.append(f"{item['name']}: excluded {len(excluded)} non-global IPv4: " + ", ".join(excluded[:5]))
+        ip_overlap_sets[item["name"]] = values
+        ip_excluded_counts[item["name"]] = len(excluded)
         ip_rules.update(values)
         continue
     # Stats come from the same downloaded source bytes used for this MRS build.
@@ -196,7 +200,8 @@ except Exception as exc:
 # MRS build or block its ordinary state update.
 try:
     report_path = pathlib.Path(os.environ.get("MRS_OVERLAP_REPORT", "/tmp/mrs-overlap.md"))
-    write_report(overlap_sets, overlap_notes, report_path)
+    write_report(overlap_sets, overlap_notes, report_path,
+                 ip_sets=ip_overlap_sets, ip_excluded=ip_excluded_counts)
     print(f"OVERLAP_REPORT {report_path}")
 except Exception as exc:
     print(f"WARNING: overlap report failed: {exc}", file=sys.stderr)

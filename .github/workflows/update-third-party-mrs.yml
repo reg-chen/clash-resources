@@ -136,16 +136,6 @@ jobs:
         run: python3 tools/activate-merged-mrs.py
       - name: Validate published MRS and profiles
         run: MRS_REQUIRE_CURRENT=1 python3 -m unittest discover -s tests -p 'test_mrs_*.py' -v
-      - name: Show source overlap report
-        if: always()
-        shell: bash
-        run: |
-          if test -s /tmp/mrs-overlap.md; then
-            cat /tmp/mrs-overlap.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if test -s /tmp/mrs-skipped.md; then
-            cat /tmp/mrs-skipped.md >> "$GITHUB_STEP_SUMMARY"
-          fi
       - name: Commit updated MRS
         id: commit
         shell: bash
@@ -181,6 +171,16 @@ jobs:
           done
           echo "::error::Could not push MRS after 3 rebuild attempts; never force-pushing."
           exit 1
+      - name: Show source overlap report
+        if: always()
+        shell: bash
+        run: |
+          if test -s /tmp/mrs-overlap.md; then
+            cat /tmp/mrs-overlap.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if test -s /tmp/mrs-skipped.md; then
+            cat /tmp/mrs-skipped.md >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Purge changed MRS paths, verify CDN
         if: steps.commit.outputs.changed == 'true'
         shell: bash

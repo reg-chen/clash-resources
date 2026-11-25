@@ -1,4 +1,4 @@
-"""Compare source-list domain keys during MRS builds (report-only).
+"""Compare source-list domain keys and eligible IPv4 hosts during MRS builds (report-only).
 
 Numbers are lexical domain-key intersections, not effective Mihomo rule coverage.
 """
@@ -65,7 +65,31 @@ def summarize(domain_sets: dict[str, set[str]]) -> dict[str, list[dict]]:
     return result
 
 
-def render(domain_sets: dict[str, set[str]], notes: list[str]) -> str:
+def render_ip(ip_sets: dict[str, set[str]], excluded: dict[str, int]) -> list[str]:
+    union = set().union(*ip_sets.values())
+    lines = [
+        f"## SECURITY-IP（聯集 {len(union):,}）",
+        "",
+        "統計單位：實際交給 IPv4 MRS 編譯器的去重公網 /32 位址；排除數為非全球可路由等不符合建置政策的原始項目數。",
+        "與網域統計分開計算；合法空來源仍列出。",
+        "",
+        "| 來源 | 有效 IPv4 | 與同組其他來源重疊 | 同組獨有 | 排除項目 |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for name, own in sorted(ip_sets.items()):
+        others = set().union(*(values for key, values in ip_sets.items() if key != name))
+        lines.append(
+            f"| {name} | {len(own):,} | {len(own & others):,} | "
+            f"{len(own - others):,} | {excluded.get(name, 0):,} |"
+        )
+    lines.extend(["", f"合併前有效項目數（各來源加總）：{sum(map(len, ip_sets.values())):,}；"
+                  f"去除跨來源重複：{sum(map(len, ip_sets.values())) - len(union):,}。", ""])
+    return lines
+
+
+def render(domain_sets: dict[str, set[str]], notes: list[str], *,
+           ip_sets: dict[str, set[str]] | None = None,
+           ip_excluded: dict[str, int] | None = None) -> str:
     lines = [
         "# MRS 來源交集與差集",
         "",
@@ -91,6 +115,8 @@ def render(domain_sets: dict[str, set[str]], notes: list[str]) -> str:
             for a, b in itertools.combinations(sorted(members), 2):
                 lines.append(f"| {a} | {b} | {len(members[a] & members[b]):,} |")
         lines.append("")
+    if ip_sets:
+        lines.extend(render_ip(ip_sets, ip_excluded or {}))
     if notes:
         lines.extend(["## 來源備註", ""])
         lines.extend(f"- {note}" for note in notes)
@@ -98,6 +124,9 @@ def render(domain_sets: dict[str, set[str]], notes: list[str]) -> str:
     return "\n".join(lines)
 
 
-def write_report(domain_sets: dict[str, set[str]], notes: list[str], path: Path) -> None:
+def write_report(domain_sets: dict[str, set[str]], notes: list[str], path: Path, *,
+                 ip_sets: dict[str, set[str]] | None = None,
+                 ip_excluded: dict[str, int] | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render(domain_sets, notes), encoding="utf-8")
+    path.write_text(render(domain_sets, notes, ip_sets=ip_sets, ip_excluded=ip_excluded),
+                    encoding="utf-8")

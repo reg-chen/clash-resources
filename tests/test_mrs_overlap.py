@@ -34,6 +34,22 @@ class OverlapTests(unittest.TestCase):
         self.assertIn("antiad: plain list approximation", report)
         self.assertIn("完全相同的網域鍵", report)
 
+    def test_ip_overlap_is_separate_and_includes_empty_sources(self):
+        domains = {"security-threat": {"8.8.8.8", "threat.example"}}
+        ips = {
+            "security-ip-hagezi": {"8.8.8.8/32", "9.9.9.9/32"},
+            "security-ip-feodo": {"8.8.8.8/32"},
+            "security-ip-empty": set(),
+        }
+        report = render(domains, [], ip_sets=ips, ip_excluded={"security-ip-hagezi": 3})
+        self.assertIn("## SECURITY（聯集 2）", report)
+        self.assertIn("## SECURITY-IP（聯集 2）", report)
+        self.assertIn("| security-threat | 2 | 0 | 2 |", report)
+        self.assertIn("| security-ip-hagezi | 2 | 1 | 1 | 3 |", report)
+        self.assertIn("| security-ip-feodo | 1 | 1 | 0 | 0 |", report)
+        self.assertIn("| security-ip-empty | 0 | 0 | 0 | 0 |", report)
+        self.assertIn("去除跨來源重複：1", report)
+
 
 if __name__ == "__main__":
     unittest.main()

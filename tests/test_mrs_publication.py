@@ -96,6 +96,10 @@ class PublicationTests(unittest.TestCase):
                 compiler.reset_mock()
                 runpy.run_path(str(root / "tools/build-third-party-mrs.py"))
                 self.assertEqual(compiler.call_count, 4)  # Unchanged anti-AD is reused.
+            report = (root / "overlap.md").read_text(encoding="utf-8")
+            self.assertIn("## SECURITY-IP（聯集 2）", report)
+            self.assertIn("| security-ip-hagezi | 2 | 0 | 2 | 0 |", report)
+            self.assertIn("| security-ip-feodo | 0 | 0 | 0 | 0 |", report)
             actual = {p.relative_to(root).as_posix() for p in (root / "rules").rglob("*.mrs")}
             self.assertEqual(actual, EXPECTED)
             state = json.loads((root / "tools/third-party-mrs-sha256.json").read_text())
