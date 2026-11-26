@@ -201,8 +201,8 @@ def build(root, sources, executable="./mihomo", report_dir=None):
     outputs = build_merged_mrs(ROOT, [*domain_sources, *CUSTOM_SOURCES], merge_sets, mihomo_executable=executable)
     outputs.append(build_ip_mrs(ROOT, ip_rules, executable=executable))
     for output in outputs:
-        changed.append(str(output.relative_to(ROOT)))
-        print(f"MERGED {output.relative_to(ROOT)} ({output.stat().st_size} bytes)")
+        changed.append(output.relative_to(ROOT).as_posix())
+        print(f"MERGED {output.relative_to(ROOT).as_posix()} ({output.stat().st_size} bytes)")
 
     # Report dropped non-domain entries. A full URL cannot be converted into
     # a path-specific domain rule without potentially overblocking the host.
@@ -242,7 +242,7 @@ def build(root, sources, executable="./mihomo", report_dir=None):
     STATE.write_text(json.dumps(new, indent=2, sort_keys=True) + "\n")
     # Commit the current source files, manifest and compiled MRS atomically.
     paths = sorted({*(s["target"] for s in SOURCES if s.get("target")),
-                    *(str(output.relative_to(ROOT)) for output in outputs)})
+                    *(output.relative_to(ROOT).as_posix() for output in outputs)})
     provenance_outputs = [
         {"path": path, "sha256": hashlib.sha256((ROOT / path).read_bytes()).hexdigest(),
          "size_bytes": (ROOT / path).stat().st_size}
