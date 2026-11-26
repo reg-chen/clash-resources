@@ -1,4 +1,8 @@
 import io
+import ssl
+import urllib.request
+import urllib.error
+import http.client
 import json
 import sys
 import unittest
@@ -7,7 +11,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from mrs_provenance import (pin_source_url, save_source_snapshot,
-                            snapshot_path, verify_source_snapshots, commit_page)
+                            snapshot_path, verify_source_snapshots, commit_page, download_bytes)
 
 
 class ProvenanceTests(unittest.TestCase):
@@ -24,6 +28,43 @@ class ProvenanceTests(unittest.TestCase):
         self.assertTrue(url.endswith("/" + revision + "/wildcard/a.txt"))
         self.assertTrue(url2.endswith("/" + revision + "/wildcard/b.txt"))
         self.assertEqual(urlopen.call_count, 1)
+
+    @mock.patch("mrs_provenance.time.sleep")
+    @mock.patch("mrs_provenance.urllib.request.urlopen")
+    def test_eof_then_success(self, urlopen, sleep):
+        request = urllib.request.Request("https://raw.githubusercontent.com/o/r/main/a.txt")
+        urlopen.side_effect = [
+            urllib.error.URLError(ssl.SSLEOFError(8, "unexpected EOF")),
+            http.client.IncompleteRead(b"partial"),
+            io.BytesIO(b"complete response"),
+        ]
+        self.assertEqual(download_bytes(request), b"complete response")
+        self.assertEqual(urlopen.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+
+    @mock.patch("mrs_provenance.time.sleep")
+    @mock.patch("mrs_provenance.urllib.request.urlopen")
+    def test_permanent_tls_or_http_error_not_retried(self, urlopen, sleep):
+        request = urllib.request.Request("https://api.github.com/repos/o/r/commits/main")
+        for error in (urllib.error.URLError(ssl.SSLCertVerificationError(1, "invalid certificate")),
+                      urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)):
+            urlopen.reset_mock()
+            urlopen.side_effect = error
+            with self.assertRaisesRegex(RuntimeError, "GitHub revision lookup failed"):
+                download_bytes(request, label="GitHub revision lookup")
+            self.assertEqual(urlopen.call_count, 1)
+        sleep.assert_not_called()
+
+    @mock.patch("mrs_provenance.time.sleep")
+    @mock.patch("mrs_provenance.urllib.request.urlopen")
+    def test_exhausted_retries_identify_url(self, urlopen, sleep):
+        request = urllib.request.Request("https://raw.githubusercontent.com/o/r/main/a.txt")
+        urlopen.side_effect = urllib.error.URLError(ssl.SSLEOFError(8, "unexpected EOF"))
+        with self.assertRaisesRegex(RuntimeError, "3/3") as result:
+            download_bytes(request, label="security-threat")
+        self.assertIn(request.full_url, str(result.exception))
+        self.assertIn("security-threat", str(result.exception))
+        self.assertEqual(urlopen.call_count, 3)
 
     def test_rejects_unpinnable_source(self):
         for url in ("http://raw.githubusercontent.com/o/r/main/a.txt",

@@ -11,7 +11,7 @@ import urllib.request
 from mrs_ip import FEODO_URL, IP_TARGET, parse_ip_rules, build_ip_mrs
 from mrs_overlap import parse_domain_keys, write_report
 from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, parse_metamask_rules, build_merged_mrs
-from mrs_provenance import pin_source_url, save_source_snapshot, verify_source_snapshots, commit_page
+from mrs_provenance import pin_source_url, save_source_snapshot, verify_source_snapshots, commit_page, download_bytes
 
 def build(root, sources, executable="./mihomo", report_dir=None):
     ROOT = pathlib.Path(root)
@@ -43,13 +43,12 @@ def build(root, sources, executable="./mihomo", report_dir=None):
                 raise ValueError("Unsupported live MRS source: " + url)
             pinned_url, commit_sha = url, None
         else:
-            pinned_url, commit_sha = pin_source_url(url, revision_cache)
+            try:
+                pinned_url, commit_sha = pin_source_url(url, revision_cache)
+            except Exception as exc:
+                raise RuntimeError(f"{item['name']}: upstream revision lookup failed\n{exc}") from exc
         req = urllib.request.Request(pinned_url, headers={"User-Agent": "clash-resources-mrs-builder/1.0", "Cache-Control": "no-cache"})
-        try:
-            with urllib.request.urlopen(req, timeout=90) as res:
-                raw = res.read()
-        except Exception as exc:
-            raise RuntimeError(f"Upstream download failed for {item['name']}: {exc}") from exc
+        raw = download_bytes(req, label=f"{item['name']}: upstream download")
         if not raw or len(raw) < 10:
             raise RuntimeError(f"Empty or suspicious source: {item['name']}")
         digest = hashlib.sha256(raw).hexdigest()
@@ -108,8 +107,7 @@ def build(root, sources, executable="./mihomo", report_dir=None):
                         item["analysis_source"],
                         headers={"User-Agent": "clash-resources-mrs-overlap/1.0"}
                     )
-                    with urllib.request.urlopen(analysis_req, timeout=90) as res:
-                        analysis_raw = res.read()
+                    analysis_raw = download_bytes(analysis_req, label=f"{item['name']}: analysis download")
                     analysis_fmt = item.get("analysis_format", "text")
                     overlap_notes.append(
                         f"{item['name']}: 使用官方編譯 MRS 的原始 YAML；"

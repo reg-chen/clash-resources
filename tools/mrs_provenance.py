@@ -3,9 +3,35 @@ import json
 import os
 import re
 import urllib.request
+import urllib.error
+import http.client
+import ssl
+import time
 from urllib.parse import quote, urlsplit
 
 _SHA = re.compile(r"^[a-f0-9]{40}$")
+
+
+def download_bytes(request, *, timeout=90, attempts=3, label="Download"):
+    """Retry transient TLS/transport failures, never bypass TLS validation."""
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return response.read()
+        except (OSError, http.client.HTTPException) as exc:
+            reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+            if isinstance(exc, urllib.error.HTTPError):
+                retry = exc.code in {408, 429, 500, 502, 503, 504}
+            elif isinstance(reason, ssl.SSLCertVerificationError):
+                retry = False
+            else:
+                retry = isinstance(reason, (OSError, http.client.HTTPException))
+            if not retry or attempt == attempts:
+                raise RuntimeError(
+                    f"{label} failed ({attempt}/{attempts})\n{request.full_url}\n{exc}"
+                ) from exc
+            print(f"{label}: transient failure ({attempt}/{attempts}): {exc}")
+            time.sleep(2 ** attempt)
 
 
 def pin_source_url(url, cache=None):
@@ -33,8 +59,7 @@ def pin_source_url(url, cache=None):
         if token:
             headers["Authorization"] = "Bearer " + token
         request = urllib.request.Request(endpoint, headers=headers)
-        with urllib.request.urlopen(request, timeout=40) as response:
-            sha = json.load(response).get("sha")
+        sha = json.loads(download_bytes(request, timeout=40, label="GitHub revision lookup")).get("sha")
         if not isinstance(sha, str) or not _SHA.fullmatch(sha):
             raise ValueError("GitHub response missing commit SHA: " + url)
         if cache is not None:
