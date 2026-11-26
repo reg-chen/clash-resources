@@ -5,6 +5,8 @@ import base64
 import ctypes
 import json
 import ipaddress
+import http.client
+import socket
 import re
 import os
 import ssl
@@ -97,6 +99,57 @@ def unprotect_secret(value):
         raise RuntimeError("無法解密 Controller Secret，請於 MRS 分頁重新輸入。") from None
 
 
+class NonLoopbackController(OSError):
+    """A Controller hostname must resolve exclusively to loopback addresses."""
+
+
+def _connect_loopback(address, timeout=socket._GLOBAL_DEFAULT_TIMEOUT, source_address=None):
+    host, port = address
+    candidates = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
+    # Validate the whole result before attempting any connection, including
+    # mixed A/AAAA responses. Do not resolve the hostname again at connect().
+    if not candidates or any(
+            family not in (socket.AF_INET, socket.AF_INET6)
+            or not ipaddress.ip_address(sockaddr[0]).is_loopback
+            for family, _, _, _, sockaddr in candidates):
+        raise NonLoopbackController("Controller must resolve exclusively to loopback")
+    last_error = None
+    for family, kind, proto, _, sockaddr in candidates:
+        sock = socket.socket(family, kind, proto)
+        try:
+            if timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+                sock.settimeout(timeout)
+            if source_address:
+                sock.bind(source_address)
+            sock.connect(sockaddr)
+            # Verify the established peer as well as the selected address.
+            if not ipaddress.ip_address(sock.getpeername()[0]).is_loopback:
+                raise NonLoopbackController("Controller peer is not loopback")
+            return sock
+        except OSError as exc:
+            sock.close()
+            if isinstance(exc, NonLoopbackController):
+                raise
+            last_error = exc
+        except BaseException:
+            sock.close()
+            raise
+    raise last_error or OSError("No reachable loopback Controller")
+
+
+class _LoopbackHTTPSConnection(http.client.HTTPSConnection):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._create_connection = _connect_loopback
+        # HTTPSConnection.connect retains the original host for SNI and
+        # certificate hostname verification; only TCP connection is pinned.
+
+
+class _LoopbackHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_LoopbackHTTPSConnection, req, context=self._context)
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -111,7 +164,7 @@ def _opener():
         if ca.is_file():
             context.load_verify_locations(cafile=str(ca))
     return urllib.request.build_opener(urllib.request.ProxyHandler({}),
-                                       _NoRedirect(), urllib.request.HTTPSHandler(context=context))
+                                       _NoRedirect(), _LoopbackHTTPSHandler(context=context))
 
 
 def _request(opener, url, secret, method):
@@ -176,5 +229,9 @@ def refresh(root, profile, providers, outputs):
                 print(f"Controller {name}: pending ({type(exc).__name__}{code})")
     except Exception as exc:
         code = f" HTTP {exc.code}" if isinstance(exc, urllib.error.HTTPError) else ""
-        print(f"Controller refresh pending ({type(exc).__name__}{code})")
+        reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+        if isinstance(reason, NonLoopbackController):
+            print("Controller refresh pending: hostname or peer is not exclusively loopback")
+        else:
+            print(f"Controller refresh pending ({type(exc).__name__}{code})")
     return pending

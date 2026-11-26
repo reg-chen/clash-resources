@@ -1,4 +1,5 @@
 import sys
+import socket
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,6 +22,46 @@ class ControllerTests(unittest.TestCase):
                     "https://bad host:9443", "https://*.example:9443", "https://host:", "https://host#"):
             with self.assertRaises(ValueError):
                 controller.normalize_url(url)
+
+    def test_connect_rejects_mixed_or_nonlocal_answers_before_socket(self):
+        local = (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", 9443))
+        remote = (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("192.168.1.20", 9443))
+        remote6 = (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("2001:db8::1", 9443, 0, 0))
+        with mock.patch.object(controller.socket, "getaddrinfo") as resolve, \
+             mock.patch.object(controller.socket, "socket") as create:
+            for answers in ([], [remote], [local, remote], [local, remote6]):
+                resolve.return_value = answers
+                with self.assertRaises(controller.NonLoopbackController):
+                    controller._connect_loopback(("doh.example", 9443), 10)
+                create.assert_not_called()
+
+    def test_connect_pins_loopback_and_preserves_tls_hostname(self):
+        local6 = (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("::1", 9443, 0, 0))
+        local4 = (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", 9443))
+        context = mock.MagicMock()
+        context.wrap_socket.return_value = mock.MagicMock()
+        with mock.patch.object(controller.socket, "getaddrinfo", return_value=[local6, local4]) as resolve, \
+             mock.patch.object(controller.socket, "socket") as create:
+            first, second = mock.MagicMock(), mock.MagicMock()
+            first.connect.side_effect = ConnectionRefusedError()
+            second.getpeername.return_value = local4[4]
+            create.side_effect = [first, second]
+            conn = controller._LoopbackHTTPSConnection("doh.example", 9443, timeout=10, context=context)
+            conn.connect()
+            resolve.assert_called_once_with("doh.example", 9443, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
+            first.connect.assert_called_once_with(local6[4])
+            first.close.assert_called_once()
+            second.connect.assert_called_once_with(local4[4])
+            context.wrap_socket.assert_called_once_with(second, server_hostname="doh.example")
+
+    def test_connect_rejects_nonloopback_peer(self):
+        local = (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", 9443))
+        with mock.patch.object(controller.socket, "getaddrinfo", return_value=[local]), \
+             mock.patch.object(controller.socket, "socket") as create:
+            create.return_value.getpeername.return_value = ("192.168.1.20", 9443)
+            with self.assertRaises(controller.NonLoopbackController):
+                controller._connect_loopback(("doh.example", 9443), 10)
+            create.return_value.close.assert_called_once()
 
     @unittest.skipUnless(sys.platform == "win32", "Windows DPAPI")
     def test_dpapi_roundtrip(self):
