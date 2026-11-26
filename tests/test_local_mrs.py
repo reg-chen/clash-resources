@@ -49,6 +49,8 @@ class LocalMrsTests(unittest.TestCase):
             self.assertEqual(len(selected), len(profile["sources"]))
             self.assertEqual(output, (root / "local").resolve())
             self.assertEqual(compiler, exe.resolve())
+            _, _, auto = local_mrs.validate(dict(profile, mihomo=""))
+            self.assertIsNone(auto)
             profile["sources"] = []
             with self.assertRaises(ValueError):
                 local_mrs.validate(profile)
@@ -94,6 +96,7 @@ class LocalMrsTests(unittest.TestCase):
             raw = {s["name"]: b"source.example\n" for s in local_mrs.catalog()}
             self.addCleanup(mock.patch.stopall)
             mock.patch.object(local_mrs, "fetch_inputs", side_effect=lambda entries: {s["name"]: raw[s["name"]] for s in entries}).start()
+            mock.patch.object(local_mrs.mrs_compiler, "resolve", return_value=exe.resolve()).start()
             def fake_build(stage, entries, executable, report_dir, *, pin_revisions, source_bytes):
                 self.assertFalse(pin_revisions)
                 self.assertFalse(any("target" in item for item in entries))

@@ -828,10 +828,10 @@ class MainWindow(ctk.CTk):
         form.pack(fill="x", padx=12, pady=(6, 4))
         form.grid_columnconfigure(1, weight=1)
         for i, (label, variable, directory) in enumerate((
-                ("Mihomo 執行檔", self.mrs_exe, False),
+                ("Mihomo 備援 EXE", self.mrs_exe, False),
                 ("Clash 根目錄", self.mrs_directory, True))):
             ui_label(form, text=label).grid(row=i, column=0, sticky="w", padx=(0, 8))
-            ui_entry(form, textvariable=variable).grid(row=i, column=1, sticky="ew", pady=3)
+            ui_entry(form, textvariable=variable, **({} if directory else {"placeholder_text": "自動偵測；選填備援路徑"})).grid(row=i, column=1, sticky="ew", pady=3)
             def browse(v=variable, is_dir=directory):
                 path = (filedialog.askdirectory(parent=self) if is_dir else
                         filedialog.askopenfilename(parent=self, filetypes=[("Mihomo EXE", "*.exe")]))

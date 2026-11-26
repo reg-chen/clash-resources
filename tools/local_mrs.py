@@ -15,6 +15,7 @@ from mrs_build import build, fetch_source_bytes
 from mrs_provenance import raw_source_parts, verify_source_snapshots
 from mrs_ip import FEODO_URL
 import mrs_controller
+import mrs_compiler
 
 TASK_NAME = "Clash Local MRS Refresh"
 MIN_HOURS = 1
@@ -47,7 +48,7 @@ def load_profile():
     path = profile_path()
     if not path.exists():
         return {"sources": [s["name"] for s in catalog() if s.get("distribution", "public") == "public"],
-                "directory": DEFAULT_ROOT, "mihomo": shutil.which("mihomo.exe") or "",
+                "directory": DEFAULT_ROOT, "mihomo": "",
                 "hours": 2, "notify_mihomo": True, "controller_url": mrs_controller.DEFAULT_URL}
     profile = json.loads(path.read_text(encoding="utf-8"))
     profile.setdefault("notify_mihomo", True)
@@ -85,11 +86,10 @@ def validate(profile):
     root = Path(profile["directory"]).expanduser()
     if not root.is_absolute() or root == Path(root.anchor):
         raise ValueError("請使用獨立的絕對輸出目錄。")
-    if not str(profile.get("mihomo", "")).strip():
-        raise ValueError("請選擇 Mihomo 執行檔。")
-    exe = Path(profile["mihomo"]).expanduser()
-    if not exe.is_absolute() or not exe.is_file():
-        raise ValueError("找不到 Mihomo 執行檔。")
+    manual = str(profile.get("mihomo") or "").strip()
+    exe = Path(manual).expanduser() if manual else None
+    if exe is not None and not exe.is_absolute():
+        raise ValueError("Mihomo 備援路徑必須為絕對路徑。")
     root = root.resolve()
     if any((parent / ".git").exists() for parent in (root, *root.parents)):
         raise ValueError("本機輸出不可位於 Git 工作樹內。")
@@ -97,7 +97,7 @@ def validate(profile):
         raise ValueError("輸出目錄已有 MRS；須先切換為 file provider 並確認接管。")
     if profile.get("notify_mihomo", False):
         mrs_controller.normalize_url(profile.get("controller_url", mrs_controller.DEFAULT_URL))
-    return selected, root, exe.resolve()
+    return selected, root, exe.resolve() if exe is not None else None
 
 
 def save_profile(profile):
@@ -243,7 +243,8 @@ def run(profile, *, on_notify=None, on_diagnostic=None):
             pending = list(PROVIDERS) if profile.get("notify_mihomo", False) else []
         if on_notify is not None:
             on_notify(pending)
-    selected, root, exe = validate(profile)
+    selected, root, _ = validate(profile)
+    exe = mrs_compiler.resolve(profile)
     root.mkdir(parents=True, exist_ok=True)
     with build_lock(root):
         # Desktop uses four combined outputs, not the iOS standalone artifact.
