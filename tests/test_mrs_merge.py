@@ -169,7 +169,9 @@ class MergeTests(unittest.TestCase):
                 target = root / "rules" / g / "mrs" / "combined.mrs"
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(b"ORIGINAL")
-            def fake_convert(cmd, check):
+            def fake_convert(cmd, check, creationflags):
+                self.assertTrue(check)
+                self.assertEqual(creationflags, getattr(mrs_merge.subprocess, "CREATE_NO_WINDOW", 0))
                 if "privacy" in cmd[-1]:
                     raise RuntimeError("conversion failed")
                 Path(cmd[-1]).write_bytes(b"UPDATED-MRS")

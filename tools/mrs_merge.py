@@ -197,7 +197,8 @@ def build_merged_mrs(
             candidates.append((source, temporary))
             subprocess.run(
                 [mihomo_executable, "convert-ruleset", "domain", "text",
-                 str(source), str(temporary)], check=True
+                 str(source), str(temporary)], check=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
             )
             if not temporary.is_file() or temporary.stat().st_size < 8:
                 raise RuntimeError(f"Missing combined {category} MRS")

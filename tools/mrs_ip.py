@@ -45,7 +45,8 @@ def build_ip_mrs(root, rules, executable="./mihomo"):
         source.write_text("\n".join(sorted(rules, key=lambda x: int(ipaddress.IPv4Interface(x).ip))) + "\n",
                           encoding="utf-8")
         subprocess.run([executable, "convert-ruleset", "ipcidr", "text",
-                        str(source), str(pending)], check=True)
+                        str(source), str(pending)], check=True,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if not pending.is_file() or pending.stat().st_size < 8:
             raise RuntimeError("Missing combined IP MRS")
         pending.replace(target)

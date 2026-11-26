@@ -5,6 +5,7 @@ import re
 import runpy
 import shutil
 import sys
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -136,7 +137,9 @@ class PublicationTests(unittest.TestCase):
             source_bytes[phishing_url] = b"9.9.9.9\n1.1.1.1\n"
             def download(req, **kwargs):
                 return io.BytesIO(source_bytes[req.full_url])
-            def convert(cmd, check):
+            def convert(cmd, check, creationflags):
+                self.assertTrue(check)
+                self.assertEqual(creationflags, getattr(subprocess, "CREATE_NO_WINDOW", 0))
                 rules = set(Path(cmd[-2]).read_text().splitlines())
                 if cmd[2] == "ipcidr":
                     self.assertEqual(rules, {"8.8.8.8/32", "9.9.9.9/32", "1.1.1.1/32", "4.4.4.4/32"})

@@ -182,7 +182,8 @@ def build(root, sources, executable="./mihomo", report_dir=None, *, pin_revision
                 temp.write_bytes(raw)
             else:
                 # Read the exact archived bytes, not an independently re-fetched URL.
-                subprocess.run([executable, "convert-ruleset", "domain", item["format"], str(archived), str(temp)], check=True)
+                subprocess.run([executable, "convert-ruleset", "domain", item["format"], str(archived), str(temp)],
+                               check=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             if not temp.is_file() or temp.stat().st_size < 8:
                 raise RuntimeError(f"No MRS output: {item['name']}")
             os.replace(temp, target)
