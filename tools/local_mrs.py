@@ -14,6 +14,7 @@ from pathlib import Path
 from mrs_build import build, fetch_source_bytes
 from mrs_provenance import raw_source_parts, verify_source_snapshots
 from mrs_ip import FEODO_URL
+import mrs_controller
 
 TASK_NAME = "Clash Local MRS Refresh"
 FREQUENCIES = (1, 2, 4, 6, 12, 24)
@@ -46,8 +47,11 @@ def load_profile():
     if not path.exists():
         return {"sources": [s["name"] for s in catalog() if s.get("distribution", "public") == "public"],
                 "directory": DEFAULT_ROOT, "mihomo": shutil.which("mihomo.exe") or "",
-                "hours": 2}
-    return json.loads(path.read_text(encoding="utf-8"))
+                "hours": 2, "notify_mihomo": True, "controller_url": mrs_controller.DEFAULT_URL}
+    profile = json.loads(path.read_text(encoding="utf-8"))
+    profile.setdefault("notify_mihomo", True)
+    profile.setdefault("controller_url", mrs_controller.DEFAULT_URL)
+    return profile
 
 
 def needs_takeover(root):
@@ -85,6 +89,8 @@ def validate(profile):
         raise ValueError("本機輸出不可位於 Git 工作樹內。")
     if needs_takeover(root) and profile.get("takeover_root") != str(root):
         raise ValueError("輸出目錄已有 MRS；須先切換為 file provider 並確認接管。")
+    if profile.get("notify_mihomo", False):
+        mrs_controller.normalize_url(profile.get("controller_url", mrs_controller.DEFAULT_URL))
     return selected, root, exe.resolve()
 
 
@@ -219,7 +225,15 @@ def current_build(root, fingerprint, entries, source_bytes):
         return False
 
 
-def run(profile):
+def run(profile, *, on_notify=None):
+    def notify(root, outputs):
+        try:
+            pending = mrs_controller.refresh(root, profile, PROVIDERS, outputs)
+        except Exception as exc:
+            print(f"Controller refresh pending ({type(exc).__name__})")
+            pending = list(PROVIDERS) if profile.get("notify_mihomo", False) else []
+        if on_notify is not None:
+            on_notify(pending)
     selected, root, exe = validate(profile)
     root.mkdir(parents=True, exist_ok=True)
     with build_lock(root):
@@ -247,6 +261,8 @@ def run(profile):
         cacheable = not any(i.get("format") == "mrs" for i in entries)
         if cacheable and current_build(root, fingerprint, entries, raw):
             print("Local MRS: unchanged inputs and verified outputs; skipped merge/compile")
+            manifest = json.loads((root / "tools/third-party-mrs-provenance.json").read_text(encoding="utf-8"))
+            notify(root, manifest["outputs"])
             return root
         with tempfile.TemporaryDirectory(prefix=".build-", dir=root) as folder:
             stage = Path(folder)
@@ -277,6 +293,7 @@ def run(profile):
             publish(stage, root, paths)
             (root / ".local-mrs").touch(exist_ok=True)
             print(f"Local MRS: {len(selected)} sources, {len(paths)} changed files")
+            notify(root, outputs)
             return root
 
 
@@ -292,7 +309,11 @@ def cli(argv):
         with log.open("w", encoding="utf-8") as stream, contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
             print(datetime.now().astimezone().isoformat())
             try:
-                run(load_profile())
+                pending = []
+                run(load_profile(), on_notify=pending.extend)
+                if pending:
+                    print("MRS build valid; Controller pending: " + ", ".join(pending))
+                    return 3
                 return 0
             except Exception:
                 import traceback

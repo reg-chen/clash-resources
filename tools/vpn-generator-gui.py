@@ -26,6 +26,7 @@ import safe_paths
 import uwp_loopback
 import local_mrs
 import mrs_schedule
+import mrs_controller
 
 def exe_license_text() -> str:
     """Load notices embedded in this executable at build time."""
@@ -815,6 +816,14 @@ class MainWindow(ctk.CTk):
         self.mrs_exe = tk.StringVar(value=profile.get("mihomo", ""))
         self.mrs_hours = tk.StringVar(value=str(profile.get("hours", 2)))
         self.mrs_status = tk.StringVar(value="本機建置；不會上傳規則。")
+        self.mrs_notify = tk.BooleanVar(value=profile.get("notify_mihomo", True))
+        self.mrs_controller_url = tk.StringVar(value=profile.get("controller_url", mrs_controller.DEFAULT_URL))
+        try:
+            secret = mrs_controller.unprotect_secret(profile.get("controller_secret_dpapi", ""))
+        except RuntimeError:
+            secret = ""
+            self.mrs_status.set("Controller Secret 無法解密，請重新輸入。")
+        self.mrs_secret = tk.StringVar(value=secret)
         form = ui_frame(root)
         form.pack(fill="x", padx=12, pady=(6, 4))
         form.grid_columnconfigure(1, weight=1)
@@ -832,6 +841,15 @@ class MainWindow(ctk.CTk):
         ui_label(form, text="排程（每 N 小時）").grid(row=2, column=0, sticky="w")
         ctk.CTkOptionMenu(form, variable=self.mrs_hours,
                           values=[str(v) for v in local_mrs.FREQUENCIES]).grid(row=2, column=1, sticky="w", pady=4)
+        ui_check(form, text="建置後通知 Mihomo（含排程）", variable=self.mrs_notify).grid(row=3, column=0, columnspan=3, sticky="w", pady=3)
+        ui_label(form, text="Controller URL").grid(row=4, column=0, sticky="w")
+        ui_entry(form, textvariable=self.mrs_controller_url).grid(row=4, column=1, columnspan=2, sticky="ew", pady=3)
+        ui_label(form, text="Secret（選填）").grid(row=5, column=0, sticky="w")
+        self.mrs_secret_entry = ui_entry(form, textvariable=self.mrs_secret, show="●")
+        self.mrs_secret_entry.grid(row=5, column=1, sticky="ew", pady=3)
+        reveal = tk.BooleanVar(value=False)
+        ui_check(form, text="顯示", variable=reveal, command=lambda: self.mrs_secret_entry.configure(
+            show="" if reveal.get() else "●")).grid(row=5, column=2, padx=(8, 0))
         tools = ui_frame(root)
         tools.pack(fill="x", padx=12, pady=4)
         ui_label(tools, text="情報來源").pack(side="left")
@@ -861,7 +879,10 @@ class MainWindow(ctk.CTk):
     def _mrs_profile(self):
         profile = {"sources": [name for name, var in self.mrs_vars.items() if var.get()],
                    "directory": self.mrs_directory.get().strip(), "mihomo": self.mrs_exe.get().strip(),
-                   "hours": int(self.mrs_hours.get())}
+                   "hours": int(self.mrs_hours.get()),
+                   "notify_mihomo": self.mrs_notify.get(),
+                   "controller_url": self.mrs_controller_url.get().strip(),
+                   "controller_secret_dpapi": mrs_controller.protect_secret(self.mrs_secret.get())}
         if profile["directory"]:
             root = Path(profile["directory"]).expanduser().resolve()
             if local_mrs.needs_takeover(root):
@@ -901,16 +922,20 @@ class MainWindow(ctk.CTk):
         self.mrs_status.set("建置中……")
         def worker():
             try:
-                root = local_mrs.run(profile)
-                self.events.put(("mrs_finished", (True, str(root))))
+                pending = []
+                root = local_mrs.run(profile, on_notify=pending.extend)
+                self.events.put(("mrs_finished", (True, str(root), pending)))
             except Exception as exc:
                 self.events.put(("mrs_finished", (False, str(exc))))
         threading.Thread(target=worker, daemon=True).start()
 
-    def _mrs_finished(self, ok, detail):
+    def _mrs_finished(self, ok, detail, pending=None):
         self.mrs_running = False
         self.mrs_build_button.configure(state="normal")
         self.mrs_status.set("建置成功；詳見輸出目錄。" if ok else "建置失敗；保留既有有效產物。")
+        if ok and pending:
+            self.mrs_status.set("MRS 有效；Controller 通知待重試。")
+            messagebox.showwarning("MRS 通知待重試", "規則已建置或驗證成功，以下 Provider 尚未確認重新載入：\n" + ", ".join(pending), parent=self)
         if not ok:
             messagebox.showerror("MRS 建置失敗", detail, parent=self)
 
