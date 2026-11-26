@@ -31,12 +31,29 @@ class LocalMrsTests(unittest.TestCase):
             run.return_value.returncode = 0
             run.return_value.stdout = "Installed"
             self.assertEqual(mrs_schedule.configure("install", 7), "Installed")
-            self.assertEqual(run.call_args.kwargs["env"]["MRS_TASK_HOURS"], "7")
+            env = run.call_args.kwargs["env"]
+            self.assertEqual(env["MRS_TASK_HOURS"], "7")
+            self.assertEqual(Path(env["MRS_TASK_EXE"]), local_mrs.profile_path().parent / "scheduler" / "VPN-Network-Toolkit.exe")
+            self.assertEqual(Path(env["MRS_TASK_SOURCE"]), Path(sys.executable).resolve())
             with self.assertRaises(ValueError):
                 mrs_schedule.configure("install", 745)
             self.assertEqual(run.call_count, 1)
             run.return_value.stdout = "Removed"
             self.assertEqual(mrs_schedule.configure("remove"), "Removed")
+
+    def test_schedule_copy_and_transaction_contract(self):
+        script = mrs_schedule._SCRIPT
+        self.assertIn("GetFileHash -LiteralPath $source -Algorithm SHA256", script)
+        self.assertIn("[IO.File]::Copy($source, $stage, $false)", script)
+        self.assertIn("[IO.File]::Replace($stage, $exe, $backup)", script)
+        self.assertIn("[IO.File]::Replace($backup, $exe, $null)", script)
+        self.assertIn("$previous.GetInstances(0).Count", script)
+        self.assertIn("$previous.Enabled = $wasEnabled", script)
+        self.assertIn("$folder.RegisterTaskDefinition($name, $definition, 6", script)
+        self.assertNotIn("$previous.Stop(", script)
+        self.assertIn("$folder.DeleteTask($name, 0)", script)
+        self.assertIn("[IO.Directory]::Delete($directory)", script)
+        self.assertNotIn("Remove-Item -Recurse", script)
 
     def test_catalog_and_validation(self):
         with tempfile.TemporaryDirectory() as folder:

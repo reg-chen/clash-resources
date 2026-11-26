@@ -12,7 +12,7 @@
 
 ## Windows 本機 MRS
 
-VPN Network Toolkit 的「MRS 規則」分頁可選擇情報來源、選填 Mihomo 備援 EXE、Clash 根目錄（預設 `P:\Clash`）與排程頻率（可輸入 1–744 整數小時）。新設定預設 2 小時，已有設定維持原值；安裝排程從下一個整點後 32 分開始，24 小時模式則從下一次 03:20 開始，之後以 N 小時無限重複，不於午夜重設週期。至少保留每個網域類別及 IPv4 的一個來源。MRS 沿用 `rules/<分類>/mrs/` 原有路徑。接管既有 MRS 前，須先將 PC 配置的四個同名 provider 改為 `type: file`、移除 `url` 並保留原 path 與 RULE-SET 順序；新建目錄可於首次成功建置後套用產生的 `local-mrs.yaml`。輸出路徑須位於 Mihomo HomeDir 或 SAFE_PATHS。行動裝置仍使用公開 HTTP MRS。排程使用目前登入使用者，不要求管理員；移動 EXE 或變更頻率後須重新安裝排程。排程日誌位於 APPDATA 的工具設定目錄。來源目錄與產物不會上傳；來源目錄可編輯各類別 custom.txt，來源清單隨工具版本更新；目錄不可位於 Git 工作樹；已有 MRS 時須明確確認接管，避免與 HTTP provider 同時寫入。
+VPN Network Toolkit 的「MRS 規則」分頁可選擇情報來源、選填 Mihomo 備援 EXE、Clash 根目錄（預設 `P:\Clash`）與排程頻率（可輸入 1–744 整數小時）。新設定預設 2 小時，已有設定維持原值；安裝排程從下一個整點後 32 分開始，24 小時模式則從下一次 03:20 開始，之後以 N 小時無限重複，不於午夜重設週期。至少保留每個網域類別及 IPv4 的一個來源。MRS 沿用 `rules/<分類>/mrs/` 原有路徑。接管既有 MRS 前，須先將 PC 配置的四個同名 provider 改為 `type: file`、移除 `url` 並保留原 path 與 RULE-SET 順序；新建目錄可於首次成功建置後套用產生的 `local-mrs.yaml`。輸出路徑須位於 Mihomo HomeDir 或 SAFE_PATHS。行動裝置仍使用公開 HTTP MRS。排程使用目前登入使用者，不要求管理員。安裝時將 Toolkit EXE 複製至 `%APPDATA%\reg-chen\VPN-Network-Toolkit\scheduler\VPN-Network-Toolkit.exe`，同版本 SHA-256 相同則略過複製；同名排程重新註冊。原始 EXE 移動或刪除不影響排程。更新 Toolkit 或變更頻率時重新安裝排程；移除排程時刪除專用副本及空的 scheduler 目錄，不刪設定、日誌或 MRS。排程執行中拒絕更新／移除，不強制終止；註冊失敗則回復原副本與原啟用狀態。排程日誌位於 APPDATA 的工具設定目錄。來源目錄與產物不會上傳；來源目錄可編輯各類別 custom.txt，來源清單隨工具版本更新；目錄不可位於 Git 工作樹；已有 MRS 時須明確確認接管，避免與 HTTP provider 同時寫入。
 
 MRS 分頁可選擇成功建置後通知本機 HTTPS Controller（預設 `https://127.0.0.1:9443`），手動及排程共用設定。Secret 選填並由 Windows DPAPI 以目前使用者加密保存，不放在命令列。使用系統信任及既有 Toolkit CA，支援自訂 HTTPS 主機名稱（含 hosts 對應名稱）及 loopback IP；每次 TCP 連線前驗證系統解析結果全為 loopback，直接連線至已驗證的 sockaddr 並保留原主機名稱的 TLS 驗證，不接受非 loopback、HTTP、代理或轉址。首次通知四個 File Provider；後續僅通知尚未確認載入之雜湊，失敗不回滾 MRS，下一次成功檢查重試。排程結束碼 3 表示 MRS 有效但 Controller 通知尚待完成。
 

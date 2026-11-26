@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from local_mrs import TASK_NAME, validate_hours
+from local_mrs import TASK_NAME, profile_path, validate_hours
 
 _SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
@@ -13,14 +13,69 @@ $service = New-Object -ComObject 'Schedule.Service'
 $service.Connect()
 $folder = $service.GetFolder('\')
 $name = $env:MRS_TASK_NAME
-if ($env:MRS_TASK_ACTION -eq 'remove') {
-    try { $folder.DeleteTask($name, 0); Write-Output 'Removed' }
-    catch { if ($_.Exception.HResult -ne -2147024894) { throw }; Write-Output 'Not found' }
-    exit 0
-}
-$hours = [int]$env:MRS_TASK_HOURS
+$source = $env:MRS_TASK_SOURCE
 $exe = $env:MRS_TASK_EXE
-if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw 'Toolkit executable missing' }
+$directory = Split-Path -Parent $exe
+$parent = Split-Path -Parent $directory
+[void][IO.Directory]::CreateDirectory($parent)
+# Serialize install/remove across GUI processes. Windows releases the handle
+# on termination. Never remove the lock file while another process may use it.
+$lock = [IO.File]::Open((Join-Path $parent 'scheduler.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
+$previous = $null
+$wasEnabled = $false
+$disabled = $false
+$committed = $false
+$changed = $false
+$backup = $null
+$stage = $null
+try {
+    try { $previous = $folder.GetTask($name) }
+    catch { if ($_.Exception.HResult -ne -2147024894) { throw } }
+    if ($null -ne $previous) {
+        $wasEnabled = $previous.Enabled
+        if ($wasEnabled) { $previous.Enabled = $false; $disabled = $true }
+        # No Stop() or forced termination: preserve ongoing builds.
+        if ($previous.GetInstances(0).Count -gt 0 -or $previous.State -in 2,4) {
+            throw 'MRS task is running or queued; retry after it finishes.'
+        }
+    }
+    if ($env:MRS_TASK_ACTION -eq 'remove') {
+        if ([IO.File]::Exists($exe)) {
+            $backup = Join-Path $directory ([Guid]::NewGuid().ToString() + '.remove')
+            [IO.File]::Move($exe, $backup)
+            $changed = $true
+        }
+        if ($null -ne $previous) { $folder.DeleteTask($name, 0) }
+        $committed = $true
+        if ($backup) { [IO.File]::Delete($backup); $backup = $null }
+        if ([IO.Directory]::Exists($directory) -and
+                [IO.Directory]::GetFileSystemEntries($directory).Length -eq 0) {
+            [IO.Directory]::Delete($directory)
+        }
+        Write-Output 'Removed'
+        return
+    }
+    $hours = [int]$env:MRS_TASK_HOURS
+    if (!(Test-Path -LiteralPath $source -PathType Leaf)) { throw 'Toolkit executable missing' }
+    [void][IO.Directory]::CreateDirectory($directory)
+    $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+    $same = (Test-Path -LiteralPath $exe -PathType Leaf) -and
+            ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -eq $sourceHash)
+    if (!$same) {
+        $stage = Join-Path $directory ([Guid]::NewGuid().ToString() + '.new')
+        [IO.File]::Copy($source, $stage, $false)
+        if ((Get-FileHash -LiteralPath $stage -Algorithm SHA256).Hash -ne $sourceHash) {
+            throw 'Copied Toolkit SHA256 mismatch'
+        }
+        if ([IO.File]::Exists($exe)) {
+            $backup = Join-Path $directory ([Guid]::NewGuid().ToString() + '.bak')
+            [IO.File]::Replace($stage, $exe, $backup)
+        } else {
+            [IO.File]::Move($stage, $exe)
+        }
+        $changed = $true
+        $stage = $null
+    }
 $definition = $service.NewTask(0)
 $definition.RegistrationInfo.Description = 'Compile private local MRS using VPN Network Toolkit'
 $definition.Settings.Enabled = $true
@@ -52,7 +107,36 @@ $definition.Principal.UserId = [Security.Principal.WindowsIdentity]::GetCurrent(
 $definition.Principal.LogonType = 3
 $definition.Principal.RunLevel = 0
 $null = $folder.RegisterTaskDefinition($name, $definition, 6, $null, $null, 3, $null)
-Write-Output 'Installed'
+    $committed = $true
+    if ($backup) { [IO.File]::Delete($backup); $backup = $null }
+    Write-Output 'Installed'
+} catch {
+    if (!$committed) {
+        try {
+            if ($changed) {
+                if ($backup -and [IO.File]::Exists($backup)) {
+                    if ([IO.File]::Exists($exe)) {
+                        [IO.File]::Replace($backup, $exe, $null)
+                    } else {
+                        [IO.File]::Move($backup, $exe)
+                    }
+                    $backup = $null
+                } elseif ([IO.File]::Exists($exe)) {
+                    [IO.File]::Delete($exe)
+                }
+            }
+        } finally {
+            if ($disabled) { $previous.Enabled = $wasEnabled }
+        }
+    }
+    throw
+} finally {
+    try {
+        if ($stage -and [IO.File]::Exists($stage)) { [IO.File]::Delete($stage) }
+    } finally {
+        $lock.Dispose()
+    }
+}
 """
 
 
@@ -65,12 +149,14 @@ def configure(action, hours=2):
         validate_hours(hours)
     if action == "install" and not getattr(sys, "frozen", False):
         raise RuntimeError("請使用打包後的 VPN-Network-Toolkit.exe 安裝排程。")
+    source = Path(sys.executable).resolve()
+    target = profile_path().parent / "scheduler" / "VPN-Network-Toolkit.exe"
     env = os.environ.copy()
     env.update(MRS_TASK_NAME=TASK_NAME, MRS_TASK_ACTION=action, MRS_TASK_HOURS=str(hours),
-               MRS_TASK_EXE=str(Path(sys.executable).resolve()))
+               MRS_TASK_SOURCE=str(source), MRS_TASK_EXE=str(target))
     command = base64.b64encode(_SCRIPT.encode("utf-16le")).decode("ascii")
     result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", command],
-                            env=env, capture_output=True, text=True, timeout=45,
+                            env=env, capture_output=True, text=True, timeout=120,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if result.returncode:
         raise RuntimeError((result.stderr or result.stdout or "工作排程操作失敗").strip())
