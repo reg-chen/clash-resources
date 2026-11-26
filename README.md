@@ -9,3 +9,7 @@
 - **第三方規則**：包括採 **GPL-3.0** 的 HaGeZi、Loyalsoldier，以及採 **MIT** 的 Phishing.Database、anti-AD，採 **DBAD v1.2** 的 MetaMask eth-phishing-detect，以及採 **CC0** 的 Feodo Tracker；來源、修改及授權資訊詳見[規則來源聲明](docs/THIRD_PARTY_NOTICES.md#third-party-rule-sources)。
 - **軟體與建置相依套件**：包括 CustomTkinter（MIT）、Tkinter／Tcl/Tk、PyInstaller、Pillow、cryptography 等。各套件依其個別授權適用；詳見[第三方聲明](docs/THIRD_PARTY_NOTICES.md)。
 - **品牌商標**：GitHub、Cloudflare／WARP、Private Internet Access、Surfshark、OpenVPN 等名稱與標誌的權利歸各自權利人所有。本儲存庫不再保存品牌圖示；設定檔如引用外部品牌圖像，亦不表示贊助、合作、背書或取得商標授權。
+
+## Windows 本機 MRS
+
+VPN Network Toolkit 的「MRS 規則」分頁可選擇情報來源、Mihomo EXE、獨立輸出目錄與排程頻率（1／2／4／6／12／24 小時）。預設每 2 小時，於每小時 32 分對齊；每日模式為 03:20。至少保留每個網域類別及 IPv4 的一個來源。首次立即建置成功後，將輸出目錄的 `local-mrs.yaml` 中四個 provider **替換** PC 配置中的同名 provider（保留原 RULE-SET 順序）；輸出路徑須位於 Mihomo HomeDir 或 SAFE_PATHS。行動裝置仍使用公開 HTTP MRS。排程使用目前登入使用者，不要求管理員；移動 EXE 或變更頻率後須重新安裝排程。排程日誌位於 APPDATA 的工具設定目錄。來源目錄與產物不會上傳；來源目錄可編輯各類別 custom.txt，來源清單隨工具版本更新；目錄須獨立於 Git 工作樹及原有 HTTP provider 快取。

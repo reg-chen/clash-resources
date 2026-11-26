@@ -24,6 +24,8 @@ import warp_schedule
 import mihomo_doh
 import safe_paths
 import uwp_loopback
+import local_mrs
+import mrs_schedule
 
 def exe_license_text() -> str:
     """Load notices embedded in this executable at build time."""
@@ -783,11 +785,13 @@ class MainWindow(ctk.CTk):
         self.provider_tab = self.tabs.add("VPN Provider")
         self.doh_tab = self.tabs.add("Mihomo DNS / TLS")
         self.uwp_tab = self.tabs.add("Windows 防火牆")
+        self.mrs_tab = self.tabs.add("MRS 規則")
         self.license_tab = self.tabs.add("授權聲明")
         self._build_licenses()
         self._build_provider()
         self._build_doh()
         self._build_uwp()
+        self._build_mrs()
         self._restore_provider(self._active_provider)
         self._refresh_provider()
         self.provider.trace_add("write", lambda *_: self._change_provider())
@@ -798,6 +802,104 @@ class MainWindow(ctk.CTk):
         center_main_window(self, 900, 720)
         present_dark_window(self, UI_COLORS)
         self.after(100, self._pump)
+
+    def _build_mrs(self):
+        root = self.mrs_tab
+        try:
+            profile = local_mrs.load_profile()
+        except (OSError, ValueError):
+            profile = {}
+        self.mrs_running = False
+        self.mrs_directory = tk.StringVar(value=profile.get("directory", r"P:\Clash\local-mrs"))
+        self.mrs_exe = tk.StringVar(value=profile.get("mihomo", ""))
+        self.mrs_hours = tk.StringVar(value=str(profile.get("hours", 2)))
+        self.mrs_status = tk.StringVar(value="本機建置；不會上傳規則。")
+        form = ui_frame(root)
+        form.pack(fill="x", padx=12, pady=(6, 4))
+        form.grid_columnconfigure(1, weight=1)
+        for i, (label, variable, directory) in enumerate((
+                ("Mihomo 執行檔", self.mrs_exe, False),
+                ("本機輸出目錄", self.mrs_directory, True))):
+            ui_label(form, text=label).grid(row=i, column=0, sticky="w", padx=(0, 8))
+            ui_entry(form, textvariable=variable).grid(row=i, column=1, sticky="ew", pady=3)
+            def browse(v=variable, is_dir=directory):
+                path = (filedialog.askdirectory(parent=self) if is_dir else
+                        filedialog.askopenfilename(parent=self, filetypes=[("Mihomo EXE", "*.exe")]))
+                if path:
+                    v.set(path)
+            styled_button(form, text="瀏覽", command=browse).grid(row=i, column=2, padx=(8, 0))
+        ui_label(form, text="排程（每 N 小時）").grid(row=2, column=0, sticky="w")
+        ctk.CTkOptionMenu(form, variable=self.mrs_hours,
+                          values=[str(v) for v in local_mrs.FREQUENCIES]).grid(row=2, column=1, sticky="w", pady=4)
+        tools = ui_frame(root)
+        tools.pack(fill="x", padx=12, pady=4)
+        ui_label(tools, text="情報來源").pack(side="left")
+        self.mrs_vars = {}
+        for label, value in (("全選", True), ("清除", False)):
+            styled_button(tools, text=label, command=lambda v=value: [
+                var.set(v) for var in self.mrs_vars.values()]).pack(side="right", padx=3)
+        sources = ctk.CTkScrollableFrame(root, fg_color="transparent")
+        sources.pack(fill="both", expand=True, padx=12, pady=4)
+        sources.grid_columnconfigure(0, weight=1)
+        sources.grid_columnconfigure(1, weight=1)
+        for i, item in enumerate(local_mrs.catalog()):
+            name = item["name"]
+            var = tk.BooleanVar(value=name in profile.get("sources", []))
+            self.mrs_vars[name] = var
+            ui_check(sources, text=name, variable=var).grid(row=i//2, column=i%2, sticky="w", padx=5, pady=2)
+        ui_label(root, text="首次建置後，將 local-mrs.yaml 合併至 PC 配置；勿保留同名 HTTP provider。").pack(anchor="w", padx=12)
+        ui_label(root, textvariable=self.mrs_status).pack(anchor="w", padx=12)
+        actions = ui_frame(root)
+        actions.pack(fill="x", padx=12, pady=(4, 8))
+        self.mrs_build_button = styled_button(actions, text="立即建置", variant="primary", command=self._mrs_build)
+        self.mrs_build_button.pack(side="left", padx=3)
+        styled_button(actions, text="儲存設定", command=lambda: self._mrs_schedule("save")).pack(side="left", padx=3)
+        styled_button(actions, text="安裝排程", command=lambda: self._mrs_schedule("install")).pack(side="left", padx=3)
+        styled_button(actions, text="移除排程", command=lambda: self._mrs_schedule("remove")).pack(side="left", padx=3)
+
+    def _mrs_profile(self):
+        return {"sources": [name for name, var in self.mrs_vars.items() if var.get()],
+                "directory": self.mrs_directory.get().strip(), "mihomo": self.mrs_exe.get().strip(),
+                "hours": int(self.mrs_hours.get())}
+
+    def _mrs_schedule(self, action):
+        try:
+            if action != "remove":
+                profile = self._mrs_profile()
+                local_mrs.save_profile(profile)
+            if action != "save":
+                self.mrs_status.set(mrs_schedule.configure(action, int(self.mrs_hours.get())))
+            else:
+                self.mrs_status.set("設定已儲存。")
+        except Exception as exc:
+            messagebox.showerror("MRS 設定失敗", str(exc), parent=self)
+
+    def _mrs_build(self):
+        if self.mrs_running:
+            return
+        try:
+            profile = self._mrs_profile()
+            local_mrs.save_profile(profile)
+        except Exception as exc:
+            messagebox.showerror("MRS 設定失敗", str(exc), parent=self)
+            return
+        self.mrs_running = True
+        self.mrs_build_button.configure(state="disabled")
+        self.mrs_status.set("建置中……")
+        def worker():
+            try:
+                root = local_mrs.run(profile)
+                self.events.put(("mrs_finished", (True, str(root))))
+            except Exception as exc:
+                self.events.put(("mrs_finished", (False, str(exc))))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _mrs_finished(self, ok, detail):
+        self.mrs_running = False
+        self.mrs_build_button.configure(state="normal")
+        self.mrs_status.set("建置成功；詳見輸出目錄。" if ok else "建置失敗；保留既有有效產物。")
+        if not ok:
+            messagebox.showerror("MRS 建置失敗", detail, parent=self)
 
     def _build_licenses(self):
         root = self.license_tab
@@ -1323,13 +1425,15 @@ class MainWindow(ctk.CTk):
                     self._generation_finished(*payload)
                 elif name == "uwp_finished":
                     self._uwp_finished(*payload)
+                elif name == "mrs_finished":
+                    self._mrs_finished(*payload)
         finally:
             if not self._closing:
                 self.after(100, self._pump)
 
     def _close(self):
-        if self.running or self.uwp_running:
-            messagebox.showinfo("操作進行中", "請先完成產生器或防火牆操作，再關閉程式。", parent=self)
+        if self.running or self.uwp_running or self.mrs_running:
+            messagebox.showinfo("操作進行中", "請先完成產生器、防火牆或 MRS 操作，再關閉程式。", parent=self)
             return
         try:
             self._save()
@@ -1375,6 +1479,8 @@ def run_warp_cli(argv: list[str]) -> int:
 
 def main() -> int:
     if len(sys.argv) > 1:
+        if sys.argv[1] == "--mrs":
+            return local_mrs.cli(sys.argv[1:])
         if sys.argv[1] == "--uwp-loopback-apply":
             if len(sys.argv) != 5 or sys.argv[3] != "--report":
                 return 2

@@ -6,6 +6,7 @@ on:
       - '.github/workflows/update-third-party-mrs.yml'
       - 'tools/third-party-mrs-sources.json'
       - 'tools/build-third-party-mrs.py'
+      - 'tools/mrs_build.py'
       - 'tools/mrs_provenance.py'
       - '.gitattributes'
       - 'tests/test_mrs_provenance.py'

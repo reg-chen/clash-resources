@@ -71,7 +71,7 @@
 <a id="distribution-access"></a>
 ## 5. 散布及存取
 
-5.1 MRS 及其來源透過公開儲存庫、GitHub Raw 或 CDN 散布，適用相關來源之授權義務。
+5.1 公開 CI MRS 及其來源透過公開儲存庫、GitHub Raw 或 CDN 散布，適用相關來源之授權義務。本機 MRS 工具僅在使用者裝置下載及編譯選定情報，不上傳本機來源或產物；上游取得及使用條款仍適用。
 
 5.2 Windows EXE 透過 [GitHub Actions Artifact](../.github/workflows/build-vpn-generator.yml) 散布，非 GitHub Release。依 [GitHub 存取規則](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)，具有讀取權限之登入使用者可下載；僅限制 Owner 觸發建置不構成下載權限限制。
 

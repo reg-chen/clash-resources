@@ -6,6 +6,12 @@ on:
     paths:
       - "tools/uwp_loopback.py"
       - "tools/vpn-generator-gui.py"
+      - "tools/local_mrs.py"
+      - "tools/mrs_schedule.py"
+      - "tools/mrs_*.py"
+      - "tools/third-party-mrs-sources.json"
+      - "rules/*/custom.txt"
+      - "tests/test_local_mrs.py"
       - "tools/warp-wireguard-generator.py"
       - "tests/test_vpn_generators.py"
       - "tools/generate-exe-licenses.py"
@@ -16,6 +22,12 @@ on:
     branches: [main]
     paths:
       - "tools/vpn-generator-gui.py"
+      - "tools/local_mrs.py"
+      - "tools/mrs_schedule.py"
+      - "tools/mrs_*.py"
+      - "tools/third-party-mrs-sources.json"
+      - "rules/*/custom.txt"
+      - "tests/test_local_mrs.py"
       - "tools/warp-wireguard-generator.py"
       - "tests/test_vpn_generators.py"
       - "tools/generate-exe-licenses.py"
@@ -123,6 +135,9 @@ jobs:
       - name: Build Windows executable
         shell: pwsh
         run: |
+          foreach ($category in @("security", "privacy", "ads")) {
+            Copy-Item "rules/$category/custom.txt" "tools/mrs-custom-$category.txt"
+          }
           pyinstaller `
             --noconfirm `
             --onefile `
@@ -130,6 +145,10 @@ jobs:
             --name VPN-Network-Toolkit `
             --collect-all cryptography `
             --collect-all customtkinter `
+            --add-data "tools/third-party-mrs-sources.json;." `
+            --add-data "tools/mrs-custom-security.txt;." `
+            --add-data "tools/mrs-custom-privacy.txt;." `
+            --add-data "tools/mrs-custom-ads.txt;." `
             --add-data "tools/EXE_THIRD_PARTY_LICENSES.generated.txt;." `
             --hidden-import urllib.request `
             --hidden-import urllib.error `
@@ -138,6 +157,13 @@ jobs:
             --add-data "tools/warp-wireguard-generator.py;." `
             --add-data "tools/surfshark-openvpn-generator.py;." `
             tools/vpn-generator-gui.py
+
+      - name: Smoke-test frozen headless MRS entry point
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/VPN-Network-Toolkit.exe").Path
+          $process = Start-Process -FilePath $exe -ArgumentList @("--mrs", "--help") -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Frozen MRS CLI failed: $($process.ExitCode)" }
 
       - name: Smoke-test frozen headless WARP entry point
         shell: pwsh
