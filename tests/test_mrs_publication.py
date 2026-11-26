@@ -174,6 +174,19 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(set(entry["output_paths"]), {"rules/security/mrs/combined.mrs", IP_TARGET})
             self.assertEqual((root / entry["source_snapshot_path"]).read_bytes(), source_bytes[metamask_url])
             mrs_provenance.verify_source_snapshots(root, manifest["inputs"])
+            # The local mode must not query GitHub REST, even with previous pinned state.
+            with mock.patch.object(mrs_build, "pin_source_url", side_effect=AssertionError("unexpected API request")), \
+                 mock.patch("urllib.request.urlopen", side_effect=download), \
+                 mock.patch("subprocess.run", side_effect=convert):
+                outputs = mrs_build.build(root, SOURCES, report_dir=root, pin_revisions=False)
+            self.assertEqual({o["path"] for o in outputs}, EXPECTED)
+            local = json.loads((root / "tools/third-party-mrs-provenance.json").read_text())
+            for item in local["inputs"]:
+                self.assertIsNone(item["source_commit_sha"])
+                self.assertIsNone(item["pinned_source_url"])
+                self.assertIsNone(item["source_commit_url"])
+                self.assertEqual(item["source_type"], "live" if item["source_url"] == FEODO_URL else "branch")
+            mrs_provenance.verify_source_snapshots(root, local["inputs"])
 
 
 if __name__ == "__main__":

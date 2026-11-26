@@ -177,7 +177,7 @@ def run(profile):
             shutil.copyfile(source, stage / relative)
         # Desktop uses the four combined outputs only, never the iOS artifact.
         entries = [{k: v for k, v in item.items() if k != "target"} for item in selected]
-        outputs = build(stage, entries, executable=str(exe), report_dir=stage)
+        outputs = build(stage, entries, executable=str(exe), report_dir=stage, pin_revisions=False)
         if {item["path"] for item in outputs} != set(PROVIDERS.values()):
             raise RuntimeError("Unexpected local MRS outputs")
         for item in outputs:

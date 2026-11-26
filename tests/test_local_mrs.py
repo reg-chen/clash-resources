@@ -64,7 +64,8 @@ class LocalMrsTests(unittest.TestCase):
             exe.touch()
             profile = {"directory": str(root), "mihomo": str(exe), "hours": 2,
                        "sources": [s["name"] for s in local_mrs.catalog()]}
-            def fake_build(stage, entries, executable, report_dir):
+            def fake_build(stage, entries, executable, report_dir, *, pin_revisions):
+                self.assertFalse(pin_revisions)
                 self.assertFalse(any("target" in item for item in entries))
                 self.assertEqual(Path(executable), exe.resolve())
                 self.assertTrue((stage / "rules/security/custom.txt").is_file())

@@ -47,7 +47,9 @@ class ProvenanceTests(unittest.TestCase):
     def test_permanent_tls_or_http_error_not_retried(self, urlopen, sleep):
         request = urllib.request.Request("https://api.github.com/repos/o/r/commits/main")
         for error in (urllib.error.URLError(ssl.SSLCertVerificationError(1, "invalid certificate")),
-                      urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)):
+                      urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None),
+                      urllib.error.HTTPError(request.full_url, 429, "Rate limited", {"Retry-After": "60"}, None),
+                      urllib.error.HTTPError(request.full_url, 503, "Unavailable", {"Retry-After": "60"}, None)):
             urlopen.reset_mock()
             urlopen.side_effect = error
             with self.assertRaisesRegex(RuntimeError, "GitHub revision lookup failed"):

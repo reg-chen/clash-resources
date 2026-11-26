@@ -21,7 +21,9 @@ def download_bytes(request, *, timeout=90, attempts=3, label="Download"):
         except (OSError, http.client.HTTPException) as exc:
             reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
             if isinstance(exc, urllib.error.HTTPError):
-                retry = exc.code in {408, 429, 500, 502, 503, 504}
+                retry = (exc.code in {408, 500, 502, 503, 504}
+                         and not exc.headers.get("Retry-After")
+                         and exc.headers.get("X-RateLimit-Remaining") != "0") if exc.headers else exc.code in {408, 500, 502, 503, 504}
             elif isinstance(reason, ssl.SSLCertVerificationError):
                 retry = False
             else:
@@ -34,8 +36,8 @@ def download_bytes(request, *, timeout=90, attempts=3, label="Download"):
             time.sleep(2 ** attempt)
 
 
-def pin_source_url(url, cache=None):
-    """Return (immutable raw URL, upstream commit SHA). Fail closed."""
+def raw_source_parts(url):
+    """Validate the registered official Raw URL without network access."""
     p = urlsplit(url)
     parts = p.path.lstrip("/").split("/", 3)
     if (p.scheme != "https" or p.netloc != "raw.githubusercontent.com"
@@ -48,6 +50,12 @@ def pin_source_url(url, cache=None):
             not re.fullmatch(r"[\w.-]+", ref) or
             ".." in path.split("/")):
         raise ValueError("Unsafe MRS source: " + url)
+    return owner, repo, ref, path
+
+
+def pin_source_url(url, cache=None):
+    """Return (immutable raw URL, upstream commit SHA). Fail closed."""
+    owner, repo, ref, path = raw_source_parts(url)
     key = (owner, repo, ref)
     if cache is not None and key in cache:
         sha = cache[key]

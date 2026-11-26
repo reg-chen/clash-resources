@@ -11,9 +11,9 @@ import urllib.request
 from mrs_ip import FEODO_URL, IP_TARGET, parse_ip_rules, build_ip_mrs
 from mrs_overlap import parse_domain_keys, write_report
 from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, parse_metamask_rules, build_merged_mrs
-from mrs_provenance import pin_source_url, save_source_snapshot, verify_source_snapshots, commit_page, download_bytes
+from mrs_provenance import pin_source_url, save_source_snapshot, verify_source_snapshots, commit_page, download_bytes, raw_source_parts
 
-def build(root, sources, executable="./mihomo", report_dir=None):
+def build(root, sources, executable="./mihomo", report_dir=None, *, pin_revisions=True):
     ROOT = pathlib.Path(root)
     SOURCES = sources
     STATE = ROOT / "tools/third-party-mrs-sha256.json"
@@ -42,6 +42,9 @@ def build(root, sources, executable="./mihomo", report_dir=None):
             if not is_ip or url != FEODO_URL:
                 raise ValueError("Unsupported live MRS source: " + url)
             pinned_url, commit_sha = url, None
+        elif not pin_revisions:
+            raw_source_parts(url)
+            pinned_url, commit_sha = url, None
         else:
             try:
                 pinned_url, commit_sha = pin_source_url(url, revision_cache)
@@ -66,17 +69,20 @@ def build(root, sources, executable="./mihomo", report_dir=None):
             "pinned_source_url": pinned_url,
             "source_sha256": digest, "source_size_bytes": len(raw),
             "source_snapshot_path": archive_rel,
-            "source_commit_url": None if live else commit_page(url, commit_sha),
+            "source_commit_url": commit_page(url, commit_sha) if commit_sha else None,
         }
         if live:
             # No immutable upstream revision exists. Archive exact response bytes;
             # the digest and the repository commit identify the downloaded version.
             record["source_type"] = "live"
             record["pinned_source_url"] = None
+        elif not pin_revisions:
+            record["source_type"] = "branch"
+            record["pinned_source_url"] = None
         old_record = previous_inputs.get(item["name"], {})
         # Avoid a new provenance commit when a branch advances but its file bytes
         # have not changed. The older immutable URL still points at those bytes.
-        if (not live and all(old_record.get(k) == record[k] for k in
+        if (pin_revisions and not live and all(old_record.get(k) == record[k] for k in
                 ("name", "format", "source_url", "source_sha256", "source_size_bytes"))
                 and old_record.get("pinned_source_url") and old_record.get("source_commit_sha")
                 and old_record.get("source_snapshot_path") == archive_rel
