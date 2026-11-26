@@ -33,13 +33,20 @@ class LocalMrsTests(unittest.TestCase):
             self.assertEqual(mrs_schedule.configure("install", 7), "Installed")
             env = run.call_args.kwargs["env"]
             self.assertEqual(env["MRS_TASK_HOURS"], "7")
-            self.assertEqual(Path(env["MRS_TASK_EXE"]), local_mrs.profile_path().parent / "scheduler" / "VPN-Network-Toolkit.exe")
+            self.assertEqual(Path(env["MRS_TASK_EXE"]), mrs_schedule.scheduler_executable())
             self.assertEqual(Path(env["MRS_TASK_SOURCE"]), Path(sys.executable).resolve())
             with self.assertRaises(ValueError):
                 mrs_schedule.configure("install", 745)
             self.assertEqual(run.call_count, 1)
             run.return_value.stdout = "Removed"
             self.assertEqual(mrs_schedule.configure("remove"), "Removed")
+
+    def test_schedule_uses_local_appdata_not_roaming(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            with mock.patch.dict(mrs_schedule.os.environ, {"LOCALAPPDATA": str(root / "Local"), "APPDATA": str(root / "Roaming")}):
+                self.assertEqual(mrs_schedule.scheduler_executable(), root / "Local" / "reg-chen" / "VPN-Network-Toolkit" / "scheduler" / "VPN-Network-Toolkit.exe")
+                self.assertEqual(local_mrs.profile_path().parent, root / "Roaming" / "reg-chen" / "VPN-Network-Toolkit")
 
     def test_schedule_copy_and_transaction_contract(self):
         script = mrs_schedule._SCRIPT

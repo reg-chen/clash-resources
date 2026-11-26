@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from local_mrs import TASK_NAME, profile_path, validate_hours
+from local_mrs import TASK_NAME, validate_hours
 
 _SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
@@ -140,6 +140,11 @@ $null = $folder.RegisterTaskDefinition($name, $definition, 6, $null, $null, 3, $
 """
 
 
+def scheduler_executable():
+    base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    return base / "reg-chen" / "VPN-Network-Toolkit" / "scheduler" / "VPN-Network-Toolkit.exe"
+
+
 def configure(action, hours=2):
     if sys.platform != "win32":
         raise RuntimeError("Windows 工作排程只支援 Windows。")
@@ -150,7 +155,7 @@ def configure(action, hours=2):
     if action == "install" and not getattr(sys, "frozen", False):
         raise RuntimeError("請使用打包後的 VPN-Network-Toolkit.exe 安裝排程。")
     source = Path(sys.executable).resolve()
-    target = profile_path().parent / "scheduler" / "VPN-Network-Toolkit.exe"
+    target = scheduler_executable()
     env = os.environ.copy()
     env.update(MRS_TASK_NAME=TASK_NAME, MRS_TASK_ACTION=action, MRS_TASK_HOURS=str(hours),
                MRS_TASK_SOURCE=str(source), MRS_TASK_EXE=str(target))
