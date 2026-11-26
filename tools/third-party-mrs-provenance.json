@@ -7,11 +7,11 @@
         "rules/ads/mrs/antiad.mrs",
         "rules/ads/mrs/combined.mrs"
       ],
-      "pinned_source_url": "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/25025b31a086b7d1c6226795966aaf2f9251430c/anti-ad-clash.yaml",
-      "source_commit_sha": "25025b31a086b7d1c6226795966aaf2f9251430c",
-      "source_commit_url": "https://github.com/privacy-protection-tools/anti-AD/commit/25025b31a086b7d1c6226795966aaf2f9251430c",
-      "source_sha256": "77805542bc51ef076bab689415596c880ee885896d6ca1bbc587e6414a74ed74",
-      "source_size_bytes": 2798624,
+      "pinned_source_url": "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/ca717c12088132cd72b0472d22c3e7d4a5c85586/anti-ad-clash.yaml",
+      "source_commit_sha": "ca717c12088132cd72b0472d22c3e7d4a5c85586",
+      "source_commit_url": "https://github.com/privacy-protection-tools/anti-AD/commit/ca717c12088132cd72b0472d22c3e7d4a5c85586",
+      "source_sha256": "afea2c6055609ac21f802d3c05afe1ea5993b2e99edc2f62edd077cbbb464a5f",
+      "source_size_bytes": 2776750,
       "source_snapshot_path": "sources/mrs/ads-antiad.yaml",
       "source_url": "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-clash.yaml"
     },
@@ -300,13 +300,13 @@
   "outputs": [
     {
       "path": "rules/ads/mrs/antiad.mrs",
-      "sha256": "7fede16b1db398f9195983f2fdc5f15dd0bef10f3e83823aac37d24c4917c70a",
-      "size_bytes": 883282
+      "sha256": "59ceaf4f55df0ab3eb845f361acf7e59efd4005d8f7bb65c181f2330a321309d",
+      "size_bytes": 877430
     },
     {
       "path": "rules/ads/mrs/combined.mrs",
-      "sha256": "49d7061df10715715c82d86c826461787133c20310bd49e866708f27b73023a1",
-      "size_bytes": 2311842
+      "sha256": "f5b4727263c6b67111010ef0e8eadb7e0b7dab19f0ed075a8371891b50ed66ba",
+      "size_bytes": 2302012
     },
     {
       "path": "rules/privacy/mrs/combined.mrs",
