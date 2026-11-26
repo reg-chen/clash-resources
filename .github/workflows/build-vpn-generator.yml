@@ -6,6 +6,8 @@ on:
     paths:
       - "tools/uwp_loopback.py"
       - "tools/vpn-generator-gui.py"
+      - "tools/mihomo_doh.py"
+      - "tests/test_mihomo_doh.py"
       - "tools/local_mrs.py"
       - "tools/mrs_schedule.py"
       - "tools/mrs_*.py"
@@ -23,6 +25,8 @@ on:
     branches: [main]
     paths:
       - "tools/vpn-generator-gui.py"
+      - "tools/mihomo_doh.py"
+      - "tests/test_mihomo_doh.py"
       - "tools/local_mrs.py"
       - "tools/mrs_schedule.py"
       - "tools/mrs_*.py"
