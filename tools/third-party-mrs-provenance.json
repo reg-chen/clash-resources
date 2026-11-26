@@ -269,6 +269,21 @@
       "source_url": "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-IPs-ACTIVE.txt"
     },
     {
+      "format": "json",
+      "name": "security-metamask",
+      "output_paths": [
+        "rules/security/mrs/combined-ip.mrs",
+        "rules/security/mrs/combined.mrs"
+      ],
+      "pinned_source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/3fe813f7889b1d2bdfefd62c8523cb12f94c04d3/src/config.json",
+      "source_commit_sha": "3fe813f7889b1d2bdfefd62c8523cb12f94c04d3",
+      "source_commit_url": "https://github.com/MetaMask/eth-phishing-detect/commit/3fe813f7889b1d2bdfefd62c8523cb12f94c04d3",
+      "source_sha256": "d28c8cbb4197ad73c6c4d71d71135de877a4e9dc6c44bfe4b3423fe7b2861f8c",
+      "source_size_bytes": 3583707,
+      "source_snapshot_path": "sources/mrs/security-metamask.json",
+      "source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/main/src/config.json"
+    },
+    {
       "format": "text",
       "name": "security-phishing",
       "output_paths": [
@@ -315,13 +330,13 @@
     },
     {
       "path": "rules/security/mrs/combined-ip.mrs",
-      "sha256": "8569048c04b0a9ad8f66b7255763106c497e9f8e83976de195434097329f29ac",
-      "size_bytes": 101492
+      "sha256": "5d7c5415884dd0ab7693e7737f72dd3542957e573c6229d14c07b1a0d17e9c25",
+      "size_bytes": 101612
     },
     {
       "path": "rules/security/mrs/combined.mrs",
-      "sha256": "ffefacd5dc67270ce478eeeb4bd5804f317d70cbbfad9a1cd20d9e61d0166b2c",
-      "size_bytes": 5716486
+      "sha256": "45d18ac6da35b83f6c55522a26d68aae1edfa6b7798e9877d98b1af9dd43ef0f",
+      "size_bytes": 6436150
     }
   ],
   "schema": 2
