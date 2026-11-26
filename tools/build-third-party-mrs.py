@@ -10,7 +10,7 @@ import urllib.request
 
 from mrs_ip import FEODO_URL, IP_TARGET, parse_ip_rules, build_ip_mrs
 from mrs_overlap import parse_domain_keys, write_report
-from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, parse_metamask_domains, build_merged_mrs
+from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, parse_metamask_rules, build_merged_mrs
 from mrs_provenance import pin_source_url, save_source_snapshot, verify_source_snapshots, commit_page
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -35,6 +35,7 @@ skipped_details = []
 for item in SOURCES:
     url = item["source"]
     is_ip = item.get("behavior") == "ipcidr"
+    is_mixed = item.get("behavior") == "domain-ipcidr"
     live = item.get("source_type") == "live"
     if live:
         if not is_ip or url != FEODO_URL:
@@ -55,6 +56,8 @@ for item in SOURCES:
     archive_rel = archived.relative_to(ROOT).as_posix()
     category = item["name"].split("-", 1)[0]
     output_paths = [IP_TARGET if is_ip else f"rules/{category}/mrs/combined.mrs"]
+    if is_mixed:
+        output_paths.append(IP_TARGET)
     if item.get("target"):
         output_paths.append(item["target"])
     record = {
@@ -118,16 +121,22 @@ for item in SOURCES:
             analysis_raw = b""
             overlap_notes.append(f"{item['name']}: 二進位 MRS 無可比對的文字來源；已略過。")
     if analysis_raw and analysis_fmt == "json":
-        if item["name"] != "security-metamask" or item.get("target"):
+        if item["name"] != "security-metamask" or not is_mixed or item.get("target"):
             raise ValueError("Unsupported JSON MRS source")
         skipped = []
-        values = parse_metamask_domains(analysis_raw, skipped_invalid=skipped)
+        values, addresses, excluded = parse_metamask_rules(analysis_raw, skipped_invalid=skipped)
         merge_sets[item["name"]] = values
         overlap_sets[item["name"]] = values
-        overlap_notes.append("security-metamask: 僅統計套用自身 allowlist 後的明確封鎖網域；不納入 fuzzylist。")
+        ip_overlap_sets[item["name"]] = addresses
+        ip_excluded_counts[item["name"]] = len(excluded)
+        ip_rules.update(addresses)
+        overlap_notes.append("security-metamask: 網域與公網 IPv4 分開統計；各自套用來源自身 allowlist，不納入 fuzzylist。IPv4 排除數包含允許清單及非公網位址。")
         if skipped:
-            skipped_details.append(f"{item['name']}: skipped {len(skipped):,} non-domain entries")
-        print(f"JSON {item['name']}: {len(values):,} eligible explicit domains; skipped {len(skipped):,} non-domain entries")
+            skipped_details.append(f"{item['name']}: skipped {len(skipped):,} unsupported entries (including IPv6)")
+        if excluded:
+            skipped_details.append(f"{item['name']}: excluded {len(excluded):,} allowlisted/non-global IPv4")
+        print(f"JSON {item['name']}: {len(values):,} explicit domains; {len(addresses):,} public IPv4; "
+              f"excluded {len(excluded):,} IPv4; skipped {len(skipped):,} unsupported entries")
     elif analysis_raw:
         parsed = parse_domain_keys(analysis_raw, analysis_fmt)
         if parsed:

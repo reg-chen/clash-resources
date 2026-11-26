@@ -87,8 +87,8 @@ def parse_domain_rules(
     return result
 
 
-def parse_metamask_domains(raw: bytes, *, skipped_invalid: list[tuple[int, str]]) -> set[str]:
-    """Extract explicit host blocks only; never promote a URL or fuzzy match."""
+def parse_metamask_rules(raw: bytes, *, skipped_invalid: list[tuple[int, str]]) -> tuple[set[str], set[str], list[str]]:
+    """Separate explicit DNS hosts and public IPv4; apply source-local exceptions."""
     config = json.loads(raw.decode("utf-8-sig"))
     if not isinstance(config, dict):
         raise ValueError("Invalid MetaMask config object")
@@ -102,46 +102,65 @@ def parse_metamask_domains(raw: bytes, *, skipped_invalid: list[tuple[int, str]]
             raise ValueError(f"Invalid MetaMask {found[0]} array")
         return values
 
-    host_pattern = re.compile(
-        r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
-        r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-    )
+    label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    host_pattern = re.compile(rf"{label}(?:\.{label})*")
 
-    def host(value, *, allow=False):
-        value = normalized_domain(value)
-        # Never map a Unicode block to a different ASCII hostname via IDNA2003.
-        # For exceptions, IDNA mapping only reduces the number of blocks.
+    def classify(raw_value, *, allow=False):
+        token = raw_value.strip().rstrip(".").lower()
+        try:
+            return ipaddress.ip_address(token)
+        except ValueError:
+            pass
+        value = normalized_domain(token)
+        # Do not map Unicode blocks to potentially different ASCII hosts.
+        # An IDNA-mapped exception can only narrow this source's blocks.
         if allow and not value.isascii():
             value = value.encode("idna").decode("ascii")
-        if len(value) > 253 or not host_pattern.fullmatch(value):
+        if (len(value) > 253 or not host_pattern.fullmatch(value)
+                or (not allow and "." not in value)
+                or value.split(".")[-1].isdigit()):
             raise ValueError("Not a plain DNS hostname")
-        try:
-            ipaddress.ip_address(value)
-        except ValueError:
-            return value
-        raise ValueError("IP address is not a domain rule")
+        return value
 
     block = entries("blacklist", "blocklist")
-    allowed = set()
+    allowed_domains = set()
+    allowed_ips = set()
     for value in entries("whitelist", "allowlist"):
-        # Refuse to publish if an exception cannot be interpreted safely.
-        allowed.add(host(value, allow=True))
-    result = set()
+        # Accept localhost/single-label hosts and literal IPs in exceptions.
+        # Unknown exception syntax still fails closed.
+        entry = classify(value, allow=True)
+        if isinstance(entry, str):
+            allowed_domains.add(entry)
+        else:
+            allowed_ips.add(entry)
+
+    domains = set()
+    ipv4 = set()
+    excluded_ips = []
     for index, value in enumerate(block, 1):
         try:
-            domain = host(value)
+            entry = classify(value)
         except ValueError:
-            skipped_invalid.append((index, "non-domain token"))
+            skipped_invalid.append((index, "non-domain/IP token"))
             continue
-        labels = domain.split(".")
-        if any(".".join(labels[i:]) in allowed for i in range(len(labels))):
+        if isinstance(entry, ipaddress.IPv4Address):
+            if (entry in allowed_ips or not entry.is_global
+                    or entry.is_multicast or entry.is_reserved):
+                excluded_ips.append(str(entry))
+            else:
+                ipv4.add(f"{entry}/32")
             continue
-        # Exact domains only: a domain suffix would expand the blocking scope
-        # and may override a legitimate subdomain present in the allowlist.
-        result.add(domain)
-    if not result:
-        raise ValueError("Empty MetaMask explicit domain blocklist")
-    return result
+        if isinstance(entry, ipaddress.IPv6Address):
+            skipped_invalid.append((index, "IPv6 outside IPv4 provider scope"))
+            continue
+        labels = entry.split(".")
+        if any(".".join(labels[i:]) in allowed_domains for i in range(len(labels))):
+            continue
+        # Exact domains only; never widen to unrelated subdomains.
+        domains.add(entry)
+    if not domains and not ipv4:
+        raise ValueError("Empty MetaMask explicit blocklist")
+    return domains, ipv4, excluded_ips
 
 
 def grouped_sources(entries: list[dict], source_rules: dict[str, set[str]]) -> dict[str, set[str]]:

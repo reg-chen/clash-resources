@@ -14,7 +14,7 @@
 | [HaGeZi DNS Blocklists](https://github.com/hagezi/dns-blocklists) | TIF Medium／Fake／DynDNS／TIF IPv4、Native Trackers、Popup Ads 等來源 | **GPL-3.0** | [GPL-3.0](licenses/GPL-3.0.txt) |
 | [Loyalsoldier/clash-rules](https://github.com/Loyalsoldier/clash-rules) | `reject.txt` 廣告規則 | **GPL-3.0** | [GPL-3.0](licenses/GPL-3.0.txt) |
 | [Phishing.Database](https://github.com/Phishing-Database/Phishing.Database) | Phishing domain／ACTIVE IPv4 feed | **MIT** | [原作者及 MIT 全文](licenses/MIT-Phishing.Database.txt) |
-| [MetaMask eth-phishing-detect](https://github.com/MetaMask/eth-phishing-detect) | `src/config.json` Web3 phishing explicit domain blocklist | **DBAD v1.2** | [原作者及完整授權](licenses/DBAD-1.2-MetaMask.txt) |
+| [MetaMask eth-phishing-detect](https://github.com/MetaMask/eth-phishing-detect) | `src/config.json` Web3 phishing domain／IPv4 blocklist | **DBAD v1.2** | [原作者及完整授權](licenses/DBAD-1.2-MetaMask.txt) |
 | [abuse.ch Feodo Tracker](https://feodotracker.abuse.ch/blocklist/) | Recommended Botnet C2 IPv4 feed | **CC0** | [服務條款 §3.4](https://abuse.ch/terms-of-use/)、[CC0 全文](https://creativecommons.org/publicdomain/zero/1.0/legalcode) |
 | [anti-AD](https://github.com/privacy-protection-tools/anti-AD) | `anti-ad-clash.yaml` 廣告規則 | **MIT** | [原作者及 MIT 全文](licenses/MIT-anti-AD.txt) |
 
@@ -22,7 +22,7 @@
 
 2.2 GPL-3.0 涵蓋之資料及其適用衍生作品依 GPL-3.0 散布；MIT、DBAD v1.2 等來源保留原授權及著作權告知。不得僅因資料合併而將其他來源擅自重新授權，亦不得以本聲明限制 GPL-3.0 所保障之權利。
 
-2.3 MetaMask 資料（Copyright (C) 2018 kumavis）適用 DBAD v1.2。僅擷取明確封鎖網域，排除自身允許清單涵蓋項目，不納入模糊比對或擴張至子網域。其與 GPL-3.0 之衍生作品授權相容性尚未確認；如有權利異議，將評估獨立散布、調整或停止散布。
+2.3 MetaMask 資料（Copyright (C) 2018 kumavis）適用 DBAD v1.2。明確封鎖網域與公網 IPv4 分別編譯，排除自身允許清單涵蓋項目，不納入模糊比對或擴張至子網域。其與 GPL-3.0 之衍生作品授權相容性尚未確認；如有權利異議，將評估獨立散布、調整或停止散布。
 
 2.4 對應來源及修改資訊：
 

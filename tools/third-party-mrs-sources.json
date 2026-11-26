@@ -12,7 +12,8 @@
   {
     "name": "security-metamask",
     "source": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/main/src/config.json",
-    "format": "json"
+    "format": "json",
+    "behavior": "domain-ipcidr"
   },
   {
     "name": "security-dyndns",
