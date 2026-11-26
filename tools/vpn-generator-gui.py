@@ -810,7 +810,8 @@ class MainWindow(ctk.CTk):
         except (OSError, ValueError):
             profile = {}
         self.mrs_running = False
-        self.mrs_directory = tk.StringVar(value=profile.get("directory", r"P:\Clash\local-mrs"))
+        self.mrs_takeover_root = profile.get("takeover_root")
+        self.mrs_directory = tk.StringVar(value=profile.get("directory", local_mrs.DEFAULT_ROOT))
         self.mrs_exe = tk.StringVar(value=profile.get("mihomo", ""))
         self.mrs_hours = tk.StringVar(value=str(profile.get("hours", 2)))
         self.mrs_status = tk.StringVar(value="本機建置；不會上傳規則。")
@@ -819,7 +820,7 @@ class MainWindow(ctk.CTk):
         form.grid_columnconfigure(1, weight=1)
         for i, (label, variable, directory) in enumerate((
                 ("Mihomo 執行檔", self.mrs_exe, False),
-                ("本機輸出目錄", self.mrs_directory, True))):
+                ("Clash 根目錄", self.mrs_directory, True))):
             ui_label(form, text=label).grid(row=i, column=0, sticky="w", padx=(0, 8))
             ui_entry(form, textvariable=variable).grid(row=i, column=1, sticky="ew", pady=3)
             def browse(v=variable, is_dir=directory):
@@ -847,7 +848,7 @@ class MainWindow(ctk.CTk):
             var = tk.BooleanVar(value=name in profile.get("sources", []))
             self.mrs_vars[name] = var
             ui_check(sources, text=name, variable=var).grid(row=i//2, column=i%2, sticky="w", padx=5, pady=2)
-        ui_label(root, text="首次建置後，將 local-mrs.yaml 合併至 PC 配置；勿保留同名 HTTP provider。").pack(anchor="w", padx=12)
+        ui_label(root, text="沿用 rules/分類/mrs/；既有 HTTP provider 須先切換為 file，避免覆寫。").pack(anchor="w", padx=12)
         ui_label(root, textvariable=self.mrs_status).pack(anchor="w", padx=12)
         actions = ui_frame(root)
         actions.pack(fill="x", padx=12, pady=(4, 8))
@@ -858,9 +859,21 @@ class MainWindow(ctk.CTk):
         styled_button(actions, text="移除排程", command=lambda: self._mrs_schedule("remove")).pack(side="left", padx=3)
 
     def _mrs_profile(self):
-        return {"sources": [name for name, var in self.mrs_vars.items() if var.get()],
-                "directory": self.mrs_directory.get().strip(), "mihomo": self.mrs_exe.get().strip(),
-                "hours": int(self.mrs_hours.get())}
+        profile = {"sources": [name for name, var in self.mrs_vars.items() if var.get()],
+                   "directory": self.mrs_directory.get().strip(), "mihomo": self.mrs_exe.get().strip(),
+                   "hours": int(self.mrs_hours.get())}
+        if profile["directory"]:
+            root = Path(profile["directory"]).expanduser().resolve()
+            if local_mrs.needs_takeover(root):
+                if self.mrs_takeover_root != str(root):
+                    if not messagebox.askyesno(
+                            "接管現有 MRS",
+                            "此目錄已有 MRS。請先將 PC 的四個同名 HTTP provider 改為 type: file，移除 url，保留原 path。"
+                            "\n\n確認已切換，並允許本機建置接管這些檔案？", parent=self):
+                        raise ValueError("未確認接管既有 MRS。")
+                    self.mrs_takeover_root = str(root)
+                profile["takeover_root"] = str(root)
+        return profile
 
     def _mrs_schedule(self, action):
         try:

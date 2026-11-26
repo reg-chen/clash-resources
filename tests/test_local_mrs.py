@@ -20,14 +20,15 @@ class LocalMrsTests(unittest.TestCase):
                        "sources": [s["name"] for s in local_mrs.catalog()]}
             selected, output, compiler = local_mrs.validate(profile)
             self.assertEqual(len(selected), len(profile["sources"]))
-            self.assertEqual(output, root / "local")
-            self.assertEqual(compiler, exe)
+            self.assertEqual(output, (root / "local").resolve())
+            self.assertEqual(compiler, exe.resolve())
             profile["sources"] = []
             with self.assertRaises(ValueError):
                 local_mrs.validate(profile)
 
     def test_override_preserves_provider_names_and_separate_paths(self):
-        text = local_mrs.override_yaml(Path(r"P:\Clash\local-mrs"))
+        text = local_mrs.override_yaml(Path(local_mrs.DEFAULT_ROOT))
+        self.assertEqual(local_mrs.DEFAULT_ROOT, r"P:\Clash")
         self.assertEqual(text.count("type: file"), 4)
         self.assertEqual(text.count("behavior: ipcidr"), 1)
         self.assertNotIn("https://", text)
@@ -99,3 +100,9 @@ class LocalMrsTests(unittest.TestCase):
             existing.write_bytes(b"unmanaged")
             with self.assertRaises(ValueError):
                 local_mrs.validate(dict(profile, directory=str(unrelated)))
+
+            self.assertTrue(local_mrs.needs_takeover(unrelated))
+            selected, output, _ = local_mrs.validate(dict(profile, directory=str(unrelated),
+                                                         takeover_root=str(unrelated.resolve())))
+            self.assertEqual(output, unrelated.resolve())
+            self.assertEqual(existing.read_bytes(), b"unmanaged")

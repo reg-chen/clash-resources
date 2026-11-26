@@ -15,6 +15,7 @@ from mrs_build import build
 
 TASK_NAME = "Clash Local MRS Refresh"
 FREQUENCIES = (1, 2, 4, 6, 12, 24)
+DEFAULT_ROOT = r"P:\Clash"
 PROVIDERS = {
     "combined-security": "rules/security/mrs/combined.mrs",
     "combined-security-ip": "rules/security/mrs/combined-ip.mrs",
@@ -41,9 +42,15 @@ def load_profile():
     path = profile_path()
     if not path.exists():
         return {"sources": [s["name"] for s in catalog() if s.get("distribution", "public") == "public"],
-                "directory": r"P:\Clash\local-mrs", "mihomo": shutil.which("mihomo.exe") or "",
+                "directory": DEFAULT_ROOT, "mihomo": shutil.which("mihomo.exe") or "",
                 "hours": 2}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def needs_takeover(root):
+    root = Path(root).expanduser().resolve()
+    return (not (root / ".local-mrs").is_file()
+            and any((root / relative).exists() for relative in PROVIDERS.values()))
 
 
 def validate(profile):
@@ -73,8 +80,8 @@ def validate(profile):
     root = root.resolve()
     if any((parent / ".git").exists() for parent in (root, *root.parents)):
         raise ValueError("本機輸出不可位於 Git 工作樹內。")
-    if not (root / ".local-mrs").is_file() and any((root / relative).exists() for relative in PROVIDERS.values()):
-        raise ValueError("輸出目錄已有非本工具管理的 MRS，請使用獨立目錄。")
+    if needs_takeover(root) and profile.get("takeover_root") != str(root):
+        raise ValueError("輸出目錄已有 MRS；須先切換為 file provider 並確認接管。")
     return selected, root, exe.resolve()
 
 
@@ -154,7 +161,6 @@ def run(profile):
     selected, root, exe = validate(profile)
     root.mkdir(parents=True, exist_ok=True)
     with build_lock(root), tempfile.TemporaryDirectory(prefix=".build-", dir=root) as folder:
-        (root / ".local-mrs").touch(exist_ok=True)
         stage = Path(folder)
         (stage / "tools").mkdir()
         for category in CUSTOM:
@@ -188,6 +194,7 @@ def run(profile):
         paths = [p for p in paths if not (root / p).is_file() or
                  (root / p).read_bytes() != (stage / p).read_bytes()]
         publish(stage, root, paths)
+        (root / ".local-mrs").touch(exist_ok=True)
         print(f"Local MRS: {len(selected)} sources, {len(paths)} changed files")
         return root
 

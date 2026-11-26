@@ -12,4 +12,4 @@
 
 ## Windows 本機 MRS
 
-VPN Network Toolkit 的「MRS 規則」分頁可選擇情報來源、Mihomo EXE、獨立輸出目錄與排程頻率（1／2／4／6／12／24 小時）。預設每 2 小時，於每小時 32 分對齊；每日模式為 03:20。至少保留每個網域類別及 IPv4 的一個來源。首次立即建置成功後，將輸出目錄的 `local-mrs.yaml` 中四個 provider **替換** PC 配置中的同名 provider（保留原 RULE-SET 順序）；輸出路徑須位於 Mihomo HomeDir 或 SAFE_PATHS。行動裝置仍使用公開 HTTP MRS。排程使用目前登入使用者，不要求管理員；移動 EXE 或變更頻率後須重新安裝排程。排程日誌位於 APPDATA 的工具設定目錄。來源目錄與產物不會上傳；來源目錄可編輯各類別 custom.txt，來源清單隨工具版本更新；目錄須獨立於 Git 工作樹及原有 HTTP provider 快取。
+VPN Network Toolkit 的「MRS 規則」分頁可選擇情報來源、Mihomo EXE、Clash 根目錄（預設 `P:\Clash`）與排程頻率（1／2／4／6／12／24 小時）。預設每 2 小時，於每小時 32 分對齊；每日模式為 03:20。至少保留每個網域類別及 IPv4 的一個來源。MRS 沿用 `rules/<分類>/mrs/` 原有路徑。接管既有 MRS 前，須先將 PC 配置的四個同名 provider 改為 `type: file`、移除 `url` 並保留原 path 與 RULE-SET 順序；新建目錄可於首次成功建置後套用產生的 `local-mrs.yaml`。輸出路徑須位於 Mihomo HomeDir 或 SAFE_PATHS。行動裝置仍使用公開 HTTP MRS。排程使用目前登入使用者，不要求管理員；移動 EXE 或變更頻率後須重新安裝排程。排程日誌位於 APPDATA 的工具設定目錄。來源目錄與產物不會上傳；來源目錄可編輯各類別 custom.txt，來源清單隨工具版本更新；目錄不可位於 Git 工作樹；已有 MRS 時須明確確認接管，避免與 HTTP provider 同時寫入。

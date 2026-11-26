@@ -13,6 +13,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import mrs_merge
+import mrs_build
 import mrs_provenance
 from mrs_ip import IP_TARGET, FEODO_URL, parse_ip_rules
 
@@ -145,7 +146,7 @@ class PublicationTests(unittest.TestCase):
                     self.assertNotIn("8.8.8.8", rules)
                     self.assertNotIn("4.4.4.4", rules)
                 Path(cmd[-1]).write_bytes(b"MOCK-COMPILED-MRS")
-            with mock.patch.object(mrs_provenance, "pin_source_url",
+            with mock.patch.object(mrs_build, "pin_source_url",
                                    side_effect=lambda url, cache: (url, "a" * 40)), \
                  mock.patch("urllib.request.urlopen", side_effect=download), \
                  mock.patch("subprocess.run", side_effect=convert) as compiler, \
