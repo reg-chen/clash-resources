@@ -24,23 +24,26 @@
 <a id="third-party-rule-sources"></a>
 ## Third-party rule sources
 
-`.github/workflows/update-third-party-mrs.yml` 透過 `tools/third-party-mrs-sources.json` 下載外部規則；`tools/build-third-party-mrs.py`、`tools/mrs_merge.py` 使用 Mihomo 轉成 MRS、依 security／privacy／ads 分類、正規化與合併部分規則，並把三份網域分類合併產物、一份安全 IPv4 合併產物 `security/mrs/combined-ip.mrs` 及 iOS 專用的獨立 `ads/mrs/antiad.mrs` 發布到 `rules/**/mrs/`；其他 20 份輸入只參與合併，不另行編譯或發布個別 MRS。**這是再散布經處理的第三方資料，而不是只有在本機查詢 API。**
+`.github/workflows/update-third-party-mrs.yml` 透過 `tools/third-party-mrs-sources.json` 下載外部規則；`tools/build-third-party-mrs.py`、`tools/mrs_merge.py` 使用 Mihomo 轉成 MRS、依 security／privacy／ads 分類、正規化與合併部分規則，並把三份網域分類合併產物、一份安全 IPv4 合併產物 `security/mrs/combined-ip.mrs` 及 iOS 專用的獨立 `ads/mrs/antiad.mrs` 發布到 `rules/**/mrs/`；其他 21 份輸入只參與合併，不另行編譯或發布個別 MRS。**這是再散布經處理的第三方資料，而不是只有在本機查詢 API。**
 
 | 上游 | 對應用途 | 上游授權 | 授權文字 |
 | --- | --- | --- | --- |
 | [HaGeZi DNS Blocklists](https://github.com/hagezi/dns-blocklists) | TIF Medium／Fake／DynDNS／TIF IPv4、Native Trackers、Popup Ads 等來源 | **GPL-3.0** | [GPL-3.0](licenses/GPL-3.0.txt) |
 | [Loyalsoldier/clash-rules](https://github.com/Loyalsoldier/clash-rules) | `reject.txt` 廣告規則 | **GPL-3.0** | [GPL-3.0](licenses/GPL-3.0.txt) |
 | [Phishing.Database](https://github.com/Phishing-Database/Phishing.Database) | Phishing domain／ACTIVE IPv4 feed | **MIT** | [原作者及 MIT 全文](licenses/MIT-Phishing.Database.txt) |
+| [MetaMask eth-phishing-detect](https://github.com/MetaMask/eth-phishing-detect) | `src/config.json` Web3 phishing explicit domain blocklist | **DBAD v1.2** | [原作者及完整授權](licenses/DBAD-1.2-MetaMask.txt) |
 | [abuse.ch Feodo Tracker](https://feodotracker.abuse.ch/blocklist/) | Recommended Botnet C2 IPv4 feed | **CC0** | [服務條款 §3.4](https://abuse.ch/terms-of-use/)、[CC0 全文](https://creativecommons.org/publicdomain/zero/1.0/legalcode) |
 | [anti-AD](https://github.com/privacy-protection-tools/anti-AD) | `anti-ad-clash.yaml` 廣告規則 | **MIT** | [原作者及 MIT 全文](licenses/MIT-anti-AD.txt) |
 
 目前的合併 MRS 可能同時包含 GPL-3.0 與 MIT 上游規則及本地自訂項目；不能把整組輸出簡單標為 MIT。**GPL-3.0 涵蓋來源的修改／再散布必須遵循 GPL-3.0**；MIT 來源亦須保留其著作權及授權告知。合併後的法律邊界需依實際內容判斷，而不是因此自動認定同一 Repo 下所有獨立檔案都採 GPL。
 
+**MetaMask 授權及轉換邊界：** Copyright (C) 2018 kumavis；上游資料維持 Don't Be a Dick Public License v1.2，並非由本專案重新授權為 GPL-3.0。保存未修改 JSON、固定 upstream commit 及完整授權；僅擷取 blacklist/blocklist 中的明確 DNS 網域，排除自身 whitelist/allowlist 所涵蓋的網域，採精確網域規則，不擷取 fuzzylist、不擴大至子網域、不將路徑或 URL 轉成整站封鎖。其他來源的規則不受 MetaMask allowlist 影響。本專案免費、非營利地聚合與發布情報，保留來源歸屬；若權利人提出授權異議，將評估獨立產物或停止散布。此聲明不代表 DBAD 與 GPL-3.0 的衍生作品授權相容性已獲確認。
+
 **修改聲明：** 本專案使用腳本自動下載、擷取網域、過濾不能轉換的格式、分類／去重／合併並以 Mihomo 編譯為 `.mrs`，屬於對原始規則的格式轉換及編輯（2026 年起持續更新）。原始來源清單見 [third-party-mrs-sources.json](../tools/third-party-mrs-sources.json)，建置程序見 [MRS workflow](../.github/workflows/update-third-party-mrs.yml)、[build script](../tools/build-third-party-mrs.py)、[merge script](../tools/mrs_merge.py)。
 
 **來源追溯機制：** MRS 建置先解析上游 GitHub commit，再從該 commit 對應的固定 Raw URL 下載原始輸入。Action 將 [來源追溯清單](../tools/third-party-mrs-provenance.json) **與當前原始來源及 MRS 產物放進同一個 commit**；清單包含原始 URL、固定版本 URL、上游 Commit 頁面、Commit SHA、當前來源檔路徑與 SHA-256、對應輸出路徑（`output_paths`）與實際發布產物 SHA-256。來源內容未變時不重寫舊檔案，避免每小時無謂提交。Feodo 為非 Git 版控即時來源，保存原始 URL、完整回應與 SHA-256，不捏造上游 commit 或固定 URL；同一 Repo commit 提供可重建的快照。IPv4 僅接受單一公網位址，排除非全球可路由位址後轉為 /32、去重合併。Feodo 合法空清單可接受，但格式或下載失敗不發布新產物。
 
-**目前版本的原始來源：** 每次下載的 20 份第三方輸入檔會以**原始位元組**保存於 [sources/mrs/](../sources/mrs/)，並由相同輸入檔分類合併後轉換為 MRS；僅 anti-AD 另有獨立 MRS。Action 驗證檔案雜湊後，將來源檔、來源 commit 連結、追溯清單與編譯產物在**同一個 Git Commit** 發布。已淘汰的個別 MRS 不再於當前分支提供，舊版設定若仍使用其 URL 須更新。檔案以固定名稱覆蓋更新，不另建 Release、Tag 或逐次歷史封存。Git 歷史可能包含舊版，但不是額外維護的來源封存服務；倘若將來重建儲存庫，應先確認仍對外提供的舊版產物是否具有相應來源。
+**目前版本的原始來源：** 每次下載的 22 份第三方輸入檔會以**原始位元組**保存於 [sources/mrs/](../sources/mrs/)，並由相同輸入檔分類合併後轉換為 MRS；僅 anti-AD 另有獨立 MRS。Action 驗證檔案雜湊後，將來源檔、來源 commit 連結、追溯清單與編譯產物在**同一個 Git Commit** 發布。已淘汰的個別 MRS 不再於當前分支提供，舊版設定若仍使用其 URL 須更新。檔案以固定名稱覆蓋更新，不另建 Release、Tag 或逐次歷史封存。Git 歷史可能包含舊版，但不是額外維護的來源封存服務；倘若將來重建儲存庫，應先確認仍對外提供的舊版產物是否具有相應來源。
 
 **授權邊界：** 保存本次下載輸入，有助於滿足可驗證的來源交付；但仍須依第三方作品實際 GPL 適用情況，確認「對應來源」是否還包含其他上游建置腳本、修改資訊或必要元件。
 

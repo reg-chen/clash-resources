@@ -10,7 +10,7 @@ import urllib.request
 
 from mrs_ip import FEODO_URL, IP_TARGET, parse_ip_rules, build_ip_mrs
 from mrs_overlap import parse_domain_keys, write_report
-from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, build_merged_mrs
+from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, parse_metamask_domains, build_merged_mrs
 from mrs_provenance import pin_source_url, save_source_snapshot, verify_source_snapshots, commit_page
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -117,7 +117,18 @@ for item in SOURCES:
         else:
             analysis_raw = b""
             overlap_notes.append(f"{item['name']}: 二進位 MRS 無可比對的文字來源；已略過。")
-    if analysis_raw:
+    if analysis_raw and analysis_fmt == "json":
+        if item["name"] != "security-metamask" or item.get("target"):
+            raise ValueError("Unsupported JSON MRS source")
+        skipped = []
+        values = parse_metamask_domains(analysis_raw, skipped_invalid=skipped)
+        merge_sets[item["name"]] = values
+        overlap_sets[item["name"]] = values
+        overlap_notes.append("security-metamask: 僅統計套用自身 allowlist 後的明確封鎖網域；不納入 fuzzylist。")
+        if skipped:
+            skipped_details.append(f"{item['name']}: skipped {len(skipped):,} non-domain entries")
+        print(f"JSON {item['name']}: {len(values):,} eligible explicit domains; skipped {len(skipped):,} non-domain entries")
+    elif analysis_raw:
         parsed = parse_domain_keys(analysis_raw, analysis_fmt)
         if parsed:
             overlap_sets[item["name"]] = parsed

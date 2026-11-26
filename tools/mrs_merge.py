@@ -5,6 +5,9 @@ source rules whose semantics cannot be represented as Mihomo domain text.
 """
 from __future__ import annotations
 
+import ipaddress
+import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -81,6 +84,63 @@ def parse_domain_rules(
         result.add(line)
     if not result and not allow_empty:
         raise ValueError("Empty parsed domain rules")
+    return result
+
+
+def parse_metamask_domains(raw: bytes, *, skipped_invalid: list[tuple[int, str]]) -> set[str]:
+    """Extract explicit host blocks only; never promote a URL or fuzzy match."""
+    config = json.loads(raw.decode("utf-8-sig"))
+    if not isinstance(config, dict):
+        raise ValueError("Invalid MetaMask config object")
+
+    def entries(*keys):
+        found = [key for key in keys if key in config]
+        if len(found) != 1:
+            raise ValueError(f"Expected exactly one MetaMask field from {keys}")
+        values = config[found[0]]
+        if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
+            raise ValueError(f"Invalid MetaMask {found[0]} array")
+        return values
+
+    host_pattern = re.compile(
+        r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
+        r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    )
+
+    def host(value, *, allow=False):
+        value = normalized_domain(value)
+        # Never map a Unicode block to a different ASCII hostname via IDNA2003.
+        # For exceptions, IDNA mapping only reduces the number of blocks.
+        if allow and not value.isascii():
+            value = value.encode("idna").decode("ascii")
+        if len(value) > 253 or not host_pattern.fullmatch(value):
+            raise ValueError("Not a plain DNS hostname")
+        try:
+            ipaddress.ip_address(value)
+        except ValueError:
+            return value
+        raise ValueError("IP address is not a domain rule")
+
+    block = entries("blacklist", "blocklist")
+    allowed = set()
+    for value in entries("whitelist", "allowlist"):
+        # Refuse to publish if an exception cannot be interpreted safely.
+        allowed.add(host(value, allow=True))
+    result = set()
+    for index, value in enumerate(block, 1):
+        try:
+            domain = host(value)
+        except ValueError:
+            skipped_invalid.append((index, "non-domain token"))
+            continue
+        labels = domain.split(".")
+        if any(".".join(labels[i:]) in allowed for i in range(len(labels))):
+            continue
+        # Exact domains only: a domain suffix would expand the blocking scope
+        # and may override a legitimate subdomain present in the allowlist.
+        result.add(domain)
+    if not result:
+        raise ValueError("Empty MetaMask explicit domain blocklist")
     return result
 
 

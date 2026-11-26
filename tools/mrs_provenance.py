@@ -46,7 +46,7 @@ def pin_source_url(url, cache=None):
 def snapshot_path(root, name, source_format):
     """Repository-relative path for an unmodified, current upstream input."""
     from pathlib import Path
-    extensions = {"text": "txt", "yaml": "yaml", "mrs": "mrs"}
+    extensions = {"text": "txt", "yaml": "yaml", "mrs": "mrs", "json": "json"}
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
         raise ValueError("Unsafe MRS source name: " + name)
     if source_format not in extensions:

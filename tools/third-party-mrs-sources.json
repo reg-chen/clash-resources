@@ -10,6 +10,11 @@
     "format": "text"
   },
   {
+    "name": "security-metamask",
+    "source": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/main/src/config.json",
+    "format": "json"
+  },
+  {
     "name": "security-dyndns",
     "source": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/dyndns-onlydomains.txt",
     "format": "text"

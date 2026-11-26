@@ -25,7 +25,7 @@ SOURCES = json.loads((ROOT / "tools/third-party-mrs-sources.json").read_text())
 
 class PublicationTests(unittest.TestCase):
     def test_registry_manifest_and_profiles_match_published_artifacts(self):
-        self.assertEqual(len(SOURCES), 21)
+        self.assertEqual(len(SOURCES), 22)
         self.assertEqual({s["name"] for s in SOURCES if s.get("behavior") == "ipcidr"},
                          {"security-ip-hagezi", "security-ip-feodo", "security-ip-phishing"})
         self.assertEqual({s["name"]: s["target"] for s in SOURCES if s.get("target")},
@@ -45,7 +45,7 @@ class PublicationTests(unittest.TestCase):
                 self.assertEqual(published_inputs, registered_inputs)
             else:
                 # Before the first build of the new source, the published manifest is still valid.
-                self.assertIn(published_inputs, (registered_inputs, registered_inputs - {"security-ip-phishing"}))
+                self.assertIn(published_inputs, (registered_inputs, registered_inputs - {"security-metamask"}))
         for item in manifest["inputs"]:
             category = item["name"].split("-", 1)[0]
             expected = {IP_TARGET} if item["name"].startswith("security-ip-") else {f"rules/{category}/mrs/combined.mrs"}
@@ -61,6 +61,26 @@ class PublicationTests(unittest.TestCase):
             urls = {"rules/" + p for p in re.findall(
                 r"https://rules\.reginald\.win/([^\s\"']+\.mrs)", text)}
             self.assertEqual(urls, {STANDALONE} if name.startswith("ios") else (COMBINED if pending else COMBINED | {IP_TARGET}))
+
+    def test_metamask_explicit_domains_and_allowlist(self):
+        raw = json.dumps({
+            "blacklist": ["PHISH.example.", "parent.example", "sub.safe.example",
+                          "safe.example", "https://shared.example/path", "*.wild.example",
+                          "8.8.8.8", "trusted.example"],
+            "whitelist": ["safe.example", "child.parent.example"],
+            "fuzzylist": ["legitimate.example"],
+        }).encode()
+        skipped = []
+        self.assertEqual(mrs_merge.parse_metamask_domains(raw, skipped_invalid=skipped),
+                         {"phish.example", "parent.example", "trusted.example"})
+        self.assertEqual(len(skipped), 3)
+        self.assertEqual(mrs_merge.parse_metamask_domains(
+            b'{"blocklist":["bad.example"],"allowlist":[]}', skipped_invalid=[]), {"bad.example"})
+        for invalid in (b'{}', b'{"blacklist":["bad.example"],"whitelist":"bad.example"}',
+                        b'{"blacklist":["bad.example"],"whitelist":["https://bad.example"]}',
+                        b'{"blacklist":["bad.example"],"whitelist":["bad.example"]}'):
+            with self.assertRaises(ValueError):
+                mrs_merge.parse_metamask_domains(invalid, skipped_invalid=[])
 
     def test_ip_parser_and_empty_feodo(self):
         values, excluded = parse_ip_rules(b"8.8.8.8\n100.83.3.144\n247.16.181.135\n224.0.0.1\n")
@@ -90,6 +110,13 @@ class PublicationTests(unittest.TestCase):
             }
             source_bytes[FEODO_URL] = (b"# abuse.ch Feodo Tracker Botnet C2 IP Blocklist (recommended)\n"
                                        b"# END 0 entries\n")
+            metamask_url = next(s["source"] for s in SOURCES if s["name"] == "security-metamask")
+            source_bytes[metamask_url] = json.dumps({
+                "blacklist": ["example.org", "phish.example.net", "allowed.example.net",
+                              "sub.allowed.example.net", "https://shared.example.net/path"],
+                "whitelist": ["allowed.example.net"],
+                "fuzzylist": ["legitimate.example.net"],
+            }).encode()
             phishing_url = next(s["source"] for s in SOURCES if s["name"] == "security-ip-phishing")
             source_bytes[phishing_url] = b"9.9.9.9\n1.1.1.1\n"
             def download(req, **kwargs):
@@ -107,6 +134,7 @@ class PublicationTests(unittest.TestCase):
                 runpy.run_path(str(root / "tools/build-third-party-mrs.py"))
                 self.assertEqual(compiler.call_count, 4)  # Unchanged anti-AD is reused.
             report = (root / "overlap.md").read_text(encoding="utf-8")
+            self.assertIn("| security-metamask | 2 | 1 | 1 |", report)
             self.assertIn("## SECURITY-IP（聯集 3）", report)
             self.assertIn("| security-ip-hagezi | 2 | 1 | 1 | 0 |", report)
             self.assertIn("| security-ip-phishing | 2 | 1 | 1 | 0 |", report)
@@ -116,7 +144,7 @@ class PublicationTests(unittest.TestCase):
             state = json.loads((root / "tools/third-party-mrs-sha256.json").read_text())
             self.assertEqual(set(state), {s["name"] for s in SOURCES})
             manifest = json.loads((root / "tools/third-party-mrs-provenance.json").read_text())
-            self.assertEqual(len(manifest["inputs"]), 21)
+            self.assertEqual(len(manifest["inputs"]), 22)
             self.assertEqual({o["path"] for o in manifest["outputs"]}, EXPECTED)
             mrs_provenance.verify_source_snapshots(root, manifest["inputs"])
 
