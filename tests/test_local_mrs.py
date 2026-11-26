@@ -50,7 +50,7 @@ class LocalMrsTests(unittest.TestCase):
 
     def test_schedule_copy_and_transaction_contract(self):
         script = mrs_schedule._SCRIPT
-        self.assertIn("GetFileHash -LiteralPath $source -Algorithm SHA256", script)
+        self.assertIn("Get-FileHash -LiteralPath $source -Algorithm SHA256", script)
         self.assertIn("[IO.File]::Copy($source, $stage, $false)", script)
         self.assertIn("[IO.File]::Replace($stage, $exe, $backup)", script)
         self.assertIn("[IO.File]::Replace($backup, $exe, $null)", script)
