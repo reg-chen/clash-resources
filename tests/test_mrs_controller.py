@@ -9,11 +9,16 @@ import mrs_controller as controller
 
 
 class ControllerTests(unittest.TestCase):
-    def test_loopback_only(self):
+    def test_https_controller_hosts(self):
         self.assertEqual(controller.normalize_url("https://127.0.0.1:9443/"), controller.DEFAULT_URL)
         self.assertEqual(controller.normalize_url("https://[::1]:9443"), "https://[::1]:9443")
-        for url in ("http://127.0.0.1:9443", "https://example.com", "https://127.0.0.1:9443/dns-query",
-                    "https://127.0.0.1:9443@evil.example", "https://localhost:0", "https://localhost?x=1"):
+        self.assertEqual(controller.normalize_url("https://DoH.Example:9443"), "https://doh.example:9443")
+        self.assertEqual(controller.normalize_url("https://controller.example"), "https://controller.example:443")
+        self.assertEqual(controller.normalize_url("https://192.168.1.20:9443"), "https://192.168.1.20:9443")
+        self.assertEqual(controller.normalize_url("https://[fd00::1]:9443"), "https://[fd00::1]:9443")
+        for url in ("http://127.0.0.1:9443", "https://127.0.0.1:9443/dns-query",
+                    "https://127.0.0.1:9443@evil.example", "https://localhost:0", "https://localhost?x=1",
+                    "https://bad host:9443", "https://*.example:9443", "https://host:", "https://host#"):
             with self.assertRaises(ValueError):
                 controller.normalize_url(url)
 

@@ -1,9 +1,11 @@
-"""Loopback HTTPS Controller refresh and current-user DPAPI credentials."""
+"""HTTPS Controller refresh and current-user DPAPI credentials."""
 from __future__ import annotations
 
 import base64
 import ctypes
 import json
+import ipaddress
+import re
 import os
 import ssl
 import sys
@@ -20,16 +22,31 @@ ACK_STATE = "tools/local-mrs-controller-state.json"
 
 def normalize_url(value):
     try:
-        url = urlsplit(value.strip())
-        port = url.port
-        if (url.scheme != "https" or url.hostname not in {"127.0.0.1", "::1", "localhost"}
-                or url.username is not None or url.password is not None
-                or url.path not in ("", "/") or url.query or url.fragment
-                or port == 0):
+        value = value.strip()
+        if any(ord(c) <= 32 or ord(c) == 127 or c == "\\" for c in value):
             raise ValueError
+        url = urlsplit(value)
+        port = url.port
+        if (url.scheme != "https" or not url.hostname
+                or url.username is not None or url.password is not None
+                or url.path not in ("", "/") or "?" in value or "#" in value
+                or port == 0 or url.netloc.endswith(":")):
+            raise ValueError
+        host = url.hostname
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            host = host.rstrip(".").encode("idna").decode("ascii").lower()
+            if len(host) > 253 or not all(
+                    re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+                    for label in host.split(".")):
+                raise ValueError
+        else:
+            if "%" in host:
+                raise ValueError
+            host = f"[{ip}]" if ip.version == 6 else str(ip)
     except (ValueError, AttributeError):
-        raise ValueError("Controller URL 必須是本機 HTTPS 位址，例如 https://127.0.0.1:9443。") from None
-    host = "[::1]" if url.hostname == "::1" else url.hostname
+        raise ValueError("Controller URL 必須是有效的 HTTPS 位址，例如 https://controller.example:9443。") from None
     return f"https://{host}:{port or 443}"
 
 
