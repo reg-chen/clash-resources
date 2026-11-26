@@ -839,8 +839,9 @@ class MainWindow(ctk.CTk):
                     v.set(path)
             styled_button(form, text="瀏覽", command=browse).grid(row=i, column=2, padx=(8, 0))
         ui_label(form, text="排程（每 N 小時）").grid(row=2, column=0, sticky="w")
-        ctk.CTkOptionMenu(form, variable=self.mrs_hours,
-                          values=[str(v) for v in local_mrs.FREQUENCIES]).grid(row=2, column=1, sticky="w", pady=4)
+        self.mrs_hours_entry = ui_entry(form, textvariable=self.mrs_hours, width=8)
+        self.mrs_hours_entry.grid(row=2, column=1, sticky="w", pady=4)
+        ui_label(form, text=f"{local_mrs.MIN_HOURS}–{local_mrs.MAX_HOURS} 小時").grid(row=2, column=2, sticky="w")
         ui_check(form, text="建置後通知 Mihomo（含排程）", variable=self.mrs_notify).grid(row=3, column=0, columnspan=3, sticky="w", pady=3)
         ui_label(form, text="Controller URL").grid(row=4, column=0, sticky="w")
         ui_entry(form, textvariable=self.mrs_controller_url).grid(row=4, column=1, columnspan=2, sticky="ew", pady=3)
@@ -902,7 +903,8 @@ class MainWindow(ctk.CTk):
                 profile = self._mrs_profile()
                 local_mrs.save_profile(profile)
             if action != "save":
-                self.mrs_status.set(mrs_schedule.configure(action, int(self.mrs_hours.get())))
+                self.mrs_status.set(mrs_schedule.configure(action, profile["hours"]) if action == "install"
+                                    else mrs_schedule.configure(action))
             else:
                 self.mrs_status.set("設定已儲存。")
         except Exception as exc:

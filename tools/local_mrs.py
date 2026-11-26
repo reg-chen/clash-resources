@@ -17,7 +17,8 @@ from mrs_ip import FEODO_URL
 import mrs_controller
 
 TASK_NAME = "Clash Local MRS Refresh"
-FREQUENCIES = (1, 2, 4, 6, 12, 24)
+MIN_HOURS = 1
+MAX_HOURS = 31 * 24
 DEFAULT_ROOT = r"P:\Clash"
 PROVIDERS = {
     "combined-security": "rules/security/mrs/combined.mrs",
@@ -60,6 +61,12 @@ def needs_takeover(root):
             and any((root / relative).exists() for relative in PROVIDERS.values()))
 
 
+def validate_hours(hours):
+    if type(hours) is not int or not MIN_HOURS <= hours <= MAX_HOURS:
+        raise ValueError(f"排程間隔必須為 {MIN_HOURS}–{MAX_HOURS} 的整數小時。")
+    return hours
+
+
 def validate(profile):
     ids = profile.get("sources")
     if not isinstance(ids, list) or any(not isinstance(v, str) for v in ids):
@@ -72,8 +79,7 @@ def validate(profile):
             raise ValueError(f"至少選擇一個 {category} 網域來源。")
     if not any(s.get("behavior") in ("ipcidr", "domain-ipcidr") for s in selected):
         raise ValueError("至少選擇一個 IPv4 來源。")
-    if profile.get("hours") not in FREQUENCIES:
-        raise ValueError("Invalid schedule frequency")
+    validate_hours(profile.get("hours"))
     if not str(profile.get("directory", "")).strip():
         raise ValueError("請選擇本機輸出目錄。")
     root = Path(profile["directory"]).expanduser()

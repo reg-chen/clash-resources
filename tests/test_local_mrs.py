@@ -8,9 +8,36 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import local_mrs
+import mrs_schedule
 
 
 class LocalMrsTests(unittest.TestCase):
+    def test_arbitrary_hour_interval(self):
+        for hours in (1, 2, 5, 7, 23, 24, 25, 48, 168, 744):
+            self.assertEqual(local_mrs.validate_hours(hours), hours)
+        for value in (0, -1, 745, 1.5, True, "5", None):
+            with self.assertRaises(ValueError):
+                local_mrs.validate_hours(value)
+        script = mrs_schedule._SCRIPT
+        self.assertIn("Triggers.Create(1)", script)
+        self.assertIn("XmlConvert]::ToString([TimeSpan]::FromHours($hours))", script)
+        self.assertNotIn("Repetition.Duration =", script)
+        self.assertNotIn("DaysInterval", script)
+
+    def test_schedule_install_and_remove(self):
+        with mock.patch.object(mrs_schedule.sys, "platform", "win32"), \
+             mock.patch.object(mrs_schedule.sys, "frozen", True, create=True), \
+             mock.patch.object(mrs_schedule.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = "Installed"
+            self.assertEqual(mrs_schedule.configure("install", 7), "Installed")
+            self.assertEqual(run.call_args.kwargs["env"]["MRS_TASK_HOURS"], "7")
+            with self.assertRaises(ValueError):
+                mrs_schedule.configure("install", 745)
+            self.assertEqual(run.call_count, 1)
+            run.return_value.stdout = "Removed"
+            self.assertEqual(mrs_schedule.configure("remove"), "Removed")
+
     def test_catalog_and_validation(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from local_mrs import FREQUENCIES, TASK_NAME
+from local_mrs import TASK_NAME, validate_hours
 
 _SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
@@ -29,13 +29,20 @@ $definition.Settings.MultipleInstances = 2
 $definition.Settings.ExecutionTimeLimit = 'PT45M'
 $definition.Settings.DisallowStartIfOnBatteries = $false
 $definition.Settings.StopIfGoingOnBatteries = $false
-$trigger = $definition.Triggers.Create(2)
-$trigger.StartBoundary = (Get-Date -Format 'yyyy-MM-dd') + $(if ($hours -eq 24) {'T03:20:00'} else {'T00:32:00'})
-$trigger.DaysInterval = 1
-if ($hours -lt 24) {
-    $trigger.Repetition.Interval = 'PT' + $hours + 'H'
-    $trigger.Repetition.Duration = 'P1D'
+# A single time trigger with indefinite repetition preserves arbitrary N-hour
+# intervals across midnight instead of restarting a daily repetition window.
+$trigger = $definition.Triggers.Create(1)
+$now = Get-Date
+if ($hours -eq 24) {
+    $start = $now.Date.AddHours(3).AddMinutes(20)
+    if ($start -le $now) { $start = $start.AddDays(1) }
+} else {
+    $start = $now.Date.AddHours($now.Hour).AddMinutes(32)
+    if ($start -le $now) { $start = $start.AddHours(1) }
 }
+$trigger.StartBoundary = $start.ToString('yyyy-MM-ddTHH:mm:ss')
+$trigger.Repetition.Interval = [System.Xml.XmlConvert]::ToString([TimeSpan]::FromHours($hours))
+# Omit Repetition.Duration: repeat indefinitely.
 $trigger.Enabled = $true
 $action = $definition.Actions.Create(0)
 $action.Path = $exe
@@ -52,8 +59,10 @@ Write-Output 'Installed'
 def configure(action, hours=2):
     if sys.platform != "win32":
         raise RuntimeError("Windows 工作排程只支援 Windows。")
-    if action not in ("install", "remove") or hours not in FREQUENCIES:
-        raise ValueError("Invalid MRS schedule")
+    if action not in ("install", "remove"):
+        raise ValueError("Invalid MRS schedule action")
+    if action == "install":
+        validate_hours(hours)
     if action == "install" and not getattr(sys, "frozen", False):
         raise RuntimeError("請使用打包後的 VPN-Network-Toolkit.exe 安裝排程。")
     env = os.environ.copy()
