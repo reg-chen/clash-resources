@@ -17,6 +17,7 @@ payload:
   - PROCESS-NAME,LineMediaPlayer.exe
   - PROCESS-NAME,LineLauncher.exe
   - PROCESS-NAME,ProcessLasso.exe
+  - PROCESS-NAME,VPN-Network-Toolkit.exe
 
   # Cloud / sync
   - PROCESS-NAME,OneDrive.exe
