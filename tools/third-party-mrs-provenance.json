@@ -275,11 +275,11 @@
         "rules/security/mrs/combined-ip.mrs",
         "rules/security/mrs/combined.mrs"
       ],
-      "pinned_source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/3fe813f7889b1d2bdfefd62c8523cb12f94c04d3/src/config.json",
-      "source_commit_sha": "3fe813f7889b1d2bdfefd62c8523cb12f94c04d3",
-      "source_commit_url": "https://github.com/MetaMask/eth-phishing-detect/commit/3fe813f7889b1d2bdfefd62c8523cb12f94c04d3",
-      "source_sha256": "d28c8cbb4197ad73c6c4d71d71135de877a4e9dc6c44bfe4b3423fe7b2861f8c",
-      "source_size_bytes": 3583707,
+      "pinned_source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/c87fb008b900f0ec85a5478d69faa9154625e4a0/src/config.json",
+      "source_commit_sha": "c87fb008b900f0ec85a5478d69faa9154625e4a0",
+      "source_commit_url": "https://github.com/MetaMask/eth-phishing-detect/commit/c87fb008b900f0ec85a5478d69faa9154625e4a0",
+      "source_sha256": "447e3ab2a169a8770f029f765e6e5193d0ac84de935ad7d325f7f2bc790550b0",
+      "source_size_bytes": 3583527,
       "source_snapshot_path": "sources/mrs/security-metamask.json",
       "source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/main/src/config.json"
     },
@@ -335,8 +335,8 @@
     },
     {
       "path": "rules/security/mrs/combined.mrs",
-      "sha256": "45d18ac6da35b83f6c55522a26d68aae1edfa6b7798e9877d98b1af9dd43ef0f",
-      "size_bytes": 6436150
+      "sha256": "90688bf86b5e67edfd375319d64a625faab29ddcc8be9b626ef22f139f017422",
+      "size_bytes": 6435965
     }
   ],
   "schema": 2
