@@ -116,6 +116,8 @@ class ControllerTests(unittest.TestCase):
         self.assertIn("loopback", controller.describe_error(urllib.error.URLError(controller.NonLoopbackController())))
         self.assertIn("解析", controller.describe_error(urllib.error.URLError(socket.gaierror(11001, "ignored"))))
         self.assertIn("TLS", controller.describe_error(urllib.error.URLError(ssl.SSLError("ignored"))))
+        self.assertIn("SSLError", controller.describe_error(ssl.SSLError("ignored")))
+        self.assertIn("憑證驗證失敗", controller.describe_error(ssl.SSLCertVerificationError("ignored")))
         profile = {"notify_mihomo": True}
         providers = {"a": "a.mrs"}
         outputs = [{"path": "a.mrs", "sha256": "first"}]

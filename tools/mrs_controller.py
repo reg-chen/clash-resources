@@ -199,9 +199,11 @@ def describe_error(exc):
     if isinstance(reason, NonLoopbackController):
         return "主機名稱解析結果或實際連線對端不是純 loopback"
     if isinstance(reason, ssl.SSLCertVerificationError):
-        return f"TLS 憑證驗證失敗 ({reason.verify_code}): {reason.verify_message}"
+        code = getattr(reason, "verify_code", None)
+        message = getattr(reason, "verify_message", None) or "無法取得憑證驗證細節"
+        return f"TLS 憑證驗證失敗 ({code}): {message}"
     if isinstance(reason, ssl.SSLError):
-        return f"TLS 通訊失敗: {reason.reason or type(reason).__name__}"
+        return f"TLS 通訊失敗: {getattr(reason, 'reason', None) or type(reason).__name__}"
     if isinstance(reason, socket.gaierror):
         return f"系統主機名稱解析失敗 ({reason.errno})"
     if isinstance(reason, ConnectionRefusedError):
