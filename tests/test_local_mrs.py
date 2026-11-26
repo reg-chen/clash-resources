@@ -64,7 +64,10 @@ class LocalMrsTests(unittest.TestCase):
             exe.touch()
             profile = {"directory": str(root), "mihomo": str(exe), "hours": 2,
                        "sources": [s["name"] for s in local_mrs.catalog()]}
-            def fake_build(stage, entries, executable, report_dir, *, pin_revisions):
+            raw = {s["name"]: b"source.example\n" for s in local_mrs.catalog()}
+            self.addCleanup(mock.patch.stopall)
+            mock.patch.object(local_mrs, "fetch_inputs", side_effect=lambda entries: {s["name"]: raw[s["name"]] for s in entries}).start()
+            def fake_build(stage, entries, executable, report_dir, *, pin_revisions, source_bytes):
                 self.assertFalse(pin_revisions)
                 self.assertFalse(any("target" in item for item in entries))
                 self.assertEqual(Path(executable), exe.resolve())
@@ -77,8 +80,16 @@ class LocalMrsTests(unittest.TestCase):
                     path.write_bytes(data)
                     result.append({"path": relative, "sha256": hashlib.sha256(data).hexdigest(),
                                    "size_bytes": len(data)})
+                inputs = []
+                from mrs_provenance import save_source_snapshot
+                for item in entries:
+                    data = source_bytes[item["name"]]
+                    path = save_source_snapshot(stage, item["name"], item["format"], data)
+                    inputs.append({"name": item["name"], "format": item["format"],
+                                   "source_snapshot_path": path.relative_to(stage).as_posix(),
+                                   "source_sha256": hashlib.sha256(data).hexdigest(), "source_size_bytes": len(data)})
                 for name, data in (("third-party-mrs-sha256.json", {}),
-                                   ("third-party-mrs-provenance.json", {"inputs": []})):
+                                   ("third-party-mrs-provenance.json", {"inputs": inputs, "outputs": result})):
                     (stage / "tools" / name).write_text(json.dumps(data))
                 for name in ("mrs-overlap.md", "mrs-skipped.md"):
                     (stage / name).write_text("report")
@@ -88,6 +99,27 @@ class LocalMrsTests(unittest.TestCase):
             self.assertTrue((root / "local-mrs.yaml").is_file())
             self.assertTrue((root / ".local-mrs").is_file())
             self.assertEqual((root / "rules/security/mrs/combined.mrs").read_bytes(), b"VALID-MOCK-MRS")
+            # Unchanged input + intact output: no temporary directory or merge.
+            with mock.patch.object(local_mrs, "build", side_effect=AssertionError("unexpected compile")), \
+                 mock.patch.object(local_mrs.tempfile, "TemporaryDirectory", side_effect=AssertionError("unexpected staging")):
+                self.assertEqual(local_mrs.run(profile), root.resolve())
+            # Changed raw data, damaged output, changed selection, or compiler force rebuild.
+            raw["security-threat"] = b"changed.example\n"
+            with mock.patch.object(local_mrs, "build", side_effect=fake_build) as rebuild:
+                local_mrs.run(profile)
+                self.assertEqual(rebuild.call_count, 1)
+            (root / "rules/security/mrs/combined.mrs").write_bytes(b"corrupted")
+            with mock.patch.object(local_mrs, "build", side_effect=fake_build) as rebuild:
+                local_mrs.run(profile)
+                self.assertEqual(rebuild.call_count, 1)
+            profile["sources"].remove("security-fake")
+            with mock.patch.object(local_mrs, "build", side_effect=fake_build) as rebuild:
+                local_mrs.run(profile)
+                self.assertEqual(rebuild.call_count, 1)
+            exe.write_bytes(b"new compiler")
+            with mock.patch.object(local_mrs, "build", side_effect=fake_build) as rebuild:
+                local_mrs.run(profile)
+                self.assertEqual(rebuild.call_count, 1)
             custom = root / "rules/security/custom.txt"
             custom.write_text("private.example\n")
             with mock.patch.object(local_mrs, "build", side_effect=RuntimeError("upstream failed")):

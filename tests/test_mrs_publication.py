@@ -190,6 +190,12 @@ class PublicationTests(unittest.TestCase):
                 self.assertIsNone(item["source_commit_url"])
                 self.assertEqual(item["source_type"], "live" if item["source_url"] == FEODO_URL else "branch")
             mrs_provenance.verify_source_snapshots(root, local["inputs"])
+            prefetched = {s["name"]: source_bytes[s["source"]] for s in SOURCES}
+            with mock.patch("urllib.request.urlopen", side_effect=AssertionError("unexpected second download")), \
+                 mock.patch("subprocess.run", side_effect=convert):
+                outputs = mrs_build.build(root, SOURCES, report_dir=root, pin_revisions=False,
+                                          source_bytes=prefetched)
+            self.assertEqual({o["path"] for o in outputs}, EXPECTED)
 
 
 if __name__ == "__main__":

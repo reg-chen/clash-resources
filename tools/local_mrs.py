@@ -11,7 +11,9 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from mrs_build import build
+from mrs_build import build, fetch_source_bytes
+from mrs_provenance import raw_source_parts, verify_source_snapshots
+from mrs_ip import FEODO_URL
 
 TASK_NAME = "Clash Local MRS Refresh"
 FREQUENCIES = (1, 2, 4, 6, 12, 24)
@@ -23,6 +25,7 @@ PROVIDERS = {
     "combined-ads": "rules/ads/mrs/combined.mrs",
 }
 CUSTOM = ("security", "privacy", "ads")
+BUILD_STATE = "tools/local-mrs-build-state.json"
 
 
 def bundled(name):
@@ -157,46 +160,124 @@ def publish(stage, root, paths):
             raise
 
 
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def file_digest(path):
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def builder_identity():
+    # Frozen EXE identity invalidates cache when the toolkit changes, including
+    # parser semantics. Source runs use the same relevant Python files.
+    if getattr(sys, "frozen", False):
+        return file_digest(Path(sys.executable))
+    names = ("local_mrs.py", "mrs_build.py", "mrs_merge.py", "mrs_ip.py",
+             "mrs_overlap.py", "mrs_provenance.py")
+    return {name: file_digest(Path(__file__).parent / name) for name in names}
+
+
+def fetch_inputs(entries):
+    data = {}
+    for item in entries:
+        url = item["source"]
+        if item.get("source_type") == "live":
+            if item.get("behavior") != "ipcidr" or url != FEODO_URL:
+                raise ValueError("Unsupported live MRS source: " + url)
+        else:
+            raw_source_parts(url)
+        data[item["name"]] = fetch_source_bytes(url, item["name"])
+    return data
+
+
+def current_build(root, fingerprint, entries, source_bytes):
+    # Cache is valid only when every selected raw snapshot and all four
+    # compiled outputs still match the last successful build.
+    try:
+        if json.loads((root / BUILD_STATE).read_text(encoding="utf-8")) != fingerprint:
+            return False
+        manifest = json.loads((root / "tools/third-party-mrs-provenance.json").read_text(encoding="utf-8"))
+        inputs = manifest["inputs"]
+        if len(inputs) != len(entries) or {i["name"]: i["source_sha256"] for i in inputs} != fingerprint["sources"]:
+            return False
+        if any(i["source_size_bytes"] != len(source_bytes[i["name"]]) for i in inputs):
+            return False
+        verify_source_snapshots(root, inputs)
+        outputs = manifest["outputs"]
+        if len(outputs) != len(PROVIDERS) or {o["path"] for o in outputs} != set(PROVIDERS.values()):
+            return False
+        for item in outputs:
+            path = root / item["path"]
+            if path.stat().st_size != item["size_bytes"] or file_digest(path) != item["sha256"]:
+                return False
+        return ((root / "local-mrs.yaml").read_text(encoding="utf-8") == override_yaml(root)
+                and all((root / path).is_file() for path in (
+                    ".local-mrs", "mrs-overlap.md", "mrs-skipped.md", "tools/third-party-mrs-sha256.json")))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return False
+
+
 def run(profile):
     selected, root, exe = validate(profile)
     root.mkdir(parents=True, exist_ok=True)
-    with build_lock(root), tempfile.TemporaryDirectory(prefix=".build-", dir=root) as folder:
-        stage = Path(folder)
-        (stage / "tools").mkdir()
+    with build_lock(root):
+        # Desktop uses four combined outputs, not the iOS standalone artifact.
+        entries = [{k: v for k, v in item.items() if k != "target"} for item in selected]
+        raw = fetch_inputs(entries)
+        custom = {}
         for category in CUSTOM:
             relative = Path("rules") / category / "custom.txt"
-            (stage / relative).parent.mkdir(parents=True, exist_ok=True)
-            (root / relative).parent.mkdir(parents=True, exist_ok=True)
-            # Private custom rules may be edited in the output directory.
             source = root / relative
             if not source.is_file():
-                source = bundled("mrs-custom-" + category + ".txt")
-                if not getattr(sys, "frozen", False) and not source.is_file():
-                    source = Path(__file__).resolve().parent.parent / relative
-                shutil.copyfile(source, root / relative)
-            shutil.copyfile(source, stage / relative)
-        # Desktop uses the four combined outputs only, never the iOS artifact.
-        entries = [{k: v for k, v in item.items() if k != "target"} for item in selected]
-        outputs = build(stage, entries, executable=str(exe), report_dir=stage, pin_revisions=False)
-        if {item["path"] for item in outputs} != set(PROVIDERS.values()):
-            raise RuntimeError("Unexpected local MRS outputs")
-        for item in outputs:
-            data = (stage / item["path"]).read_bytes()
-            if len(data) != item["size_bytes"] or hashlib.sha256(data).hexdigest() != item["sha256"]:
-                raise RuntimeError("Local MRS verification failed")
-        (stage / "local-mrs.yaml").write_text(override_yaml(root), encoding="utf-8")
-        manifest = json.loads((stage / "tools/third-party-mrs-provenance.json").read_text())
-        paths = [i["source_snapshot_path"] for i in manifest["inputs"]]
-        paths += ["tools/third-party-mrs-sha256.json", "tools/third-party-mrs-provenance.json",
-                  "mrs-overlap.md", "mrs-skipped.md", "local-mrs.yaml"]
-        paths += [item["path"] for item in outputs]
-        # Do not rewrite unchanged provider files or trigger needless file watchers.
-        paths = [p for p in paths if not (root / p).is_file() or
-                 (root / p).read_bytes() != (stage / p).read_bytes()]
-        publish(stage, root, paths)
-        (root / ".local-mrs").touch(exist_ok=True)
-        print(f"Local MRS: {len(selected)} sources, {len(paths)} changed files")
-        return root
+                bundled_source = bundled("mrs-custom-" + category + ".txt")
+                if not getattr(sys, "frozen", False) and not bundled_source.is_file():
+                    bundled_source = Path(__file__).resolve().parent.parent / relative
+                source.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(bundled_source, source)
+            custom[relative.as_posix()] = source.read_bytes()
+        fingerprint = {
+            "schema": 1, "entries": entries, "sources": {name: digest(data) for name, data in raw.items()},
+            "custom": {name: digest(data) for name, data in custom.items()},
+            "compiler": file_digest(exe), "builder": builder_identity(),
+        }
+        # A future binary/secondary analysis source must also be fingerprinted
+        # before it is safe to skip its build.
+        cacheable = not any(i.get("format") == "mrs" for i in entries)
+        if cacheable and current_build(root, fingerprint, entries, raw):
+            print("Local MRS: unchanged inputs and verified outputs; skipped merge/compile")
+            return root
+        with tempfile.TemporaryDirectory(prefix=".build-", dir=root) as folder:
+            stage = Path(folder)
+            (stage / "tools").mkdir()
+            for relative, data in custom.items():
+                target = stage / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+            outputs = build(stage, entries, executable=str(exe), report_dir=stage,
+                            pin_revisions=False, source_bytes=raw)
+            if {item["path"] for item in outputs} != set(PROVIDERS.values()):
+                raise RuntimeError("Unexpected local MRS outputs")
+            for item in outputs:
+                path = stage / item["path"]
+                if path.stat().st_size != item["size_bytes"] or file_digest(path) != item["sha256"]:
+                    raise RuntimeError("Local MRS verification failed")
+            (stage / "local-mrs.yaml").write_text(override_yaml(root), encoding="utf-8")
+            (stage / BUILD_STATE).write_text(json.dumps(fingerprint, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            manifest = json.loads((stage / "tools/third-party-mrs-provenance.json").read_text())
+            paths = [i["source_snapshot_path"] for i in manifest["inputs"]]
+            paths += ["tools/third-party-mrs-sha256.json", "tools/third-party-mrs-provenance.json",
+                      "mrs-overlap.md", "mrs-skipped.md", "local-mrs.yaml"]
+            paths += [item["path"] for item in outputs]
+            # Publish state last; failed builds cannot mark inputs as current.
+            paths.append(BUILD_STATE)
+            paths = [p for p in paths if not (root / p).is_file() or
+                     (root / p).read_bytes() != (stage / p).read_bytes()]
+            publish(stage, root, paths)
+            (root / ".local-mrs").touch(exist_ok=True)
+            print(f"Local MRS: {len(selected)} sources, {len(paths)} changed files")
+            return root
 
 
 def cli(argv):

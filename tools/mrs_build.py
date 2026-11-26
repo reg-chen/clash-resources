@@ -13,7 +13,17 @@ from mrs_overlap import parse_domain_keys, write_report
 from mrs_merge import CUSTOM_SOURCES, parse_domain_rules, parse_metamask_rules, build_merged_mrs
 from mrs_provenance import pin_source_url, save_source_snapshot, verify_source_snapshots, commit_page, download_bytes, raw_source_parts
 
-def build(root, sources, executable="./mihomo", report_dir=None, *, pin_revisions=True):
+def fetch_source_bytes(url, name):
+    req = urllib.request.Request(url, headers={"User-Agent": "clash-resources-mrs-builder/1.0", "Cache-Control": "no-cache"})
+    raw = download_bytes(req, label=f"{name}: upstream download")
+    if not raw or len(raw) < 10:
+        raise RuntimeError(f"Empty or suspicious source: {name}")
+    return raw
+
+
+def build(root, sources, executable="./mihomo", report_dir=None, *, pin_revisions=True, source_bytes=None):
+    if source_bytes is not None and pin_revisions:
+        raise ValueError("Prefetched bytes are only supported for unpinned local builds")
     ROOT = pathlib.Path(root)
     SOURCES = sources
     STATE = ROOT / "tools/third-party-mrs-sha256.json"
@@ -50,8 +60,8 @@ def build(root, sources, executable="./mihomo", report_dir=None, *, pin_revision
                 pinned_url, commit_sha = pin_source_url(url, revision_cache)
             except Exception as exc:
                 raise RuntimeError(f"{item['name']}: upstream revision lookup failed\n{exc}") from exc
-        req = urllib.request.Request(pinned_url, headers={"User-Agent": "clash-resources-mrs-builder/1.0", "Cache-Control": "no-cache"})
-        raw = download_bytes(req, label=f"{item['name']}: upstream download")
+        raw = (fetch_source_bytes(pinned_url, item["name"]) if source_bytes is None
+               else source_bytes[item["name"]])
         if not raw or len(raw) < 10:
             raise RuntimeError(f"Empty or suspicious source: {item['name']}")
         digest = hashlib.sha256(raw).hexdigest()
