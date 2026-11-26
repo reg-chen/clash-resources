@@ -9,6 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import local_mrs
 import mrs_schedule
+import toolkit_schedule
+import warp_schedule
 
 
 class LocalMrsTests(unittest.TestCase):
@@ -25,16 +27,16 @@ class LocalMrsTests(unittest.TestCase):
         self.assertNotIn("DaysInterval", script)
 
     def test_schedule_install_and_remove(self):
-        with mock.patch.object(mrs_schedule.sys, "platform", "win32"), \
-             mock.patch.object(mrs_schedule.sys, "frozen", True, create=True), \
-             mock.patch.object(mrs_schedule.subprocess, "run") as run:
+        with mock.patch.object(toolkit_schedule.sys, "platform", "win32"), \
+             mock.patch.object(toolkit_schedule.sys, "frozen", True, create=True), \
+             mock.patch.object(toolkit_schedule.subprocess, "run") as run:
             run.return_value.returncode = 0
             run.return_value.stdout = "Installed"
             self.assertEqual(mrs_schedule.configure("install", 7), "Installed")
             env = run.call_args.kwargs["env"]
             self.assertEqual(env["MRS_TASK_HOURS"], "7")
-            self.assertEqual(Path(env["MRS_TASK_EXE"]), mrs_schedule.scheduler_executable())
-            self.assertEqual(Path(env["MRS_TASK_SOURCE"]), Path(sys.executable).resolve())
+            self.assertEqual(Path(env["TOOLKIT_TASK_EXE"]), mrs_schedule.scheduler_executable())
+            self.assertEqual(Path(env["TOOLKIT_TASK_SOURCE"]), Path(sys.executable).resolve())
             with self.assertRaises(ValueError):
                 mrs_schedule.configure("install", 745)
             self.assertEqual(run.call_count, 1)
@@ -44,7 +46,7 @@ class LocalMrsTests(unittest.TestCase):
     def test_schedule_uses_local_appdata_not_roaming(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            with mock.patch.dict(mrs_schedule.os.environ, {"LOCALAPPDATA": str(root / "Local"), "APPDATA": str(root / "Roaming")}):
+            with mock.patch.dict(toolkit_schedule.os.environ, {"LOCALAPPDATA": str(root / "Local"), "APPDATA": str(root / "Roaming")}):
                 self.assertEqual(mrs_schedule.scheduler_executable(), root / "Local" / "reg-chen" / "VPN-Network-Toolkit" / "scheduler" / "VPN-Network-Toolkit.exe")
                 self.assertEqual(local_mrs.profile_path().parent, root / "Roaming" / "reg-chen" / "VPN-Network-Toolkit")
 
@@ -54,13 +56,57 @@ class LocalMrsTests(unittest.TestCase):
         self.assertIn("[IO.File]::Copy($source, $stage, $false)", script)
         self.assertIn("[IO.File]::Replace($stage, $exe, $backup)", script)
         self.assertIn("[IO.File]::Replace($backup, $exe, $null)", script)
-        self.assertIn("$previous.GetInstances(0).Count", script)
-        self.assertIn("$previous.Enabled = $wasEnabled", script)
+        self.assertIn("$task.GetInstances(0).Count", script)
+        self.assertIn("$tasks[$taskName].Enabled = $enabled[$taskName]", script)
+        self.assertIn("!$otherExists -and [IO.File]::Exists($exe)", script)
+        self.assertIn("if (!$committed -or $taskName -ne $name)", script)
+        for name in toolkit_schedule.TASK_NAMES:
+            self.assertIn(name, script)
         self.assertIn("$folder.RegisterTaskDefinition($name, $definition, 6", script)
         self.assertNotIn("$previous.Stop(", script)
         self.assertIn("$folder.DeleteTask($name, 0)", script)
         self.assertIn("[IO.Directory]::Delete($directory)", script)
         self.assertNotIn("Remove-Item -Recurse", script)
+
+    def test_warp_and_mrs_share_scheduler_executable(self):
+        with mock.patch.object(toolkit_schedule.sys, "platform", "win32"), \
+             mock.patch.object(toolkit_schedule.sys, "frozen", True, create=True), \
+             mock.patch.object(toolkit_schedule.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = "Installed"
+            mrs_schedule.configure("install", 7)
+            mrs_env = run.call_args.kwargs["env"]
+            warp_schedule.configure_schedule(action="install", out_dir=Path("C:/WARP"), mode="interval", interval_days=9)
+            warp_env = run.call_args.kwargs["env"]
+            self.assertEqual(mrs_env["TOOLKIT_TASK_EXE"], warp_env["TOOLKIT_TASK_EXE"])
+            self.assertEqual(mrs_env["TOOLKIT_TASK_NAME"], "Clash Local MRS Refresh")
+            self.assertEqual(warp_env["TOOLKIT_TASK_NAME"], "Clash WARP Refresh")
+            self.assertEqual(warp_env["WARP_TASK_INTERVAL"], "9")
+            self.assertEqual(warp_env["WARP_TASK_MODE"], "interval")
+            self.assertTrue(warp_schedule._SCRIPT.startswith(toolkit_schedule._PREFIX))
+            self.assertTrue(mrs_schedule._SCRIPT.startswith(toolkit_schedule._PREFIX))
+            self.assertTrue(warp_schedule._SCRIPT.endswith(toolkit_schedule._SUFFIX))
+            self.assertTrue(mrs_schedule._SCRIPT.endswith(toolkit_schedule._SUFFIX))
+            run.return_value.stdout = "Removed"
+            self.assertEqual(warp_schedule.configure_schedule(action="remove"), "Removed")
+            self.assertEqual(run.call_args.kwargs["env"]["TOOLKIT_TASK_OPERATION"], "remove")
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell parser")
+    def test_shared_scripts_parse_in_windows_powershell(self):
+        import base64
+        import subprocess
+        import os
+        for script in (mrs_schedule._SCRIPT, warp_schedule._SCRIPT):
+            env = dict(os.environ, TOOLKIT_TEST_SCRIPT=base64.b64encode(script.encode("utf-8")).decode("ascii"))
+            command = (
+                "$text = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:TOOLKIT_TEST_SCRIPT)); "
+                "$tokens = $null; $errors = $null; "
+                "$null = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors); "
+                "if ($errors.Count) { $errors | Out-String | Write-Output; exit 1 }"
+            )
+            result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+                                    env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_catalog_and_validation(self):
         with tempfile.TemporaryDirectory() as folder:
