@@ -190,6 +190,9 @@ def _build_server(
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(x509.SubjectAlternativeName(names), critical=False)
         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_subject_key_identifier(
+            ca.extensions.get_extension_for_class(x509.SubjectKeyIdentifier).value), critical=False)
         .add_extension(
             x509.KeyUsage(
                 digital_signature=True, content_commitment=False, key_encipherment=False,
@@ -202,10 +205,17 @@ def _build_server(
     return cert.public_bytes(serialization.Encoding.PEM), _pem_key(key)
 
 
-def _valid_server_identity(cert: x509.Certificate, host: str) -> bool:
+def _valid_server_identity(cert: x509.Certificate, host: str, ca: x509.Certificate) -> bool:
     try:
         san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
         eku = cert.extensions.get_extension_for_class(x509.ExtendedKeyUsage).value
+        ski = cert.extensions.get_extension_for_class(x509.SubjectKeyIdentifier)
+        aki = cert.extensions.get_extension_for_class(x509.AuthorityKeyIdentifier)
+        issuer_ski = ca.extensions.get_extension_for_class(x509.SubjectKeyIdentifier).value
+        if (ski.critical or aki.critical
+                or ski.value != x509.SubjectKeyIdentifier.from_public_key(cert.public_key())
+                or aki.value.key_identifier != issuer_ski.digest):
+            return False
         try:
             identity = x509.IPAddress(ip_address(host))
         except ValueError:
@@ -222,7 +232,7 @@ def _valid_server_identity(cert: x509.Certificate, host: str) -> bool:
 
 
 def generate_certificates(mihomo_dir: Path, host: str = "127.0.0.1") -> CertificateFiles:
-    """Keep valid certificates stable; renew only inside 30 days of expiry."""
+    """Reuse valid certificates; renew expired, mismatched or legacy leafs."""
     if sys.platform != "win32":
         raise RuntimeError("Mihomo DoH 信任匯入功能目前僅支援 Windows。")
     if not str(mihomo_dir).strip():
@@ -245,7 +255,7 @@ def generate_certificates(mihomo_dir: Path, host: str = "127.0.0.1") -> Certific
         if current.issuer == ca.subject and current.not_valid_after_utc > now + timedelta(days=30):
             try:
                 current.verify_directly_issued_by(ca)
-                renewed = not _valid_server_identity(current, host)
+                renewed = not _valid_server_identity(current, host, ca)
             except (InvalidSignature, ValueError):
                 renewed = True
     if renewed:

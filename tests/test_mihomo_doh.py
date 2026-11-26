@@ -1,5 +1,6 @@
 """Offline tests for the local Mihomo DoH CA and server certificate."""
 import os
+import ssl
 import sys
 import tempfile
 import unittest
@@ -7,7 +8,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from cryptography import x509
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import mihomo_doh
@@ -34,6 +35,12 @@ class MihomoDohTests(unittest.TestCase):
         key = serialization.load_pem_private_key(files.server_private_key.read_bytes(), password=None)
         self.assertTrue(ca.extensions.get_extension_for_class(x509.BasicConstraints).value.ca)
         leaf.verify_directly_issued_by(ca)
+        ski = leaf.extensions.get_extension_for_class(x509.SubjectKeyIdentifier)
+        aki = leaf.extensions.get_extension_for_class(x509.AuthorityKeyIdentifier)
+        self.assertFalse(ski.critical)
+        self.assertFalse(aki.critical)
+        self.assertEqual(ski.value, x509.SubjectKeyIdentifier.from_public_key(leaf.public_key()))
+        self.assertEqual(aki.value.key_identifier, ca.extensions.get_extension_for_class(x509.SubjectKeyIdentifier).value.digest)
         san = leaf.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
         self.assertIn("localhost", san.get_values_for_type(x509.DNSName))
         self.assertEqual(key.public_key().public_numbers(), leaf.public_key().public_numbers())
@@ -68,6 +75,60 @@ class MihomoDohTests(unittest.TestCase):
             "'dns.mihomo.test': 127.0.0.1"
         )
         self.assertNotIn("external-controller:", mihomo_doh.mihomo_yaml(custom))
+
+    def test_legacy_leaf_is_renewed_and_strict_tls_works(self):
+        host = "dns.mihomo.test"
+        files = mihomo_doh.generate_certificates(self.dest, host)
+        ca_pem = files.ca_certificate.read_bytes()
+        ca_key_path = mihomo_doh._ca_directory() / "root-ca.key"
+        ca_key_pem = ca_key_path.read_bytes()
+        ca_key = serialization.load_pem_private_key(ca_key_pem, password=None)
+        leaf = x509.load_pem_x509_certificate(files.server_certificate.read_bytes())
+        # Simulate the previous generator: same key, SAN, issuer and validity,
+        # but no AKI/SKI extensions.
+        old = (x509.CertificateBuilder().subject_name(leaf.subject)
+               .issuer_name(leaf.issuer).public_key(leaf.public_key())
+               .serial_number(x509.random_serial_number())
+               .not_valid_before(leaf.not_valid_before_utc)
+               .not_valid_after(leaf.not_valid_after_utc))
+        for ext in leaf.extensions:
+            if not isinstance(ext.value, (x509.AuthorityKeyIdentifier, x509.SubjectKeyIdentifier)):
+                old = old.add_extension(ext.value, ext.critical)
+        legacy = old.sign(ca_key, hashes.SHA256())
+        files.server_certificate.write_bytes(legacy.public_bytes(serialization.Encoding.PEM))
+        upgraded = mihomo_doh.generate_certificates(self.dest, host)
+        self.assertTrue(upgraded.renewed)
+        self.assertEqual(upgraded.ca_certificate.read_bytes(), ca_pem)
+        self.assertEqual(ca_key_path.read_bytes(), ca_key_pem)
+        self.assertFalse(mihomo_doh.generate_certificates(self.dest, host).renewed)
+
+        # Real OpenSSL handshake with strict RFC 5280 and hostname checks,
+        # no network, no OS trust-store modifications.
+        server_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        server_ctx.load_cert_chain(str(upgraded.server_certificate), str(upgraded.server_private_key))
+        client_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        client_ctx.load_verify_locations(cafile=str(upgraded.ca_certificate))
+        client_ctx.verify_flags |= ssl.VERIFY_X509_STRICT
+        client_in, client_out = ssl.MemoryBIO(), ssl.MemoryBIO()
+        server_in, server_out = ssl.MemoryBIO(), ssl.MemoryBIO()
+        client = client_ctx.wrap_bio(client_in, client_out, server_hostname=host)
+        server = server_ctx.wrap_bio(server_in, server_out, server_side=True)
+        done = set()
+        for _ in range(20):
+            for name, peer, outgoing, incoming in (
+                    ("client", client, client_out, server_in),
+                    ("server", server, server_out, client_in)):
+                if name not in done:
+                    try:
+                        peer.do_handshake()
+                        done.add(name)
+                    except ssl.SSLWantReadError:
+                        pass
+                if outgoing.pending:
+                    incoming.write(outgoing.read())
+            if len(done) == 2:
+                break
+        self.assertEqual(done, {"client", "server"})
 
     def test_hostname_validation(self):
         for value in ("https://dns.test", "dns.test:9443", "*.test", "abc/def", "8.8.8.8", ""):
