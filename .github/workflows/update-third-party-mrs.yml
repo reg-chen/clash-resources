@@ -22,8 +22,6 @@ on:
       - 'rules/security/custom.txt'
       - 'rules/privacy/custom.txt'
       - 'rules/ads/custom.txt'
-  schedule:
-    - cron: '32 * * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -32,8 +30,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    # MRS source pushes and scheduled runs are automatic.
-    # Manual workflow_dispatch is reserved for the repository Owner.
+    # Source pushes remain automatic; Cloudflare Worker handles periodic dispatch.
+    # workflow_dispatch (Worker or manual) is reserved for the repository Owner.
     if: ${{ github.event_name != 'workflow_dispatch' || github.actor == github.repository_owner }}
     runs-on: ubuntu-latest
     env:
@@ -144,7 +142,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          # A queued schedule can check out an older main; never force-push it.
+          # A queued run can check out an older main; never force-push it.
           for attempt in 1 2 3; do
             if (( attempt > 1 )); then
               echo "::notice::Remote main advanced; rebuild on latest main ($attempt/3)"
