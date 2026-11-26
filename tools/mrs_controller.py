@@ -190,13 +190,43 @@ def _save_state(path, value):
         tmp.unlink(missing_ok=True)
 
 
-def refresh(root, profile, providers, outputs):
+def describe_error(exc):
+    if isinstance(exc, urllib.error.HTTPError):
+        hints = {401: "API Secret 驗證失敗", 403: "API 拒絕存取",
+                 404: "API 路徑或 Provider 不存在", 503: "Mihomo 無法重新載入 Provider"}
+        return f"HTTP {exc.code}: {hints.get(exc.code, 'Controller HTTP 錯誤')}"
+    reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+    if isinstance(reason, NonLoopbackController):
+        return "主機名稱解析結果或實際連線對端不是純 loopback"
+    if isinstance(reason, ssl.SSLCertVerificationError):
+        return f"TLS 憑證驗證失敗 ({reason.verify_code}): {reason.verify_message}"
+    if isinstance(reason, ssl.SSLError):
+        return f"TLS 通訊失敗: {reason.reason or type(reason).__name__}"
+    if isinstance(reason, socket.gaierror):
+        return f"系統主機名稱解析失敗 ({reason.errno})"
+    if isinstance(reason, ConnectionRefusedError):
+        return "TCP 連線被拒絕；請確認 Controller HTTPS 監聽位址與埠"
+    if isinstance(reason, TimeoutError):
+        return "Controller 連線或回應逾時"
+    if isinstance(reason, OSError):
+        return f"連線或本機檔案錯誤 ({type(reason).__name__}, errno={reason.errno})"
+    if isinstance(reason, json.JSONDecodeError):
+        return "Controller 回應不是有效 JSON"
+    return type(reason).__name__
+
+
+def refresh(root, profile, providers, outputs, *, on_diagnostic=None):
     """Return names still awaiting successful API refresh; never log secrets."""
     if not profile.get("notify_mihomo", False):
         return []
     expected = {name: next(o["sha256"] for o in outputs if o["path"] == path)
                 for name, path in providers.items()}
     pending = list(expected)
+    def report(message):
+        print(message)
+        if on_diagnostic is not None:
+            on_diagnostic(message)
+    phase = "Controller 設定"
     try:
         endpoint = normalize_url(profile.get("controller_url", DEFAULT_URL))
         state_path = root / ACK_STATE
@@ -210,28 +240,29 @@ def refresh(root, profile, providers, outputs):
         pending = [name for name, sha in expected.items() if ack.get(name) != sha]
         if not pending:
             return []
+        phase = "Secret 解密"
         secret = unprotect_secret(profile.get("controller_secret_dpapi", ""))
+        phase = "CA 與 TLS 設定"
         opener = _opener()
+        phase = "GET /providers/rules"
         active = _request(opener, endpoint + "/providers/rules", secret, "GET")["providers"]
         for name in list(pending):
             provider = active.get(name, {})
             if provider.get("vehicleType") != "File":
-                print(f"Controller {name}: skipped, active provider is not File")
+                actual = provider.get("vehicleType")
+                kind = actual if actual in ("HTTP", "Inline", "Compatible") else "不存在或未知"
+                report(f"{name}: 核心 Provider 類型為 {kind}，需要 File")
                 continue
             try:
+                step = "PUT"
                 _request(opener, endpoint + "/providers/rules/" + quote(name, safe=""), secret, "PUT")
+                step = "儲存通知狀態"
                 ack[name] = expected[name]
                 _save_state(state_path, {"endpoint": endpoint, "ack": ack})
                 pending.remove(name)
                 print(f"Controller {name}: updated")
             except Exception as exc:
-                code = f" HTTP {exc.code}" if isinstance(exc, urllib.error.HTTPError) else ""
-                print(f"Controller {name}: pending ({type(exc).__name__}{code})")
+                report(f"{name} {step}: {describe_error(exc)}")
     except Exception as exc:
-        code = f" HTTP {exc.code}" if isinstance(exc, urllib.error.HTTPError) else ""
-        reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
-        if isinstance(reason, NonLoopbackController):
-            print("Controller refresh pending: hostname or peer is not exclusively loopback")
-        else:
-            print(f"Controller refresh pending ({type(exc).__name__}{code})")
+        report(f"{phase}: {describe_error(exc)}")
     return pending

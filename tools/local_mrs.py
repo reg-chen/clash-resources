@@ -231,12 +231,15 @@ def current_build(root, fingerprint, entries, source_bytes):
         return False
 
 
-def run(profile, *, on_notify=None):
+def run(profile, *, on_notify=None, on_diagnostic=None):
     def notify(root, outputs):
         try:
-            pending = mrs_controller.refresh(root, profile, PROVIDERS, outputs)
+            pending = mrs_controller.refresh(root, profile, PROVIDERS, outputs, on_diagnostic=on_diagnostic)
         except Exception as exc:
-            print(f"Controller refresh pending ({type(exc).__name__})")
+            message = f"Controller refresh pending: {mrs_controller.describe_error(exc)}"
+            print(message)
+            if on_diagnostic is not None:
+                on_diagnostic(message)
             pending = list(PROVIDERS) if profile.get("notify_mihomo", False) else []
         if on_notify is not None:
             on_notify(pending)

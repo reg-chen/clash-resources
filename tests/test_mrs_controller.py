@@ -1,5 +1,7 @@
 import sys
 import socket
+import ssl
+import urllib.error
 import tempfile
 import unittest
 from pathlib import Path
@@ -106,6 +108,27 @@ class ControllerTests(unittest.TestCase):
             count = len(calls)
             self.assertEqual(controller.refresh(root, profile, providers, outputs), [])
             self.assertEqual(len(calls), count)
+
+    def test_diagnostics_safe_and_specific(self):
+        error = urllib.error.HTTPError(controller.DEFAULT_URL, 401, "secret-not-for-log", {}, None)
+        self.assertIn("HTTP 401", controller.describe_error(error))
+        self.assertNotIn("secret-not-for-log", controller.describe_error(error))
+        self.assertIn("loopback", controller.describe_error(urllib.error.URLError(controller.NonLoopbackController())))
+        self.assertIn("解析", controller.describe_error(urllib.error.URLError(socket.gaierror(11001, "ignored"))))
+        self.assertIn("TLS", controller.describe_error(urllib.error.URLError(ssl.SSLError("ignored"))))
+        profile = {"notify_mihomo": True}
+        providers = {"a": "a.mrs"}
+        outputs = [{"path": "a.mrs", "sha256": "first"}]
+        messages = []
+        with tempfile.TemporaryDirectory() as folder, \
+             mock.patch.object(controller, "_opener"), \
+             mock.patch.object(controller, "_request", side_effect=error):
+            self.assertEqual(controller.refresh(Path(folder), profile, providers, outputs,
+                                               on_diagnostic=messages.append), ["a"])
+        self.assertEqual(len(messages), 1)
+        self.assertIn("GET /providers/rules", messages[0])
+        self.assertIn("HTTP 401", messages[0])
+        self.assertNotIn("secret-not-for-log", messages[0])
 
     def test_request_bearer_header_and_put(self):
         opener = mock.MagicMock()

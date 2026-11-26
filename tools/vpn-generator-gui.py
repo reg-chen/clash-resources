@@ -924,20 +924,23 @@ class MainWindow(ctk.CTk):
         self.mrs_status.set("建置中……")
         def worker():
             try:
-                pending = []
-                root = local_mrs.run(profile, on_notify=pending.extend)
-                self.events.put(("mrs_finished", (True, str(root), pending)))
+                pending, diagnostics = [], []
+                root = local_mrs.run(profile, on_notify=pending.extend, on_diagnostic=diagnostics.append)
+                self.events.put(("mrs_finished", (True, str(root), pending, diagnostics)))
             except Exception as exc:
                 self.events.put(("mrs_finished", (False, str(exc))))
         threading.Thread(target=worker, daemon=True).start()
 
-    def _mrs_finished(self, ok, detail, pending=None):
+    def _mrs_finished(self, ok, detail, pending=None, diagnostics=None):
         self.mrs_running = False
         self.mrs_build_button.configure(state="normal")
         self.mrs_status.set("建置成功；詳見輸出目錄。" if ok else "建置失敗；保留既有有效產物。")
         if ok and pending:
             self.mrs_status.set("MRS 有效；Controller 通知待重試。")
-            messagebox.showwarning("MRS 通知待重試", "規則已建置或驗證成功，以下 Provider 尚未確認重新載入：\n" + ", ".join(pending), parent=self)
+            message = "規則已建置或驗證成功，以下 Provider 尚未確認重新載入：\n" + ", ".join(pending)
+            if diagnostics:
+                message += "\n\n原因：\n" + "\n".join(diagnostics)
+            messagebox.showwarning("MRS 通知待重試", message, parent=self)
         if not ok:
             messagebox.showerror("MRS 建置失敗", detail, parent=self)
 
