@@ -21,11 +21,11 @@
       "output_paths": [
         "rules/ads/mrs/combined.mrs"
       ],
-      "pinned_source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/12554b18317457aa28eb49c6a80c1a3875aaa6ba/reject.txt",
-      "source_commit_sha": "12554b18317457aa28eb49c6a80c1a3875aaa6ba",
-      "source_commit_url": "https://github.com/Loyalsoldier/clash-rules/commit/12554b18317457aa28eb49c6a80c1a3875aaa6ba",
-      "source_sha256": "5ef5f16cdc8990355f810c92d7f12f6063653dcdb453de4afc98718b63514bcf",
-      "source_size_bytes": 5921833,
+      "pinned_source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/86f01c258bf44514f9b9ae5528965b7bd8ff2b19/reject.txt",
+      "source_commit_sha": "86f01c258bf44514f9b9ae5528965b7bd8ff2b19",
+      "source_commit_url": "https://github.com/Loyalsoldier/clash-rules/commit/86f01c258bf44514f9b9ae5528965b7bd8ff2b19",
+      "source_sha256": "e03537e1302aee1ba09dbe7c283652dc85082b82aa2baf74de0f6d17c44a90d0",
+      "source_size_bytes": 5932627,
       "source_snapshot_path": "sources/mrs/ads-loyalsoldier.yaml",
       "source_url": "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/reject.txt"
     },
@@ -275,11 +275,11 @@
         "rules/security/mrs/combined-ip.mrs",
         "rules/security/mrs/combined.mrs"
       ],
-      "pinned_source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/0a2b6e323de05625d1989dd3c9f5b7f314cae157/src/config.json",
-      "source_commit_sha": "0a2b6e323de05625d1989dd3c9f5b7f314cae157",
-      "source_commit_url": "https://github.com/MetaMask/eth-phishing-detect/commit/0a2b6e323de05625d1989dd3c9f5b7f314cae157",
-      "source_sha256": "4e6e8d49bbd2a796b137f2f612cf918193873d74b43be47f25a783cf01065c49",
-      "source_size_bytes": 3579842,
+      "pinned_source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/53a549766caaa5201ac4ee5cef2f478eecbf1f36/src/config.json",
+      "source_commit_sha": "53a549766caaa5201ac4ee5cef2f478eecbf1f36",
+      "source_commit_url": "https://github.com/MetaMask/eth-phishing-detect/commit/53a549766caaa5201ac4ee5cef2f478eecbf1f36",
+      "source_sha256": "e1db7333b4e2a4c8e881e0e63b81fb04aa475f336a3e025a078339ebc632f383",
+      "source_size_bytes": 3579861,
       "source_snapshot_path": "sources/mrs/security-metamask.json",
       "source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/main/src/config.json"
     },
@@ -320,8 +320,8 @@
     },
     {
       "path": "rules/ads/mrs/combined.mrs",
-      "sha256": "dc329639a850c0946148a464497ab61d53b53737e9114e0473583905a7ae940b",
-      "size_bytes": 2308259
+      "sha256": "16b9d9857c0ada9339f644501d62218906f4f99897192c5da8e8126362a6c744",
+      "size_bytes": 2309401
     },
     {
       "path": "rules/privacy/mrs/combined.mrs",
@@ -335,8 +335,8 @@
     },
     {
       "path": "rules/security/mrs/combined.mrs",
-      "sha256": "22a9c6e22e7bc2e6d114b575d89c7a3d8c6e3ecf52302f8e478db9c9062d44d8",
-      "size_bytes": 7717049
+      "sha256": "3366a865c9f4c48d006ba01109556b9975be5a36e3f78e08ad9786052eb362e5",
+      "size_bytes": 7768857
     }
   ],
   "schema": 2

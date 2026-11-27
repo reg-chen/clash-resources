@@ -1,6 +1,6 @@
 {
   "ads-antiad": "afea2c6055609ac21f802d3c05afe1ea5993b2e99edc2f62edd077cbbb464a5f",
-  "ads-loyalsoldier": "5ef5f16cdc8990355f810c92d7f12f6063653dcdb453de4afc98718b63514bcf",
+  "ads-loyalsoldier": "e03537e1302aee1ba09dbe7c283652dc85082b82aa2baf74de0f6d17c44a90d0",
   "ads-popup": "e5e27926f05ae3c3fd8f54e9ed2a80297723414a79314fc7ca179a87616edd07",
   "privacy-native-amazon": "612f4e2cfb6ed978e419fef50b7db97203f9c95ddbaede43c321fe0e7e617418",
   "privacy-native-apple": "0f55c17c4bb5f2b97d6fbc5e5f1cf9ac6d4f9ad46649a940ba49a172cd9032c5",
@@ -18,7 +18,7 @@
   "security-ip-feodo": "7c72fe807208617db78267d93ec45b2ef020c7cbcd2127b271d57a659f300bd8",
   "security-ip-hagezi": "62ed349abf644095be7c59cea6c74b6a5ee332d2fefdd07c765d44912de55aaa",
   "security-ip-phishing": "6de7a6df43446df9eba308b43288929a19a11347324f652022bee9118c945cc8",
-  "security-metamask": "4e6e8d49bbd2a796b137f2f612cf918193873d74b43be47f25a783cf01065c49",
+  "security-metamask": "e1db7333b4e2a4c8e881e0e63b81fb04aa475f336a3e025a078339ebc632f383",
   "security-phishing": "70c6c2e24e6b3484e7ace27b079723e55937bc1f4cbd98bea38a472ec8e37326",
   "security-threat": "b601081c0c387ce22409630bf91d2ca329910b9433029839d5f98572c7a5238f"
 }
