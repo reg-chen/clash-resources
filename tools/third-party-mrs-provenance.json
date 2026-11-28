@@ -91,11 +91,11 @@
       "output_paths": [
         "rules/privacy/mrs/combined.mrs"
       ],
-      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/70e47c41745576a075503b975e1264e9746e1901/wildcard/native.lgwebos-onlydomains.txt",
-      "source_commit_sha": "70e47c41745576a075503b975e1264e9746e1901",
-      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/70e47c41745576a075503b975e1264e9746e1901",
-      "source_sha256": "b7908867f629bc9149e82cdf7d7c260934bd337db880d43bf834a837f78d6186",
-      "source_size_bytes": 15523,
+      "pinned_source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/34c147acbf49e11203eefeb22a74c3411f2e28e7/wildcard/native.lgwebos-onlydomains.txt",
+      "source_commit_sha": "34c147acbf49e11203eefeb22a74c3411f2e28e7",
+      "source_commit_url": "https://github.com/hagezi/dns-blocklists/commit/34c147acbf49e11203eefeb22a74c3411f2e28e7",
+      "source_sha256": "22e850266ff15c7badbf216061abcb33eb82071b7a48e3e82bd270aa0a2682c6",
+      "source_size_bytes": 15555,
       "source_snapshot_path": "sources/mrs/privacy-native-lgwebos.txt",
       "source_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.lgwebos-onlydomains.txt"
     },
@@ -275,11 +275,11 @@
         "rules/security/mrs/combined-ip.mrs",
         "rules/security/mrs/combined.mrs"
       ],
-      "pinned_source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/85f947fe9344368f1746058250dac538225ad67d/src/config.json",
-      "source_commit_sha": "85f947fe9344368f1746058250dac538225ad67d",
-      "source_commit_url": "https://github.com/MetaMask/eth-phishing-detect/commit/85f947fe9344368f1746058250dac538225ad67d",
-      "source_sha256": "f78dda162d1ca96266acf5e72fac153ec67ce5d3703cc3d583b93f1bc93b44dd",
-      "source_size_bytes": 3579418,
+      "pinned_source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/aa33b1e2efa74576b1f2be18ac568c2a79394ae7/src/config.json",
+      "source_commit_sha": "aa33b1e2efa74576b1f2be18ac568c2a79394ae7",
+      "source_commit_url": "https://github.com/MetaMask/eth-phishing-detect/commit/aa33b1e2efa74576b1f2be18ac568c2a79394ae7",
+      "source_sha256": "ccfc19384a49e06df4b5b9f851a7b0a15f494337aedd735a9aaec081c54666aa",
+      "source_size_bytes": 3580322,
       "source_snapshot_path": "sources/mrs/security-metamask.json",
       "source_url": "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/main/src/config.json"
     },
@@ -325,8 +325,8 @@
     },
     {
       "path": "rules/privacy/mrs/combined.mrs",
-      "sha256": "32e97b78e5e58d2704d0ae6a7006369c67a529a0a0059ad652a3d2b31c63b98e",
-      "size_bytes": 27809
+      "sha256": "2d9a075077684f7a627d61b1b112d7522e4457d4dc745608564f07f4fe71cb8a",
+      "size_bytes": 27788
     },
     {
       "path": "rules/security/mrs/combined-ip.mrs",
@@ -335,8 +335,8 @@
     },
     {
       "path": "rules/security/mrs/combined.mrs",
-      "sha256": "0afd9bd18cb1b21b2e29cce4750ad6298c690dce8ce95428c58e027bd24ab745",
-      "size_bytes": 7830871
+      "sha256": "c3d4648ceaf93f4dec17c32ca94312c7975bfd091b3c068a1c7eb0852c278488",
+      "size_bytes": 7679540
     }
   ],
   "schema": 2
