@@ -1,7 +1,7 @@
 {
   "ads-antiad": "afea2c6055609ac21f802d3c05afe1ea5993b2e99edc2f62edd077cbbb464a5f",
   "ads-loyalsoldier": "e03537e1302aee1ba09dbe7c283652dc85082b82aa2baf74de0f6d17c44a90d0",
-  "ads-popup": "ffe837b3685f52a63e895c81e54c9202b432f7e551649f4d33b4a44790ad3f27",
+  "ads-popup": "6ed0afef1e7e9d266add5d5023260b8761ada806184408e608389876ae561d99",
   "privacy-native-amazon": "27a3588d03dd671c34bf81ce619d96b1503b7e5729cb73c7a959e40e672f33a0",
   "privacy-native-apple": "65bafc515ac6d886c7ab4a50d73acd6dc14a4232fac8afdb9352e129b0f1e755",
   "privacy-native-huawei": "85e9c89e072dbecfa4c737531bb9a831f4ca86a3d20f18c80e69e774b96e554b",
@@ -13,12 +13,12 @@
   "privacy-native-vivo": "69f6e24674ad9fe0744bc13982b7a88221f5f0b0381456f152f3f1d3ab7bb539",
   "privacy-native-winoffice": "43f82415983de917fb779bb78d62ac752b468ca793e6cc70bf4189beaea6946d",
   "privacy-native-xiaomi": "4f92efd8e22173cf43d341e1677f11e8f191ba00f44e262c46021efb2fc85efa",
-  "security-dyndns": "aaddfa79923ed01b4d15ff7250c886116afcd1f8af6ac204cadfa7fc9c6b76e5",
-  "security-fake": "b6f072996ef7ffb986a3d4ea2a9da3f80f829d005994085d71c0ebb84ef5e9ca",
+  "security-dyndns": "1443cacbd2960aee570db40af214b0b317a0a2b4f65baf4f8fe8eb2b5d0c0107",
+  "security-fake": "f525635c85b82d34f6db559ebf0bbdf803ef959a52dfa9d202f41b9d89f6b9bc",
   "security-ip-feodo": "7c72fe807208617db78267d93ec45b2ef020c7cbcd2127b271d57a659f300bd8",
   "security-ip-hagezi": "1ecc35a19809805a456aa6c34a0ab6765df0a29f637278c8124de90a405caee0",
   "security-ip-phishing": "6de7a6df43446df9eba308b43288929a19a11347324f652022bee9118c945cc8",
-  "security-metamask": "ccfc19384a49e06df4b5b9f851a7b0a15f494337aedd735a9aaec081c54666aa",
+  "security-metamask": "db1df43969cd30e44ebf77d723f283dc411218a8f9cacc9c69bce0f8ed0c53d9",
   "security-phishing": "70c6c2e24e6b3484e7ace27b079723e55937bc1f4cbd98bea38a472ec8e37326",
-  "security-threat": "af1f6eec455b4391248908a2f71fd13f577cdef2d0830faffb086f80aba24383"
+  "security-threat": "62ff65ed6f5cd62492c597a379f8d2643de808559d60a2979010f7e8ac221d39"
 }
