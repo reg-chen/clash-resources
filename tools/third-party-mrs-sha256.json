@@ -1,7 +1,7 @@
 {
   "ads-antiad": "afea2c6055609ac21f802d3c05afe1ea5993b2e99edc2f62edd077cbbb464a5f",
   "ads-loyalsoldier": "e03537e1302aee1ba09dbe7c283652dc85082b82aa2baf74de0f6d17c44a90d0",
-  "ads-popup": "0a507e25c0c260b922c8797563b4bea2a16fab692a14e77f8e3e1e46c393842f",
+  "ads-popup": "ffe837b3685f52a63e895c81e54c9202b432f7e551649f4d33b4a44790ad3f27",
   "privacy-native-amazon": "27a3588d03dd671c34bf81ce619d96b1503b7e5729cb73c7a959e40e672f33a0",
   "privacy-native-apple": "65bafc515ac6d886c7ab4a50d73acd6dc14a4232fac8afdb9352e129b0f1e755",
   "privacy-native-huawei": "85e9c89e072dbecfa4c737531bb9a831f4ca86a3d20f18c80e69e774b96e554b",
@@ -13,12 +13,12 @@
   "privacy-native-vivo": "69f6e24674ad9fe0744bc13982b7a88221f5f0b0381456f152f3f1d3ab7bb539",
   "privacy-native-winoffice": "43f82415983de917fb779bb78d62ac752b468ca793e6cc70bf4189beaea6946d",
   "privacy-native-xiaomi": "4f92efd8e22173cf43d341e1677f11e8f191ba00f44e262c46021efb2fc85efa",
-  "security-dyndns": "75cf0d7b174e5a20792aadb46b65738754c689302123b5b4a0bf076746d74af5",
-  "security-fake": "6543a745b3fb5d4bc74dafa2e49e5c476f2027ce6e4be1a67ba4ca2d1bbac995",
+  "security-dyndns": "aaddfa79923ed01b4d15ff7250c886116afcd1f8af6ac204cadfa7fc9c6b76e5",
+  "security-fake": "b6f072996ef7ffb986a3d4ea2a9da3f80f829d005994085d71c0ebb84ef5e9ca",
   "security-ip-feodo": "7c72fe807208617db78267d93ec45b2ef020c7cbcd2127b271d57a659f300bd8",
-  "security-ip-hagezi": "dec5c4f76306585692d1feeca19a857b1424231cc1665ee870f4edb0b6205f94",
+  "security-ip-hagezi": "1ecc35a19809805a456aa6c34a0ab6765df0a29f637278c8124de90a405caee0",
   "security-ip-phishing": "6de7a6df43446df9eba308b43288929a19a11347324f652022bee9118c945cc8",
-  "security-metamask": "b6360888af9368611fce6ace87e28cc721bd9f22a59ead1a8a6fe15fdb1b5496",
+  "security-metamask": "f78dda162d1ca96266acf5e72fac153ec67ce5d3703cc3d583b93f1bc93b44dd",
   "security-phishing": "70c6c2e24e6b3484e7ace27b079723e55937bc1f4cbd98bea38a472ec8e37326",
-  "security-threat": "53d45fb505fd84afed578a962a0f4e929c7fd259ead9f1b0b161610a36500d62"
+  "security-threat": "af1f6eec455b4391248908a2f71fd13f577cdef2d0830faffb086f80aba24383"
 }
